@@ -1197,7 +1197,7 @@
 // 설정 안 하면 자동으로 오프라인 모드로 작동
 // ============================================================================
 const FIREBASE_CONFIG = {
- apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
+   apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
   authDomain: "wild-age-c82f9.firebaseapp.com",
   databaseURL: "https://wild-age-c82f9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "wild-age-c82f9",
@@ -7543,6 +7543,7 @@ function saveGame() {
     buildings: game.buildings.map(b => ({
       type: b.type, gx: b.gx, gy: b.gy, state: b.state,
       buildProgress: b.buildProgress, stored: b.stored, yieldTimer: b.yieldTimer,
+      uniqueId: b.uniqueId,  // 업그레이드 추적용
     })),
     tapPower: game.tapPower, productionMult: game.productionMult,
     buildSpeed: game.buildSpeed, ownedItems: game.ownedItems,
@@ -7644,6 +7645,7 @@ function loadGame() {
       b.buildProgress = bd.buildProgress;
       b.stored = bd.stored;
       b.yieldTimer = bd.yieldTimer;
+      if (bd.uniqueId) b.uniqueId = bd.uniqueId;  // 업그레이드 추적용 ID 복구
       return b;
     });
     // home과 tilemap은 beginGame에서 새로 생성됨 (무한맵). 다만 home 위치는 저장된 게 있으면 복원
@@ -13271,6 +13273,11 @@ function confirmHomeRelocate(worldX, worldY) {
   const bar = document.getElementById('relocate-bar');
   if (bar) bar.style.display = 'none';
   showToast('🔥 모닥불 이동 완료!', 'gain');
+  // 즉시 저장
+  try { saveGame(); } catch (e) {}
+  if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+    try { uploadCloudSave(); } catch (e) {}
+  }
 }
 window.confirmHomeRelocate = confirmHomeRelocate;
 
@@ -13337,22 +13344,43 @@ function finishBuildingDrag() {
   const def = b.def;
   const gx = b.gx, gy = b.gy;
   let bad = false;
+  let badReason = '';
   // 범위 체크 (무한맵은 통과)
   if (!game.tilemap.isInfinite) {
     if (gx < 0 || gy < 0 || gx + def.size > game.tilemap.cols || gy + def.size > game.tilemap.rows) {
       bad = true;
+      badReason = '범위를 벗어났어요';
+    }
+  }
+  // 모닥불 위 체크
+  if (!bad && game.home) {
+    const hgx = Math.floor(game.home.x / TILE);
+    const hgy = Math.floor(game.home.y / TILE);
+    for (let dy = 0; dy < def.size && !bad; dy++) {
+      for (let dx = 0; dx < def.size && !bad; dx++) {
+        if (gx+dx === hgx && gy+dy === hgy) {
+          bad = true;
+          badReason = '🔥 모닥불 위에는 둘 수 없어요';
+        }
+      }
     }
   }
   // 물 체크 + 충돌 체크
   if (!bad) {
     for (let dy = 0; dy < def.size && !bad; dy++) {
       for (let dx = 0; dx < def.size && !bad; dx++) {
-        if (game.tilemap.tileAt(gx+dx, gy+dy) === 'water') bad = true;
+        try {
+          if (game.tilemap.tileAt(gx+dx, gy+dy) === 'water') {
+            bad = true;
+            badReason = '🌊 물 위에는 둘 수 없어요';
+          }
+        } catch (e) {}
         for (const other of game.buildings) {
           if (other === b) continue;
           if (gx+dx >= other.gx && gx+dx < other.gx + other.def.size &&
               gy+dy >= other.gy && gy+dy < other.gy + other.def.size) {
             bad = true;
+            badReason = `⚠ ${other.def.name}가 있어요`;
             break;
           }
         }
@@ -13363,7 +13391,7 @@ function finishBuildingDrag() {
     // 원래 자리로 복귀
     b.gx = game.dragOriginalGx;
     b.gy = game.dragOriginalGy;
-    showToast('여기는 놓을 수 없어요', 'warn');
+    showToast(badReason || '여기는 놓을 수 없어요', 'warn');
   } else if (b.gx !== game.dragOriginalGx || b.gy !== game.dragOriginalGy) {
     // 이동 성공
     b.squash = 0.7;
@@ -13385,6 +13413,12 @@ function finishBuildingDrag() {
       });
     }
     showToast(`✅ ${def.name} 이동 완료!`, 'gain');
+    // 즉시 저장
+    try { saveGame(); } catch (e) {}
+    if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try { uploadCloudSave(); } catch (e) {}
+      try { uploadMyVillage(); } catch (e) {}
+    }
   }
   game.draggingBuilding = null;
   game.dragOriginalGx = null;
@@ -13474,6 +13508,13 @@ function confirmRelocate(gx, gy) {
   game.relocating = null;
   const bar = document.getElementById('relocate-bar');
   if (bar) bar.style.display = 'none';
+  // 즉시 저장 (재배치 사라지지 않게)
+  try { saveGame(); } catch (e) {}
+  // 온라인 모드 즉시 동기화
+  if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+    try { uploadCloudSave(); } catch (e) {}
+    try { uploadMyVillage(); } catch (e) {}
+  }
 }
 
 // === 건물 업그레이드 ===
@@ -14461,6 +14502,12 @@ async function _initImpl() {
         const bx = b.gx * TILE, by = b.gy * TILE;
         const bw = b.def.size * TILE, bh = b.def.size * TILE;
         if (wx >= bx && wx <= bx + bw && wy >= by && wy <= by + bh && b.state === 'complete') {
+          // 재배치 모드면 즉시 드래그 시작, 아니면 350ms 후
+          if (game.relocateMode) {
+            startBuildingDrag(b);
+            game.isPanning = false;  // 팬 모드 해제
+            break;
+          }
           // 350ms 후에도 같은 자리에 있으면 드래그 모드 시작
           game.longPressTarget = b;
           game.longPressOriginalGx = b.gx;
@@ -14575,6 +14622,12 @@ async function _initImpl() {
           const bx = b.gx * TILE, by = b.gy * TILE;
           const bw = b.def.size * TILE, bh = b.def.size * TILE;
           if (w.x >= bx && w.x <= bx + bw && w.y >= by && w.y <= by + bh && b.state === 'complete') {
+            // 재배치 모드면 즉시 드래그 시작
+            if (game.relocateMode) {
+              startBuildingDrag(b);
+              game.isPanning = false;
+              break;
+            }
             game.longPressTarget = b;
             game.longPressOriginalGx = b.gx;
             game.longPressOriginalGy = b.gy;

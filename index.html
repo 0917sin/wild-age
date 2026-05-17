@@ -1196,13 +1196,14 @@
 // 설정 안 하면 자동으로 오프라인 모드로 작동
 // ============================================================================
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
+ apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
   authDomain: "wild-age-c82f9.firebaseapp.com",
   databaseURL: "https://wild-age-c82f9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "wild-age-c82f9",
   storageBucket: "wild-age-c82f9.firebasestorage.app",
   messagingSenderId: "347263246630",
   appId: "1:347263246630:web:572eb3e85e0559ae7c21e7"
+
 };
 
 // 온라인 모드 활성화 여부
@@ -8073,14 +8074,22 @@ function confirmReset() {
 // 운영자 닉네임 ("뚜릴")만 치트 사용 가능
 const ADMIN_NICKNAMES = ['뚜릴'];
 function isAdmin() {
-  return game.player && ADMIN_NICKNAMES.includes(game.player.nickname);
+  if (!game.player || !game.player.nickname) return false;
+  const myNick = game.player.nickname.trim();
+  return ADMIN_NICKNAMES.some(admin => admin === myNick);
 }
 window.isAdmin = isAdmin;
 
 function applyCheatVisibility() {
   const btn = document.getElementById('btn-cheat');
   if (!btn) return;
-  btn.style.display = isAdmin() ? '' : 'none';
+  if (isAdmin()) {
+    btn.style.display = '';
+    btn.style.visibility = 'visible';
+    console.log('[Admin] 치트 활성화: ' + game.player.nickname);
+  } else {
+    btn.style.display = 'none';
+  }
 }
 window.applyCheatVisibility = applyCheatVisibility;
 
@@ -13755,6 +13764,9 @@ function beginGame() {
   updateHUD();
   resizeCanvas();
   requestAnimationFrame(tick);
+
+  // 운영자(뚜릴)면 치트 버튼 표시
+  try { applyCheatVisibility(); } catch (e) {}
 
   // 온라인 모드 초기화
   try {

@@ -983,14 +983,35 @@
   <div class="ns-title">와일드 에이지</div>
   <div class="ns-subtitle">WILD AGE TYCOON</div>
   <div class="nickname-card">
-    <h2>👤 부족장 이름 정하기</h2>
-    <p>당신의 부족을 이끌 이름을 지어주세요.<br>친구들에게 검색될 이름입니다.</p>
-    <input type="text" class="nickname-input" id="nickname-input" placeholder="예: 호랑이부족" maxlength="10" autocomplete="off">
+    <h2 id="ns-mode-title">👤 부족장 이름 정하기</h2>
+    <p id="ns-mode-desc">당신의 부족을 이끌 이름을 지어주세요.<br>친구들에게 검색될 이름입니다.</p>
+
+    <!-- 모드 선택 탭 -->
+    <div id="ns-mode-tabs" style="display:flex; gap:6px; margin-bottom:10px;">
+      <button class="ns-tab active" id="ns-tab-new" type="button" style="
+        flex:1; background: linear-gradient(to bottom, #66bb6a, #2e7d32); color:white;
+        border: 2px solid var(--wood-dark); border-radius: 8px; padding: 8px;
+        font-family: inherit; font-weight: bold; cursor: pointer; font-size: 12px;
+        box-shadow: 0 2px 0 var(--wood-dark);
+      ">🆕 새로 시작</button>
+      <button class="ns-tab" id="ns-tab-login" type="button" style="
+        flex:1; background: linear-gradient(to bottom, #fff, var(--parchment-dark)); color: var(--wood-dark);
+        border: 2px solid var(--wood-dark); border-radius: 8px; padding: 8px;
+        font-family: inherit; font-weight: bold; cursor: pointer; font-size: 12px;
+        box-shadow: 0 2px 0 var(--wood-dark);
+      ">🔑 로그인</button>
+    </div>
+
+    <input type="text" class="nickname-input" id="nickname-input" placeholder="닉네임" maxlength="10" autocomplete="off">
+    <input type="password" class="nickname-input" id="password-input" placeholder="비밀번호 (4자 이상)" maxlength="20" autocomplete="off" style="margin-top:8px;">
+    <input type="password" class="nickname-input" id="password-confirm-input" placeholder="비밀번호 확인" maxlength="20" autocomplete="off" style="margin-top:8px; display:block;">
+
     <div class="nickname-err" id="nickname-err"></div>
     <button class="nickname-btn" id="nickname-btn">⛺ 부족 시작하기</button>
-    <div class="nickname-code">
+    <div class="nickname-code" id="ns-info-text">
       ※ 닉네임은 2~10자, 한글/영문/숫자 가능<br>
-      자동으로 친구 코드가 생성됩니다
+      비밀번호는 4자 이상이면 OK<br>
+      비밀번호를 잊지 마세요! (분실 시 복구 불가)
     </div>
   </div>
 </div>
@@ -1175,7 +1196,7 @@
 // 설정 안 하면 자동으로 오프라인 모드로 작동
 // ============================================================================
 const FIREBASE_CONFIG = {
- apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
+  apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
   authDomain: "wild-age-c82f9.firebaseapp.com",
   databaseURL: "https://wild-age-c82f9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "wild-age-c82f9",
@@ -1215,19 +1236,24 @@ function initFirebase() {
 }
 
 // === 글로벌 닉네임 등록 (중복 체크) ===
+// === 비밀번호 해시 (간단한 SHA-256) ===
+async function hashPassword(password) {
+  const enc = new TextEncoder();
+  const data = enc.encode(password + 'wildage_salt_2026');
+  const hashBuf = await crypto.subtle.digest('SHA-256', data);
+  const hashArr = Array.from(new Uint8Array(hashBuf));
+  return hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+window.hashPassword = hashPassword;
+
+// === 닉네임 존재 여부 + 비밀번호 정보 확인 ===
 async function checkNicknameAvailable(nickname) {
   if (!_onlineMode) return { available: true, offline: true };
   try {
-    const ref = _firebaseDB.ref('nicknames/' + encodeURIComponent(nickname));
+    const ref = _firebaseDB.ref('accounts/' + encodeURIComponent(nickname));
     const snap = await ref.once('value');
     if (snap.exists()) {
-      const data = snap.val();
-      const myDeviceId = getDeviceId();
-      // 본인이 이미 등록한 닉이면 OK
-      if (data.deviceId === myDeviceId) {
-        return { available: true, mine: true };
-      }
-      return { available: false };
+      return { available: false, exists: true };
     }
     return { available: true };
   } catch (e) {
@@ -1235,22 +1261,26 @@ async function checkNicknameAvailable(nickname) {
     return { available: true, error: e.message };
   }
 }
+window.checkNicknameAvailable = checkNicknameAvailable;
 
-async function registerNickname(nickname) {
-  if (!_onlineMode) return { ok: true, offline: true };
+// === 새 계정 등록 (닉네임 + 비밀번호) ===
+async function registerAccount(nickname, password) {
+  if (!_onlineMode) return { ok: false, error: '오프라인 모드입니다' };
   try {
-    const ref = _firebaseDB.ref('nicknames/' + encodeURIComponent(nickname));
-    // 트랜잭션으로 안전하게 등록
+    const ref = _firebaseDB.ref('accounts/' + encodeURIComponent(nickname));
+    const passwordHash = await hashPassword(password);
+
+    // 트랜잭션으로 안전하게 등록 (동시 등록 방지)
     const result = await ref.transaction((current) => {
       if (current === null) {
         return {
+          passwordHash: passwordHash,
           deviceId: getDeviceId(),
           createdAt: Date.now(),
+          lastLoginAt: Date.now(),
         };
       }
-      // 이미 있음 — 본인이면 그대로 두고 통과, 아니면 abort
-      if (current.deviceId === getDeviceId()) return current;
-      return; // abort (다른 사람이 이미 사용 중)
+      return; // abort (이미 존재)
     });
     if (result.committed) {
       return { ok: true };
@@ -1258,10 +1288,203 @@ async function registerNickname(nickname) {
       return { ok: false, error: '이미 사용 중인 닉네임' };
     }
   } catch (e) {
-    console.error('[Firebase] register nickname failed', e);
+    console.error('[Firebase] register failed', e);
     return { ok: false, error: e.message };
   }
 }
+window.registerAccount = registerAccount;
+
+// === 기존 계정 로그인 (비밀번호 확인) ===
+async function loginAccount(nickname, password) {
+  if (!_onlineMode) return { ok: false, error: '오프라인 모드입니다' };
+  try {
+    const ref = _firebaseDB.ref('accounts/' + encodeURIComponent(nickname));
+    const snap = await ref.once('value');
+    if (!snap.exists()) {
+      return { ok: false, error: '존재하지 않는 닉네임이에요' };
+    }
+    const data = snap.val();
+    const inputHash = await hashPassword(password);
+    if (data.passwordHash !== inputHash) {
+      return { ok: false, error: '비밀번호가 틀렸어요' };
+    }
+    // 로그인 성공 — 마지막 로그인 시간 업데이트
+    await ref.update({
+      lastLoginAt: Date.now(),
+      lastDeviceId: getDeviceId(),
+    });
+    return { ok: true };
+  } catch (e) {
+    console.error('[Firebase] login failed', e);
+    return { ok: false, error: e.message };
+  }
+}
+window.loginAccount = loginAccount;
+
+// === 비밀번호 변경 ===
+async function changePassword(nickname, oldPassword, newPassword) {
+  if (!_onlineMode) return { ok: false };
+  try {
+    const ref = _firebaseDB.ref('accounts/' + encodeURIComponent(nickname));
+    const snap = await ref.once('value');
+    if (!snap.exists()) return { ok: false, error: '계정이 없어요' };
+    const data = snap.val();
+    const oldHash = await hashPassword(oldPassword);
+    if (data.passwordHash !== oldHash) {
+      return { ok: false, error: '기존 비밀번호가 틀려요' };
+    }
+    const newHash = await hashPassword(newPassword);
+    await ref.update({ passwordHash: newHash });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+window.changePassword = changePassword;
+
+// === 클라우드 세이브 (게임 진행 상황 업로드) ===
+async function uploadCloudSave() {
+  if (!_onlineMode || !game.player) return { ok: false };
+  try {
+    // 게임 상태를 직렬화
+    const saveData = {
+      level: game.level || 1,
+      exp: game.exp || 0,
+      expReq: game.expReq || 100,
+      day: game.day || 1,
+      res: game.res || {},
+      pets: game.pets || {},
+      petAcquiredAt: game.petAcquiredAt || {},
+      summonedPet: game.summonedPet || null,
+      friends: game.friends || [],
+      buildings: (game.buildings || []).map(b => ({
+        type: b.type,
+        gx: b.gx, gy: b.gy,
+        state: b.state,
+        uniqueId: b.uniqueId,
+        buildProgress: b.buildProgress,
+        stored: b.stored,
+        productionTimer: b.productionTimer,
+      })),
+      buildingUpgrades: game.buildingUpgrades || {},
+      research: game.research || {},
+      army: game.army || {},
+      armyUpgrades: game.armyUpgrades || {},
+      warehouseStorage: game.warehouseStorage || {},
+      quests: game.quests || [],
+      completedQuests: game.completedQuests || [],
+      achievements: game.achievements || {},
+      stats: game.stats || {},
+      home: game.home || null,
+      occupiedByMe: game.occupiedByMe || false,
+      occupiedBy: game.occupiedBy || null,
+      battleHistory: (game.battleHistory || []).slice(0, 30),
+      lastRankingClaim: game.lastRankingClaim || 0,
+      petArenaStats: game.petArenaStats || {},
+      attendanceClaimed: game.attendanceClaimed || [],
+      lastAttendanceDate: game.lastAttendanceDate || '',
+      attendanceStreak: game.attendanceStreak || 0,
+      tribe: game.tribe || 'forest',
+      avatar: (game.player && game.player.avatar) || '⛺',
+      uploadedAt: Date.now(),
+    };
+    const ref = _firebaseDB.ref('saves/' + encodeURIComponent(game.player.nickname));
+    await ref.set(saveData);
+    return { ok: true };
+  } catch (e) {
+    console.warn('[Firebase] cloud save failed', e);
+    return { ok: false, error: e.message };
+  }
+}
+window.uploadCloudSave = uploadCloudSave;
+
+// === 클라우드 세이브 가져오기 ===
+async function fetchCloudSave(nickname) {
+  if (!_onlineMode) return null;
+  try {
+    const ref = _firebaseDB.ref('saves/' + encodeURIComponent(nickname));
+    const snap = await ref.once('value');
+    return snap.exists() ? snap.val() : null;
+  } catch (e) {
+    console.warn('[Firebase] cloud load failed', e);
+    return null;
+  }
+}
+window.fetchCloudSave = fetchCloudSave;
+
+// === 클라우드 세이브 적용 (다른 기기에서 진행상황 불러오기) ===
+function applyCloudSave(saveData) {
+  if (!saveData) return false;
+  try {
+    game.level = saveData.level || 1;
+    game.exp = saveData.exp || 0;
+    game.expReq = saveData.expReq || 100;
+    game.day = saveData.day || 1;
+    game.res = saveData.res || { gold: 100, food: 50, wood: 0, stone: 0, gem: 0 };
+    game.pets = saveData.pets || {};
+    game.petAcquiredAt = saveData.petAcquiredAt || {};
+    game.summonedPet = saveData.summonedPet || null;
+    game.friends = saveData.friends || [];
+    game.buildingUpgrades = saveData.buildingUpgrades || {};
+    game.research = saveData.research || {};
+    game.army = saveData.army || {};
+    game.armyUpgrades = saveData.armyUpgrades || {};
+    game.warehouseStorage = saveData.warehouseStorage || {};
+    game.quests = saveData.quests || [];
+    game.completedQuests = saveData.completedQuests || [];
+    game.achievements = saveData.achievements || {};
+    game.stats = saveData.stats || {};
+    if (saveData.home) game.home = saveData.home;
+    game.occupiedByMe = saveData.occupiedByMe || false;
+    game.occupiedBy = saveData.occupiedBy || null;
+    game.battleHistory = saveData.battleHistory || [];
+    game.lastRankingClaim = saveData.lastRankingClaim || 0;
+    game.petArenaStats = saveData.petArenaStats || {};
+    game.attendanceClaimed = saveData.attendanceClaimed || [];
+    game.lastAttendanceDate = saveData.lastAttendanceDate || '';
+    game.attendanceStreak = saveData.attendanceStreak || 0;
+    game.tribe = saveData.tribe || 'forest';
+
+    // 건물 재구성
+    game.buildings = [];
+    for (const bd of (saveData.buildings || [])) {
+      try {
+        if (BUILDING_TYPES[bd.type]) {
+          const b = new Building(bd.type, bd.gx, bd.gy);
+          b.state = bd.state || 'complete';
+          b.uniqueId = bd.uniqueId || b.uniqueId;
+          b.buildProgress = bd.buildProgress || (b.state === 'complete' ? b.def.buildTime : 0);
+          b.stored = bd.stored || 0;
+          b.productionTimer = bd.productionTimer || 0;
+          game.buildings.push(b);
+        }
+      } catch (e) {
+        console.warn('Failed to restore building', bd, e);
+      }
+    }
+
+    // 주민 다시 생성 (집 수에 맞춰)
+    const huts = game.buildings.filter(b => b.type === 'hut' && b.state === 'complete').length;
+    const villagerCount = Math.max(4, huts * 2);
+    game.villagers = [];
+    for (let i = 0; i < villagerCount; i++) {
+      game.villagers.push(new Villager(
+        game.home.x + (Math.random() - 0.5) * 60,
+        game.home.y + (Math.random() - 0.5) * 50
+      ));
+    }
+    for (const v of game.villagers) {
+      v.homeX = game.home.x;
+      v.homeY = game.home.y;
+    }
+
+    return true;
+  } catch (e) {
+    console.error('Failed to apply cloud save', e);
+    return false;
+  }
+}
+window.applyCloudSave = applyCloudSave;
 
 // === 기기 고유 ID (브라우저별) ===
 function getDeviceId() {
@@ -7314,10 +7537,10 @@ function updateHUD() {
 }
 const MAX_LEVEL = 60;
 
-// 레벨 N에서 N+1로 가는데 필요한 경험치 = N * 5000
-// Lv1→2: 5000, Lv2→3: 10000, Lv30→31: 150000, Lv59→60: 295000
+// 레벨 N에서 N+1로 가는데 필요한 경험치 = N * 2000
+// Lv1→2: 2000, Lv2→3: 4000, Lv30→31: 60000, Lv59→60: 118000
 function getExpForNextLevel(level) {
-  return level * 5000;
+  return level * 2000;
 }
 window.getExpForNextLevel = getExpForNextLevel;
 
@@ -7666,6 +7889,20 @@ function openSettings() {
       <span class="lbl">수동 저장</span>
       <button class="danger-btn" style="background:linear-gradient(to bottom,#66bb6a,#388e3c);" onclick="manualSave()">💾 지금 저장</button>
     </div>
+    ${online ? `
+      <div class="settings-row">
+        <span class="lbl">☁️ 클라우드 동기화</span>
+        <button class="danger-btn" style="background:linear-gradient(to bottom,#42a5f5,#1565c0);" onclick="manualCloudSave()">☁️ 지금 동기화</button>
+      </div>
+      <div class="settings-row">
+        <span class="lbl">🔑 비밀번호 변경</span>
+        <button class="danger-btn" style="background:linear-gradient(to bottom,#ba68c8,#6a1b9a);" onclick="openChangePassword()">🔑 변경</button>
+      </div>
+      <div class="settings-row">
+        <span class="lbl">🚪 로그아웃</span>
+        <button class="danger-btn" style="background:linear-gradient(to bottom,#ff9800,#e65100);" onclick="logoutAccount()">🚪 로그아웃</button>
+      </div>
+    ` : ''}
     <div class="settings-row">
       <span class="lbl" style="color:var(--red); font-weight:bold;">데이터 초기화</span>
       <button class="danger-btn" onclick="confirmReset()">⚠ 초기화</button>
@@ -7698,6 +7935,130 @@ function manualSave() {
   if (saveGame()) showToast('💾 저장 완료!', 'gain');
   else showToast('저장 실패', 'warn');
 }
+
+// === 수동 클라우드 동기화 ===
+async function manualCloudSave() {
+  if (!isOnlineMode || !isOnlineMode()) {
+    showToast('오프라인 모드입니다', 'warn');
+    return;
+  }
+  showToast('☁️ 클라우드에 동기화 중...', '');
+  const result = await uploadCloudSave();
+  if (result && result.ok) {
+    showToast('✅ 클라우드 동기화 완료!', 'gain');
+  } else {
+    showToast('❌ 동기화 실패', 'warn');
+  }
+}
+window.manualCloudSave = manualCloudSave;
+
+// === 로그아웃 ===
+function logoutAccount() {
+  showConfirmDialog(
+    '🚪 로그아웃',
+    '로그아웃하면 닉네임 화면으로 돌아갑니다.\n진행 상황은 클라우드에 저장되어 있어요.\n계속하시려면 다시 로그인하세요.',
+    async () => {
+      // 마지막 클라우드 세이브
+      if (isOnlineMode && isOnlineMode()) {
+        try {
+          showToast('☁️ 마지막 저장 중...', '');
+          await uploadCloudSave();
+        } catch (e) {}
+      }
+      // 자동 로그인 정보 제거
+      try { localStorage.removeItem('wildage_logged_in_as'); } catch (e) {}
+      // 새로고침으로 로그인 화면으로
+      setTimeout(() => location.reload(), 800);
+    }
+  );
+}
+window.logoutAccount = logoutAccount;
+
+// === 비밀번호 변경 ===
+function openChangePassword() {
+  if (!isOnlineMode || !isOnlineMode()) {
+    showToast('온라인 모드에서만 가능해요', 'warn');
+    return;
+  }
+  if (!game.player) return;
+
+  // 동적 모달 생성
+  const existing = document.getElementById('m-change-pw');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'm-change-pw';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(to bottom, #f5e6c8, #e0c896);
+      border: 4px solid #3e2723;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 360px; width: 100%;
+    ">
+      <h2 style="text-align:center; color:#3e2723; margin-bottom:14px;">🔑 비밀번호 변경</h2>
+      <input type="password" id="cpw-old" placeholder="기존 비밀번호" maxlength="20" style="
+        width: 100%; padding: 10px; border: 2px solid #5d4037; border-radius: 8px;
+        font-family: inherit; font-size: 14px; margin-bottom: 8px; box-sizing: border-box;
+      ">
+      <input type="password" id="cpw-new" placeholder="새 비밀번호 (4자 이상)" maxlength="20" style="
+        width: 100%; padding: 10px; border: 2px solid #5d4037; border-radius: 8px;
+        font-family: inherit; font-size: 14px; margin-bottom: 8px; box-sizing: border-box;
+      ">
+      <input type="password" id="cpw-confirm" placeholder="새 비밀번호 확인" maxlength="20" style="
+        width: 100%; padding: 10px; border: 2px solid #5d4037; border-radius: 8px;
+        font-family: inherit; font-size: 14px; margin-bottom: 12px; box-sizing: border-box;
+      ">
+      <div id="cpw-err" style="color:#c62828; font-size:12px; text-align:center; min-height:16px; margin-bottom:8px;"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="cpw-cancel" style="
+          flex:1; padding: 10px; background: linear-gradient(to bottom,#90a4ae,#455a64);
+          color:white; border:2px solid #3e2723; border-radius:8px; font-family:inherit;
+          font-weight:bold; cursor:pointer; box-shadow:0 2px 0 #3e2723;
+        ">취소</button>
+        <button id="cpw-submit" style="
+          flex:1; padding: 10px; background: linear-gradient(to bottom,#ba68c8,#6a1b9a);
+          color:white; border:2px solid #3e2723; border-radius:8px; font-family:inherit;
+          font-weight:bold; cursor:pointer; box-shadow:0 2px 0 #3e2723;
+        ">변경</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const oldInput = document.getElementById('cpw-old');
+  const newInput = document.getElementById('cpw-new');
+  const confirmInput = document.getElementById('cpw-confirm');
+  const errEl = document.getElementById('cpw-err');
+
+  document.getElementById('cpw-cancel').onclick = () => modal.remove();
+  document.getElementById('cpw-submit').onclick = async () => {
+    const oldPw = oldInput.value;
+    const newPw = newInput.value;
+    const conf = confirmInput.value;
+    if (!oldPw) { errEl.textContent = '기존 비밀번호 입력'; return; }
+    if (!newPw || newPw.length < 4) { errEl.textContent = '새 비밀번호 4자 이상'; return; }
+    if (newPw !== conf) { errEl.textContent = '새 비밀번호 불일치'; return; }
+
+    errEl.textContent = '⏳ 변경 중...';
+    const result = await changePassword(game.player.nickname, oldPw, newPw);
+    if (result.ok) {
+      modal.remove();
+      showToast('✅ 비밀번호 변경 완료!', 'gain');
+    } else {
+      errEl.textContent = result.error || '변경 실패';
+    }
+  };
+
+  oldInput.focus();
+}
+window.openChangePassword = openChangePassword;
 function confirmReset() {
   showConfirmDialog(
     '⚠ 초기화',
@@ -13034,6 +13395,7 @@ function tick(now) {
     if (typeof isOnlineMode === 'function' && isOnlineMode()) {
       try { uploadPlayerProfile(); } catch (e) {}
       try { uploadMyVillage(); } catch (e) {}
+      try { uploadCloudSave(); } catch (e) {}  // 클라우드 세이브
     }
   }
 
@@ -13825,7 +14187,14 @@ async function _initImpl() {
       const raw = localStorage.getItem(SAVE_KEY);
       const d = JSON.parse(raw);
       if (d.player && d.player.nickname) {
-        continueGame();
+        // 자동 로그인 확인 (이전에 로그인했던 닉네임)
+        const autoLoginNick = localStorage.getItem('wildage_logged_in_as');
+        if (autoLoginNick && autoLoginNick === d.player.nickname) {
+          continueGame();
+        } else {
+          // 자동 로그인 정보 없음 → 닉네임 화면
+          showNicknameScreen(() => continueGame());
+        }
       } else {
         // legacy save without nickname → ask for one then continue
         showNicknameScreen(() => continueGame());
@@ -13866,49 +14235,75 @@ function showNicknameScreen(onDone) {
   if (fb) fb.remove();
   const screen = document.getElementById('nickname-screen');
   const input = document.getElementById('nickname-input');
+  const pwInput = document.getElementById('password-input');
+  const pwConfirmInput = document.getElementById('password-confirm-input');
   const err = document.getElementById('nickname-err');
   const btn = document.getElementById('nickname-btn');
+  const tabNew = document.getElementById('ns-tab-new');
+  const tabLogin = document.getElementById('ns-tab-login');
+  const modeTitle = document.getElementById('ns-mode-title');
+  const modeDesc = document.getElementById('ns-mode-desc');
+  const infoText = document.getElementById('ns-info-text');
+
   screen.classList.remove('hide');
   input.value = '';
+  pwInput.value = '';
+  pwConfirmInput.value = '';
   err.textContent = '';
   input.focus();
 
-  // 금지어 + 중복 체크용
+  let mode = 'new';  // 'new' or 'login'
+
+  // 탭 전환
+  const setMode = (m) => {
+    mode = m;
+    if (m === 'new') {
+      tabNew.style.background = 'linear-gradient(to bottom, #66bb6a, #2e7d32)';
+      tabNew.style.color = 'white';
+      tabLogin.style.background = 'linear-gradient(to bottom, #fff, var(--parchment-dark))';
+      tabLogin.style.color = 'var(--wood-dark)';
+      modeTitle.textContent = '🆕 새 부족 만들기';
+      modeDesc.innerHTML = '닉네임과 비밀번호를 정해주세요.<br>다른 기기에서도 같은 계정으로 이어 플레이!';
+      pwConfirmInput.style.display = 'block';
+      btn.textContent = '⛺ 부족 시작하기';
+      infoText.innerHTML = `※ 닉네임은 2~10자, 한글/영문/숫자 가능<br>비밀번호는 4자 이상이면 OK<br>⚠️ 비밀번호를 잊지 마세요! (분실 시 복구 불가)`;
+    } else {
+      tabNew.style.background = 'linear-gradient(to bottom, #fff, var(--parchment-dark))';
+      tabNew.style.color = 'var(--wood-dark)';
+      tabLogin.style.background = 'linear-gradient(to bottom, #ffd54f, #f9a825)';
+      tabLogin.style.color = 'var(--wood-dark)';
+      modeTitle.textContent = '🔑 로그인';
+      modeDesc.innerHTML = '기존 계정으로 로그인하세요.<br>이전 진행 상황을 불러옵니다!';
+      pwConfirmInput.style.display = 'none';
+      btn.textContent = '🔑 로그인';
+      infoText.innerHTML = `※ 이전에 만든 계정의 닉네임과 비밀번호를 입력하세요.<br>📲 다른 기기에서도 같은 계정으로 이어 플레이 가능!`;
+    }
+    err.textContent = '';
+  };
+
+  tabNew.onclick = () => setMode('new');
+  tabLogin.onclick = () => setMode('login');
+
+  // 금지어 + 검증
   const RESERVED_NICKNAMES = ['admin','administrator','운영자','시스템','system','GM','anonymous','undefined','null','???'];
 
-  const validate = (name) => {
+  const validate = (name, pw, pwConfirm) => {
     if (!name) return '닉네임을 입력해주세요';
-    if (name.length < 2) return '2자 이상 입력해주세요';
-    if (name.length > 10) return '10자까지 가능합니다';
-    if (!/^[가-힣a-zA-Z0-9_]+$/.test(name)) return '한글/영문/숫자만 가능합니다';
-    // 금지어 (대소문자 무관)
-    if (RESERVED_NICKNAMES.some(r => r.toLowerCase() === name.toLowerCase())) {
-      return '사용할 수 없는 닉네임입니다';
-    }
-    // 기존 친구 목록과 중복 체크 (있을 경우)
-    if (game.friends && Array.isArray(game.friends)) {
-      if (game.friends.some(f => f && f.nickname === name)) {
-        return '이미 친구 목록에 있는 닉네임입니다';
-      }
-    }
-    // 이전에 저장된 다른 플레이어와 중복 체크
-    try {
-      const allKeys = Object.keys(localStorage);
-      for (const key of allKeys) {
-        if (key.startsWith('wildage_nick_')) {
-          const savedNick = localStorage.getItem(key);
-          if (savedNick === name && key !== `wildage_nick_${name}`) {
-            // 다른 사람이 이 기기에서 이 닉으로 시작했었음 — 그래도 허용 (단일 기기는 OK)
-          }
-        }
-      }
-    } catch (e) {}
+    if (name.length < 2) return '닉네임 2자 이상';
+    if (name.length > 10) return '닉네임 10자까지';
+    if (!/^[가-힣a-zA-Z0-9_]+$/.test(name)) return '한글/영문/숫자만 가능';
+    if (RESERVED_NICKNAMES.some(r => r.toLowerCase() === name.toLowerCase())) return '사용할 수 없는 닉네임';
+    if (!pw) return '비밀번호를 입력해주세요';
+    if (pw.length < 4) return '비밀번호는 4자 이상';
+    if (mode === 'new' && pw !== pwConfirm) return '비밀번호가 일치하지 않아요';
     return null;
   };
 
   const submit = async () => {
     const name = input.value.trim();
-    const e = validate(name);
+    const pw = pwInput.value;
+    const pwConfirm = pwConfirmInput.value;
+    const e = validate(name, pw, pwConfirm);
     if (e) {
       err.textContent = e;
       input.classList.add('err');
@@ -13917,36 +14312,86 @@ function showNicknameScreen(onDone) {
     err.textContent = '';
     input.classList.remove('err');
 
-    // 온라인 모드에서 글로벌 중복 체크
-    if (isOnlineMode && isOnlineMode()) {
-      btn.disabled = true;
-      const oldText = btn.textContent;
-      btn.textContent = '🌐 닉네임 확인 중...';
-      try {
-        const result = await registerNickname(name);
-        if (!result.ok && !result.offline) {
-          err.textContent = result.error || '닉네임 등록 실패';
-          input.classList.add('err');
-          btn.disabled = false;
-          btn.textContent = oldText;
-          return;
-        }
-      } catch (ex) {
-        console.warn('Firebase nickname check failed', ex);
-        // 실패해도 진행 (오프라인 fallback)
-      }
-      btn.disabled = false;
-      btn.textContent = oldText;
+    const online = isOnlineMode && isOnlineMode();
+    if (!online) {
+      err.textContent = '⚠️ 비밀번호 시스템은 온라인 모드에서만 작동해요. 오프라인으로 계속하려면 페이지를 새로고침하세요.';
+      return;
     }
 
-    game.player = {
-      nickname: name,
-      code: generateFriendCode(name),
-      createdAt: Date.now(),
-    };
-    screen.classList.add('hide');
-    onDone();
-    showToast(`환영합니다, ${name} 부족장님! 👋`, 'gain');
+    btn.disabled = true;
+    const oldText = btn.textContent;
+
+    if (mode === 'new') {
+      // === 회원가입 ===
+      btn.textContent = '🌐 계정 생성 중...';
+      const result = await registerAccount(name, pw);
+      if (!result.ok) {
+        err.textContent = result.error || '계정 생성 실패';
+        btn.disabled = false;
+        btn.textContent = oldText;
+        return;
+      }
+      // 성공 → 새 게임 시작
+      game.player = {
+        nickname: name,
+        code: generateFriendCode(name),
+        createdAt: Date.now(),
+      };
+      // 로그인 정보 로컬 저장 (자동 로그인용)
+      try {
+        localStorage.setItem('wildage_logged_in_as', name);
+      } catch (e) {}
+      screen.classList.add('hide');
+      onDone();
+      showToast(`환영합니다, ${name} 부족장님! 👋`, 'gain');
+    } else {
+      // === 로그인 ===
+      btn.textContent = '🔑 로그인 중...';
+      const loginResult = await loginAccount(name, pw);
+      if (!loginResult.ok) {
+        err.textContent = loginResult.error || '로그인 실패';
+        btn.disabled = false;
+        btn.textContent = oldText;
+        return;
+      }
+      // 비밀번호 OK → 클라우드 세이브 가져오기
+      btn.textContent = '📦 진행 상황 불러오는 중...';
+      const cloudSave = await fetchCloudSave(name);
+
+      game.player = {
+        nickname: name,
+        code: generateFriendCode(name),
+        createdAt: Date.now(),
+      };
+
+      // 자동 로그인 정보 저장
+      try {
+        localStorage.setItem('wildage_logged_in_as', name);
+      } catch (e) {}
+
+      screen.classList.add('hide');
+      onDone();
+
+      // 클라우드 세이브 적용 (게임 시작 후)
+      if (cloudSave) {
+        setTimeout(() => {
+          if (applyCloudSave(cloudSave)) {
+            try { recomputePower(); } catch (e) {}
+            try { recomputeTotems(); } catch (e) {}
+            try { rebuildPetCompanions(); } catch (e) {}
+            try { rebuildBuildBar(); } catch (e) {}
+            try { updateHUD(); } catch (e) {}
+            try { updateOccupiedUI(); } catch (e) {}
+            showToast(`✅ ${name}님, 클라우드 세이브 복구 완료! (Lv.${game.level})`, 'gain');
+          } else {
+            showToast(`로그인 성공! 새 게임을 시작합니다.`, 'gain');
+          }
+        }, 500);
+      } else {
+        showToast(`로그인 성공! 새로운 시작입니다.`, 'gain');
+      }
+    }
+
     try { applyCheatVisibility(); } catch (e) {}
     try { showOnlineModeStatus(); } catch (e) {}
     // 프로필 업로드 + 친구 요청 리스너 시작
@@ -13961,11 +14406,17 @@ function showNicknameScreen(onDone) {
 
   btn.onclick = submit;
   btn.ontouchstart = (e) => { e.preventDefault(); submit(); };
-  input.onkeydown = (e) => {
+
+  const onEnter = (e) => {
     if (e.key === 'Enter') submit();
     err.textContent = '';
     input.classList.remove('err');
   };
+  input.onkeydown = onEnter;
+  pwInput.onkeydown = onEnter;
+  pwConfirmInput.onkeydown = onEnter;
+
+  setMode('new');  // 초기 모드
 }
 
 window.manualSave = manualSave;

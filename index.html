@@ -1203,7 +1203,6 @@ const FIREBASE_CONFIG = {
   storageBucket: "wild-age-c82f9.firebasestorage.app",
   messagingSenderId: "347263246630",
   appId: "1:347263246630:web:572eb3e85e0559ae7c21e7"
-
 };
 
 // 온라인 모드 활성화 여부
@@ -2434,8 +2433,13 @@ class Building {
   constructor(type, gx, gy) {
     this.type = type;
     this.def = BUILDING_TYPES[type];
-    this.gx = gx;          // grid x
-    this.gy = gy;          // grid y
+    if (!this.def) {
+      console.warn(`Unknown building type: ${type}, defaulting to hut`);
+      this.type = 'hut';
+      this.def = BUILDING_TYPES.hut;
+    }
+    this.gx = gx || 0;          // grid x
+    this.gy = gy || 0;          // grid y
     this.uniqueId = 'b_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
     this.state = 'under_construction';  // → 'complete' → 'ready_to_harvest'
     this.buildProgress = 0;
@@ -7277,6 +7281,8 @@ const game = {
 const assets = new AssetManager();
 
 function addRes(key, amount) {
+  if (!game.res) game.res = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
+  if (!key || typeof amount !== 'number' || isNaN(amount)) return;
   // 양수 자원에만 fortune 보너스 적용 (자원 손실엔 X)
   if (amount > 0 && game.fortuneMult) {
     amount = Math.floor(amount * game.fortuneMult);
@@ -7289,14 +7295,22 @@ function addRes(key, amount) {
     } catch (e) {}
   }
   game.res[key] = (game.res[key] || 0) + amount;
-  spawnFloatNum(key, amount);
+  if (game.res[key] < 0) game.res[key] = 0;  // 음수 방지
+  // 통계 누적
+  if (amount > 0 && key === 'gold') {
+    if (!game.stats) game.stats = {};
+    game.stats.goldEarned = (game.stats.goldEarned || 0) + amount;
+  }
+  try { spawnFloatNum(key, amount); } catch (e) {}
 }
 function spendRes(costObj) {
+  if (!game.res) game.res = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
   for (const k in costObj) if ((game.res[k] || 0) < costObj[k]) return false;
   for (const k in costObj) game.res[k] -= costObj[k];
   return true;
 }
 function canAfford(costObj) {
+  if (!game.res || !costObj) return false;
   for (const k in costObj) if ((game.res[k] || 0) < costObj[k]) return false;
   return true;
 }
@@ -7481,12 +7495,16 @@ function spawnFloatNum(res, amount) {
   setTimeout(() => el.remove(), 1200);
 }
 function updateHUD() {
-  document.getElementById('res-gold').textContent = Math.floor(game.res.gold);
-  document.getElementById('res-food').textContent = Math.floor(game.res.food);
-  document.getElementById('res-wood').textContent = Math.floor(game.res.wood);
-  document.getElementById('res-stone').textContent = Math.floor(game.res.stone);
-  document.getElementById('res-gem').textContent = Math.floor(game.res.gem);
-  document.getElementById('lv-num').textContent = game.level >= MAX_LEVEL ? 'MAX' : game.level;
+  // res 안전성
+  if (!game.res) game.res = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
+  try {
+    document.getElementById('res-gold').textContent = Math.floor(game.res.gold || 0);
+    document.getElementById('res-food').textContent = Math.floor(game.res.food || 0);
+    document.getElementById('res-wood').textContent = Math.floor(game.res.wood || 0);
+    document.getElementById('res-stone').textContent = Math.floor(game.res.stone || 0);
+    document.getElementById('res-gem').textContent = Math.floor(game.res.gem || 0);
+    document.getElementById('lv-num').textContent = (game.level || 1) >= MAX_LEVEL ? 'MAX' : (game.level || 1);
+  } catch (e) {}
   // 장착된 테두리 적용
   try {
     const lvBox = document.getElementById('level-box');
@@ -12696,6 +12714,10 @@ function openCampfireMenu(clientX, clientY) {
 window.openCampfireMenu = openCampfireMenu;
 
 function startHomeRelocate() {
+  if (game.visiting) {
+    showToast('친구 마을에서는 이동할 수 없어요', 'warn');
+    return;
+  }
   game.relocatingHome = true;
   game.relocating = null;  // 일반 건물 이동 모드 해제
   game.selectedBuild = null;
@@ -12745,7 +12767,15 @@ function confirmHomeRelocate(worldX, worldY) {
   if (game.tilemap && typeof game.tilemap.tileAt === 'function') {
     const t = game.tilemap.tileAt(gx, gy);
     if (t === 'water') {
-      showToast('물 위에는 둘 수 없어요', 'warn');
+      showToast('🌊 물 위에는 둘 수 없어요', 'warn');
+      return;
+    }
+  }
+  // 건물 위에 둘 수 없음
+  for (const b of game.buildings) {
+    if (gx >= b.gx && gx < b.gx + b.def.size &&
+        gy >= b.gy && gy < b.gy + b.def.size) {
+      showToast(`⚠ ${b.def.name} 위에는 둘 수 없어요`, 'warn');
       return;
     }
   }
@@ -12785,6 +12815,15 @@ window.confirmHomeRelocate = confirmHomeRelocate;
 
 
 function startRelocate(b) {
+  // 친구 마을 방문 중에는 차단
+  if (game.visiting) {
+    showToast('친구 마을에서는 이동할 수 없어요', 'warn');
+    return;
+  }
+  if (!b || !b.def) {
+    showToast('건물 정보 오류', 'warn');
+    return;
+  }
   game.relocating = { building: b, originalGx: b.gx, originalGy: b.gy };
   game.selectedBuild = null;  // 빌드 모드 해제
   showToast(`🔄 ${b.def.name} 이동 모드 — 새 위치를 탭하세요`, '');
@@ -12899,6 +12938,13 @@ function confirmRelocate(gx, gy) {
   const r = game.relocating;
   if (!r) return;
   const b = r.building;
+  if (!b || !b.def) {
+    showToast('건물 정보 오류', 'warn');
+    game.relocating = null;
+    const bar = document.getElementById('relocate-bar');
+    if (bar) bar.style.display = 'none';
+    return;
+  }
   const def = b.def;
 
   // 무한 맵: 범위 체크 없음
@@ -12907,17 +12953,36 @@ function confirmRelocate(gx, gy) {
       showToast('범위를 벗어났습니다', 'warn'); return;
     }
   }
+
+  // 모닥불 위에 옮기지 못하게
+  if (game.home) {
+    const hgx = Math.floor(game.home.x / TILE);
+    const hgy = Math.floor(game.home.y / TILE);
+    for (let dy = 0; dy < def.size; dy++) {
+      for (let dx = 0; dx < def.size; dx++) {
+        if (gx+dx === hgx && gy+dy === hgy) {
+          showToast('🔥 모닥불 위에는 옮길 수 없어요', 'warn');
+          return;
+        }
+      }
+    }
+  }
+
   // 충돌 검사 (자기 자신 제외)
   for (let dy = 0; dy < def.size; dy++) {
     for (let dx = 0; dx < def.size; dx++) {
-      if (game.tilemap.tileAt(gx+dx, gy+dy) === 'water') {
-        showToast('물 위엔 옮길 수 없어요', 'warn'); return;
-      }
+      // 물 타일 검사
+      try {
+        if (game.tilemap.tileAt(gx+dx, gy+dy) === 'water') {
+          showToast('🌊 물 위엔 옮길 수 없어요', 'warn'); return;
+        }
+      } catch (e) {}
+      // 다른 건물과 충돌
       for (const other of game.buildings) {
         if (other === b) continue;
         if (gx+dx >= other.gx && gx+dx < other.gx + other.def.size &&
             gy+dy >= other.gy && gy+dy < other.gy + other.def.size) {
-          showToast('이미 다른 건물이 있어요', 'warn'); return;
+          showToast(`⚠ 이미 ${other.def.name}가 있어요`, 'warn'); return;
         }
       }
     }

@@ -1064,6 +1064,7 @@
     <div class="cam-btn" id="cam-zoom-out" title="축소">－</div>
     <div class="cam-btn" id="cam-home" title="마을로">⌂</div>
     <div class="cam-btn" id="cam-rotate" title="가로/세로 회전">⟳</div>
+    <div class="cam-btn" id="cam-speed" title="게임 속도 (탭하여 변경)" style="background: linear-gradient(to bottom, #ffd54f, #f9a825); font-size: 14px; font-weight: bold; color: var(--wood-dark);">⚡1x</div>
   </div>
   <div class="cam-hint">드래그로 이동 · 휠/핀치로 줌 · WASD</div>
 
@@ -1203,6 +1204,7 @@ const FIREBASE_CONFIG = {
   storageBucket: "wild-age-c82f9.firebasestorage.app",
   messagingSenderId: "347263246630",
   appId: "1:347263246630:web:572eb3e85e0559ae7c21e7"
+
 };
 
 // 온라인 모드 활성화 여부
@@ -6396,7 +6398,87 @@ function initQuests() {
     }
     game.quests = picks.map(t => ({ ...t, progress: 0, claimed: false }));
   }
+  // 일일 퀘스트 초기화
+  initDailyQuests();
 }
+
+// === 일일 퀘스트 풀 (랜덤으로 3개 선택) ===
+const DAILY_QUEST_POOL = [
+  { type: 'daily_tap', icon: '👊', title: '오늘의 채집', desc: '오늘 50회 탭 채집', target: 50, reward: { gold: 500, exp: 200 } },
+  { type: 'daily_harvest', icon: '🌾', title: '오늘의 수확', desc: '오늘 20회 수확', target: 20, reward: { gold: 600, exp: 250 } },
+  { type: 'daily_build', icon: '🏗', title: '오늘의 건설', desc: '오늘 건물 1개 건설', target: 1, reward: { gold: 800, gem: 2, exp: 300 } },
+  { type: 'daily_recruit', icon: '⚔', title: '오늘의 모집', desc: '오늘 5명 모집', target: 5, reward: { gold: 700, gem: 1, exp: 250 } },
+  { type: 'daily_pet_summon', icon: '🦁', title: '오늘의 소환', desc: '오늘 펫 1마리 소환', target: 1, reward: { gold: 500, gem: 3, exp: 200 } },
+  { type: 'daily_visit', icon: '🏕', title: '오늘의 방문', desc: '오늘 친구 마을 3회 방문', target: 3, reward: { gold: 400, food: 100, exp: 200 } },
+  { type: 'daily_gift_send', icon: '🎁', title: '오늘의 선물', desc: '오늘 친구에게 1회 선물', target: 1, reward: { gold: 300, food: 50, exp: 150 } },
+  { type: 'daily_battle', icon: '⚔', title: '오늘의 전투', desc: '오늘 침략 1회', target: 1, reward: { gold: 1000, gem: 2, exp: 400 } },
+  { type: 'daily_arena', icon: '🏆', title: '오늘의 투기장', desc: '오늘 투기장 3회 출전', target: 3, reward: { gold: 600, exp: 300 } },
+  { type: 'daily_aid', icon: '🤝', title: '오늘의 우정', desc: '오늘 친구 1회 원조', target: 1, reward: { gold: 500, gem: 1, exp: 200 } },
+  { type: 'daily_login', icon: '📅', title: '오늘의 출석', desc: '오늘 게임 접속 ✓', target: 1, reward: { gold: 1000, gem: 3, food: 100, exp: 500 } },
+  { type: 'daily_quest', icon: '📜', title: '오늘의 퀘스트', desc: '오늘 일반 퀘스트 1개 완료', target: 1, reward: { gold: 800, gem: 2, exp: 300 } },
+  { type: 'daily_upgrade', icon: '⬆', title: '오늘의 강화', desc: '오늘 건물 1개 업그레이드', target: 1, reward: { gold: 1000, gem: 2, exp: 400 } },
+];
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+function initDailyQuests() {
+  const today = getTodayKey();
+  if (!game.dailyQuests || game.dailyQuestsDate !== today) {
+    // 새로운 날 - 일일 퀘스트 3개 랜덤 선택
+    const shuffled = [...DAILY_QUEST_POOL].sort(() => Math.random() - 0.5);
+    game.dailyQuests = shuffled.slice(0, 3).map(t => ({
+      ...t,
+      progress: 0,
+      claimed: false,
+      id: 'daily_' + t.type + '_' + today,
+    }));
+    game.dailyQuestsDate = today;
+    // 일일 로그인 퀘스트 자동 완료
+    const loginQ = game.dailyQuests.find(q => q.type === 'daily_login');
+    if (loginQ) loginQ.progress = 1;
+  }
+}
+window.initDailyQuests = initDailyQuests;
+
+// 일일 퀘스트 진행도 체크
+function checkDailyQuestProgress(type, amount) {
+  amount = amount || 1;
+  if (!game.dailyQuests) return;
+  for (const q of game.dailyQuests) {
+    if (!q || q.claimed || q.progress >= q.target) continue;
+    if (q.type === type) {
+      q.progress = Math.min(q.target, q.progress + amount);
+      if (q.progress >= q.target) {
+        showToast(`📅 일일: "${q.title}" 완료!`, 'gain');
+      }
+    }
+  }
+  try { updateQuestBadge(); } catch (e) {}
+}
+window.checkDailyQuestProgress = checkDailyQuestProgress;
+
+function claimDailyQuest(qId) {
+  if (!game.dailyQuests) return;
+  const q = game.dailyQuests.find(x => x.id === qId);
+  if (!q || q.claimed || q.progress < q.target) return;
+  for (const [k, v] of Object.entries(q.reward)) {
+    if (k === 'exp') {
+      game.exp = (game.exp || 0) + v;
+    } else {
+      addRes(k, v);
+    }
+  }
+  q.claimed = true;
+  showToast(`📅 일일 보상! ${q.title}${q.reward.exp ? ` (+${q.reward.exp}xp)` : ''}`, 'gain');
+  try { checkLevelUp(); } catch (e) {}
+  updateHUD();
+  updateQuestBadge();
+  openQuestPanel();
+}
+window.claimDailyQuest = claimDailyQuest;
 
 function checkQuestProgress(type, amount) {
   amount = amount || 1;
@@ -6534,9 +6616,11 @@ function updateQuestBadge() {
   const badge = document.getElementById('quests-badge');
   if (!badge) return;
   const ready = (game.quests || []).filter(q => q.progress >= q.target && !q.claimed).length;
-  if (ready > 0) {
+  const dailyReady = (game.dailyQuests || []).filter(q => q.progress >= q.target && !q.claimed).length;
+  const total = ready + dailyReady;
+  if (total > 0) {
     badge.style.display = 'flex';
-    badge.textContent = ready;
+    badge.textContent = total;
   } else {
     badge.style.display = 'none';
   }
@@ -6595,9 +6679,107 @@ function openQuestPanel() {
       if (e.target === modal) modal.classList.remove('show');
     });
   }
+  // 일일 퀘스트 초기화 (날짜 바뀌면 자동 갱신)
+  try { initDailyQuests(); } catch (e) {}
+
   const body = document.getElementById('quests-body');
   const claimableCount = (game.quests || []).filter(q => !q.claimed && q.progress >= q.target).length;
-  let html = `<p style="font-size:11px; color:var(--wood-dark); text-align:center; margin-bottom:10px;">진행 중인 퀘스트를 완료하고 보상을 받으세요!</p>`;
+  const dailyClaimableCount = (game.dailyQuests || []).filter(q => !q.claimed && q.progress >= q.target).length;
+
+  // 전체 진행도 계산
+  const allQuests = [...(game.quests || []), ...(game.dailyQuests || [])];
+  const completedCount = allQuests.filter(q => q.claimed).length;
+  const inProgressCount = allQuests.filter(q => !q.claimed).length;
+  const totalProgress = allQuests.length > 0
+    ? Math.floor((completedCount / allQuests.length) * 100)
+    : 0;
+
+  let html = `
+    <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+        <div style="font-size:13px; font-weight:bold; color:#bf8b00;">📜 전체 진행도</div>
+        <div style="font-size:16px; font-weight:bold; color:var(--wood-dark);">${completedCount} / ${allQuests.length}</div>
+      </div>
+      <div style="background:#fff; border:2px solid var(--wood-dark); border-radius:6px; height:14px; overflow:hidden; position:relative;">
+        <div style="background:linear-gradient(to right, #66bb6a, #2e7d32, #1b5e20); height:100%; width:${totalProgress}%; transition: width 0.4s;"></div>
+        <div style="position:absolute; inset:0; text-align:center; font-size:10px; font-weight:bold; color:#fff; text-shadow:1px 1px 1px rgba(0,0,0,0.5); line-height:14px;">${totalProgress}%</div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px; font-size:10px;">
+        <div style="flex:1; text-align:center; background:rgba(255,255,255,0.5); padding:4px; border-radius:4px;">
+          <div style="font-weight:bold; color:#2e7d32;">${completedCount}</div>
+          <div style="color:var(--wood-dark);">완료</div>
+        </div>
+        <div style="flex:1; text-align:center; background:rgba(255,255,255,0.5); padding:4px; border-radius:4px;">
+          <div style="font-weight:bold; color:#fb8c00;">${inProgressCount}</div>
+          <div style="color:var(--wood-dark);">진행 중</div>
+        </div>
+        <div style="flex:1; text-align:center; background:rgba(255,255,255,0.5); padding:4px; border-radius:4px;">
+          <div style="font-weight:bold; color:#c62828;">${claimableCount + dailyClaimableCount}</div>
+          <div style="color:var(--wood-dark);">수령 대기</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // === 일일 퀘스트 섹션 ===
+  if (game.dailyQuests && game.dailyQuests.length > 0) {
+    html += `
+      <div style="background:linear-gradient(135deg, #283593, #1a237e); border:3px solid #5c6bc0; border-radius:10px; padding:10px; margin-bottom:12px; color:white;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div style="font-size:14px; font-weight:bold; color:#ffd54f;">📅 일일 퀘스트</div>
+          <div style="font-size:10px; color:#bbdefb;">🌙 자정 갱신</div>
+        </div>
+    `;
+    if (dailyClaimableCount > 0) {
+      html += `
+        <button id="claim-all-daily-btn" type="button" style="
+          display: block; width: 100%; margin-bottom: 8px;
+          background: linear-gradient(to bottom, #ffd54f, #f9a825);
+          color: var(--wood-dark); border: 2px solid #fff; border-radius: 8px;
+          padding: 6px; font-family: inherit; font-weight: bold; font-size: 12px;
+          cursor: pointer; animation: pulse 1.2s infinite;
+        ">🎁 일일 보상 ${dailyClaimableCount}개 한번에 받기</button>
+      `;
+    }
+    for (const q of game.dailyQuests) {
+      const done = q.progress >= q.target;
+      const pct = Math.min(100, (q.progress / q.target) * 100);
+      const rewardStr = Object.entries(q.reward || {}).map(([k,v]) => {
+        const ico = { gold:'💰', food:'🍖', wood:'🪵', stone:'🪨', gem:'💎', exp:'✨' }[k] || '';
+        return `${ico}${v}`;
+      }).join(' ');
+      const isClaimed = q.claimed;
+      html += `
+        <div style="background:${isClaimed ? 'rgba(0,0,0,0.3)' : (done ? 'rgba(255,213,79,0.2)' : 'rgba(255,255,255,0.1)')}; border:2px solid ${isClaimed ? '#555' : (done ? '#ffd54f' : '#5c6bc0')}; border-radius:8px; padding:8px; margin-bottom:6px; ${isClaimed ? 'opacity:0.5;' : ''} ${done && !isClaimed ? 'box-shadow:0 0 10px #ffd54f88;' : ''}">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="font-size:24px;">${q.icon}</div>
+            <div style="flex:1;">
+              <div style="font-weight:bold; font-size:12px; color:${isClaimed ? '#999' : '#fff'};">${q.title}${isClaimed?' ✓':''}</div>
+              <div style="font-size:10px; color:${isClaimed ? '#888' : '#bbdefb'};">${q.desc}</div>
+              <div style="background:rgba(0,0,0,0.4); border:1px solid #5c6bc0; border-radius:4px; height:10px; margin-top:3px; overflow:hidden; position:relative;">
+                <div style="background:linear-gradient(to right, #ffd54f, #f57c00); height:100%; width:${pct}%; transition:width 0.3s;"></div>
+                <div style="position:absolute; inset:0; text-align:center; font-size:8px; font-weight:bold; color:#fff; text-shadow:1px 1px 1px rgba(0,0,0,0.8); line-height:10px;">${q.progress}/${q.target}</div>
+              </div>
+              <div style="font-size:9px; color:#ffd54f; font-weight:bold; margin-top:3px;">보상: ${rewardStr}</div>
+            </div>
+            ${done && !isClaimed ? `
+              <button onclick="claimDailyQuest('${q.id}')" type="button" style="
+                background:linear-gradient(to bottom, #ffd54f, #f57c00);
+                color:var(--wood-dark); border:2px solid #fff; border-radius:6px;
+                padding:6px 10px; font-family:inherit; font-weight:bold; cursor:pointer;
+                font-size:11px;
+              ">받기</button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  // === 일반 퀘스트 헤더 ===
+  html += `<p style="font-size:11px; color:var(--wood-dark); margin:8px 0; font-weight:bold;">📜 일반 퀘스트</p>`;
+
   // 한번에 받기 버튼
   if (claimableCount > 0) {
     html += `
@@ -6648,6 +6830,40 @@ function openQuestPanel() {
     html += '<p style="text-align:center; color:var(--wood-dark);">모든 퀘스트 완료! 🎉</p>';
   }
   body.innerHTML = html;
+
+  // 일일 한번에 받기 버튼 핸들러
+  const claimAllDailyBtn = body.querySelector('#claim-all-daily-btn');
+  if (claimAllDailyBtn) {
+    claimAllDailyBtn.onclick = () => {
+      const claimable = (game.dailyQuests || []).filter(q => !q.claimed && q.progress >= q.target);
+      if (claimable.length === 0) return;
+      const totals = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0, exp: 0 };
+      for (const q of claimable) {
+        q.claimed = true;
+        for (const [k, v] of Object.entries(q.reward || {})) {
+          totals[k] = (totals[k] || 0) + v;
+        }
+      }
+      for (const [k, v] of Object.entries(totals)) {
+        if (v > 0) {
+          if (k === 'exp') {
+            game.exp = (game.exp || 0) + v;
+          } else {
+            addRes(k, v);
+          }
+        }
+      }
+      const summary = Object.entries(totals).filter(([,v]) => v > 0).map(([k,v]) => {
+        const ico = { gold:'💰', food:'🍖', wood:'🪵', stone:'🪨', gem:'💎', exp:'✨' }[k];
+        return `${ico}${v}`;
+      }).join(' ');
+      showToast(`📅 일일 ${claimable.length}개 보상! ${summary}`, 'gain');
+      try { checkLevelUp(); } catch (e) {}
+      updateHUD();
+      openQuestPanel();
+    };
+  }
+
   // 한번에 받기 버튼 핸들러
   const claimAllBtn = body.querySelector('#claim-all-quests-btn');
   if (claimAllBtn) {
@@ -7191,6 +7407,7 @@ const game = {
   productionMult: 1,
   buildSpeed: 1,
   totemBonus: 0,
+  gameSpeed: 1,  // 게임 속도 배수 (1, 2, 4)
   ownedItems: {},
 
   // attendance
@@ -7337,6 +7554,8 @@ function saveGame() {
     buildingUpgrades: game.buildingUpgrades,
     quests: game.quests,
     completedQuests: game.completedQuests,
+    dailyQuests: game.dailyQuests || [],
+    dailyQuestsDate: game.dailyQuestsDate || '',
     petEvents: game.petEvents,
     warehouseStorage: game.warehouseStorage,
     research: game.research,
@@ -7382,6 +7601,8 @@ function loadGame() {
     game.buildingUpgrades = d.buildingUpgrades || {};
     game.quests = d.quests || [];
     game.completedQuests = d.completedQuests || [];
+    game.dailyQuests = d.dailyQuests || [];
+    game.dailyQuestsDate = d.dailyQuestsDate || '';
     game.petEvents = d.petEvents || [];
     game.warehouseStorage = d.warehouseStorage || { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
     game.research = d.research || { productionSpeed: 0, goldBonus: 0, tapBonus: 0, buildSpeed: 0, armyPower: 0, petPower: 0 };
@@ -7622,6 +7843,26 @@ function checkLevelUp() {
 function rebuildBuildBar() {
   const bar = document.getElementById('buildbar');
   bar.innerHTML = '';
+
+  // === 맨 앞: 재배치 모드 버튼 ===
+  const relocateCard = document.createElement('div');
+  relocateCard.className = 'build-card';
+  relocateCard.style.cssText = `
+    background: ${game.relocateMode ? 'linear-gradient(to bottom, #ff9800, #e65100)' : 'linear-gradient(to bottom, #ffb74d, #f57c00)'};
+    border: 3px solid var(--wood-dark);
+    flex-shrink: 0;
+    min-width: 70px;
+  `;
+  relocateCard.innerHTML = `
+    <div class="preview" style="color:white; font-size: 22px;">🔄</div>
+    <div class="bname" style="color:white; font-weight:bold;">${game.relocateMode ? '재배치 ON' : '재배치'}</div>
+    <div class="bcost" style="color:rgba(255,255,255,0.9); font-size: 9px;">건물 탭→이동</div>
+  `;
+  relocateCard.onclick = () => {
+    toggleRelocateMode();
+  };
+  bar.appendChild(relocateCard);
+
   Object.entries(BUILDING_TYPES).forEach(([key, def]) => {
     const card = document.createElement('div');
     card.className = 'build-card';
@@ -7641,11 +7882,30 @@ function rebuildBuildBar() {
     `;
     if (!locked) card.onclick = () => {
       game.selectedBuild = game.selectedBuild === key ? null : key;
+      game.relocateMode = false;  // 빌드 모드 켜면 재배치 해제
       rebuildBuildBar();
     };
     bar.appendChild(card);
   });
 }
+
+// === 재배치 모드 토글 ===
+function toggleRelocateMode() {
+  if (game.visiting) {
+    showToast('친구 마을에서는 사용할 수 없어요', 'warn');
+    return;
+  }
+  game.relocateMode = !game.relocateMode;
+  game.selectedBuild = null;  // 빌드 모드 해제
+  game.relocating = null;
+  if (game.relocateMode) {
+    showToast('🔄 재배치 모드 ON — 건물 또는 모닥불을 탭하세요', '');
+  } else {
+    showToast('재배치 모드 OFF', '');
+  }
+  rebuildBuildBar();
+}
+window.toggleRelocateMode = toggleRelocateMode;
 
 // ============================================================================
 // SHOP MODAL
@@ -9387,6 +9647,11 @@ function renderAchievementsBody() {
   const body = document.getElementById('achievements-body');
   if (!body) return;
   const unlockedCount = ACHIEVEMENTS.filter(a => game.achievements && game.achievements[a.id]).length;
+  const claimableCount = ACHIEVEMENTS.filter(a => {
+    const u = game.achievements && game.achievements[a.id];
+    return u && !u.claimed;
+  }).length;
+
   let html = `
     <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:12px; text-align:center;">
       <div style="font-size:13px; font-weight:bold; color:#bf8b00;">🏅 업적 진행도</div>
@@ -9397,11 +9662,25 @@ function renderAchievementsBody() {
     </div>
   `;
 
+  // === 한번에 받기 버튼 ===
+  if (claimableCount > 0) {
+    html += `
+      <button id="claim-all-achievements-btn" type="button" style="
+        display: block; width: 100%; margin-bottom: 12px;
+        background: linear-gradient(to bottom, #ffeb3b, #f57f17);
+        color: var(--wood-dark); border: 3px solid var(--wood-dark); border-radius: 10px;
+        padding: 10px; font-family: inherit; font-weight: bold; font-size: 14px;
+        cursor: pointer; box-shadow: 0 3px 0 var(--wood-dark);
+        animation: pulse 1.2s infinite;
+      ">🎁 업적 보상 ${claimableCount}개 한번에 받기</button>
+    `;
+  }
+
   for (const a of ACHIEVEMENTS) {
     const unlocked = game.achievements && game.achievements[a.id];
     const claimed = unlocked && unlocked.claimed;
     const rewardStr = Object.entries(a.reward || {}).map(([k, v]) => {
-      const ico = { gold: '💰', food: '🍖', wood: '🪵', stone: '🪨', gem: '💎' }[k];
+      const ico = { gold: '💰', food: '🍖', wood: '🪵', stone: '🪨', gem: '💎', exp: '✨' }[k] || '';
       return `${ico}${v}`;
     }).join(' ');
 
@@ -9430,6 +9709,44 @@ function renderAchievementsBody() {
   }
 
   body.innerHTML = html;
+
+  // 한번에 받기 핸들러
+  const claimAllBtn = body.querySelector('#claim-all-achievements-btn');
+  if (claimAllBtn) {
+    claimAllBtn.onclick = () => {
+      const claimable = ACHIEVEMENTS.filter(a => {
+        const u = game.achievements && game.achievements[a.id];
+        return u && !u.claimed;
+      });
+      if (claimable.length === 0) return;
+      const totals = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0, exp: 0 };
+      for (const a of claimable) {
+        if (!game.achievements[a.id].claimed) {
+          game.achievements[a.id].claimed = true;
+          for (const [k, v] of Object.entries(a.reward || {})) {
+            totals[k] = (totals[k] || 0) + v;
+          }
+        }
+      }
+      for (const [k, v] of Object.entries(totals)) {
+        if (v > 0) {
+          if (k === 'exp') {
+            game.exp = (game.exp || 0) + v;
+          } else {
+            addRes(k, v);
+          }
+        }
+      }
+      const summary = Object.entries(totals).filter(([,v]) => v > 0).map(([k,v]) => {
+        const ico = { gold:'💰', food:'🍖', wood:'🪵', stone:'🪨', gem:'💎', exp:'✨' }[k];
+        return `${ico}${v}`;
+      }).join(' ');
+      showToast(`🏅 업적 ${claimable.length}개 보상 수령! ${summary}`, 'gain');
+      try { checkLevelUp(); } catch (e) {}
+      updateHUD();
+      renderAchievementsBody();
+    };
+  }
 }
 window.renderAchievementsBody = renderAchievementsBody;
 
@@ -9978,6 +10295,7 @@ function sendAidToFriend(nickname) {
       f.power = (f.power || 100) + 5;
       showToast(`🤝 ${nickname}님께 원조 완료! 우정 +1`, 'gain');
       try { checkQuestProgress('aid', 1); } catch (e) {}
+      try { checkDailyQuestProgress('daily_aid', 1); } catch (e) {}
       try { openFriends(); } catch (e) {}
       updateHUD();
     }
@@ -10948,6 +11266,7 @@ function _resolveBattleImpl(bctx, didWin) {
           checkQuestProgress('invade', 1);
           checkQuestProgress('conquer_check');
         }
+        try { checkDailyQuestProgress('daily_battle', 1); } catch (e) {}
         // 통계
         if (!game.stats) game.stats = {};
         game.stats.invadeWins = (game.stats.invadeWins || 0) + 1;
@@ -11398,6 +11717,8 @@ function doSummon(count) {
   const cost = count === 10 ? 45 : 5;
   if (game.res.gem < cost) { showToast('💎 보석 부족!', 'warn'); return; }
   game.res.gem -= cost;
+  // 일일 퀘스트 진행
+  try { checkDailyQuestProgress('daily_pet_summon', 1); } catch (e) {}
 
   const results = [];
   let duplicates = 0;
@@ -11559,6 +11880,36 @@ function getArmyPowerBonus() {
 // 내가 가진 펫 중 1마리와 다른 펫(랜덤/선택)과 1:1 전투
 function renderPetArenaTab(c) {
   const owned = Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
+
+  // 전체 전적 계산
+  const allStats = game.petArenaStats || {};
+  let totalWins = 0, totalLosses = 0;
+  for (const k in allStats) {
+    totalWins += (allStats[k].wins || 0);
+    totalLosses += (allStats[k].losses || 0);
+  }
+  const totalMatches = totalWins + totalLosses;
+  const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : '0.0';
+
+  // 전체 펫 전투력 합산
+  let totalPower = 0;
+  let maxPower = 0;
+  let bestPet = null;
+  owned.forEach(([k]) => {
+    const p = PETS[k].power || 0;
+    totalPower += p;
+    if (p > maxPower) { maxPower = p; bestPet = k; }
+  });
+
+  // 투기장 랭크 결정 (승수 기반)
+  let rankBadge = '🥉 신참';
+  let rankColor = '#a1887f';
+  if (totalWins >= 100) { rankBadge = '👑 챔피언'; rankColor = '#ffd700'; }
+  else if (totalWins >= 50) { rankBadge = '🏆 마스터'; rankColor = '#e91e63'; }
+  else if (totalWins >= 20) { rankBadge = '⚔ 베테랑'; rankColor = '#f57c00'; }
+  else if (totalWins >= 10) { rankBadge = '🛡 도전자'; rankColor = '#1565c0'; }
+  else if (totalWins >= 5) { rankBadge = '⚡ 견습'; rankColor = '#2e7d32'; }
+
   if (owned.length === 0) {
     c.innerHTML = `
       <div style="text-align:center; padding:30px; color:var(--wood-dark);">
@@ -11570,8 +11921,40 @@ function renderPetArenaTab(c) {
     return;
   }
 
-  // 도전 상대: 보유한 다른 펫들 (없으면 같은 등급의 다른 펫)
+  // === 전적 패널 (상단) ===
   let html = `
+    <div style="background:linear-gradient(135deg, #5d4037, #3e2723); border:3px solid #ffd54f; border-radius:12px; padding:12px; margin-bottom:10px; color:white; box-shadow: 0 0 12px ${rankColor}55;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <div>
+          <div style="font-size:18px; font-weight:bold; color:${rankColor}; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">${rankBadge}</div>
+          <div style="font-size:11px; color:#ffd54f;">투기장 등급</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px; font-weight:bold; color:#ffd54f;">⚔ ${totalPower.toLocaleString()}</div>
+          <div style="font-size:10px; color:#fff8e1;">총 전투력</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; padding-top:8px; border-top:1px dashed rgba(255,213,79,0.4);">
+        <div style="text-align:center;">
+          <div style="font-size:18px; font-weight:bold; color:#66bb6a;">${totalWins}</div>
+          <div style="font-size:10px; color:#a5d6a7;">승</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:18px; font-weight:bold; color:#ef5350;">${totalLosses}</div>
+          <div style="font-size:10px; color:#ef9a9a;">패</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:18px; font-weight:bold; color:#42a5f5;">${winRate}%</div>
+          <div style="font-size:10px; color:#90caf9;">승률</div>
+        </div>
+      </div>
+      ${bestPet ? `
+        <div style="margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,213,79,0.4); font-size:11px; text-align:center;">
+          🌟 최강 펫: <b style="color:${PET_TIER_COLORS[PETS[bestPet].tier] || '#ffd54f'};">${PETS[bestPet].emoji} ${PETS[bestPet].name}</b> (⚔${maxPower})
+        </div>
+      ` : ''}
+    </div>
+
     <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:10px; text-align:center;">
       <div style="font-size:13px; font-weight:bold; color:#bf8b00;">⚔ 펫 투기장</div>
       <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">출전할 내 펫 선택 → 도전!</div>
@@ -11580,25 +11963,69 @@ function renderPetArenaTab(c) {
     <div style="font-size:11px; color:var(--wood-dark); margin-bottom:6px; font-weight:bold;">🦁 내 펫 (출전 선택):</div>
   `;
 
+  // 펫 카드 (개별 전적 포함)
   owned.forEach(([key, count]) => {
     const def = PETS[key];
     const tierColor = PET_TIER_COLORS[def.tier] || '#999';
+    const stats = allStats[key] || { wins: 0, losses: 0 };
+    const petMatches = stats.wins + stats.losses;
+    const petWinRate = petMatches > 0 ? ((stats.wins / petMatches) * 100).toFixed(0) : '-';
     html += `
-      <div style="background:linear-gradient(to bottom, #fff, ${tierColor}22); border:2px solid ${tierColor}; border-radius:10px; padding:8px; margin-bottom:6px; display:flex; align-items:center; gap:10px;">
-        <div style="font-size:30px;">${def.emoji}</div>
-        <div style="flex:1;">
-          <div style="font-weight:bold; font-size:13px; color:${tierColor};">${def.name}</div>
-          <div style="font-size:10px; color:var(--wood-dark);">⚔ ${def.power} · ${PET_TIER_NAMES[def.tier]}</div>
+      <div style="background:linear-gradient(to bottom, #fff, ${tierColor}22); border:2px solid ${tierColor}; border-radius:10px; padding:8px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:30px;">${def.emoji}</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold; font-size:13px; color:${tierColor};">${def.name}</div>
+            <div style="font-size:10px; color:var(--wood-dark);">⚔ ${def.power} · ${PET_TIER_NAMES[def.tier]}</div>
+            ${petMatches > 0 ? `
+              <div style="font-size:10px; color:var(--wood-dark); margin-top:2px;">
+                <span style="color:#2e7d32;">${stats.wins}승</span> · 
+                <span style="color:#c62828;">${stats.losses}패</span> · 
+                <span style="color:#1565c0;">${petWinRate}%</span>
+              </div>
+            ` : `<div style="font-size:10px; color:#888; margin-top:2px;">아직 전적 없음</div>`}
+          </div>
+          <button onclick="startPetArenaMatch('${key}')" type="button" style="
+            background: linear-gradient(to bottom, #ef5350, #c62828);
+            color: white; border: 2px solid var(--wood-dark); border-radius: 8px;
+            padding: 6px 12px; font-family: inherit; font-size: 11px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+          ">⚔ 출전!</button>
         </div>
-        <button onclick="startPetArenaMatch('${key}')" type="button" style="
-          background: linear-gradient(to bottom, #ef5350, #c62828);
-          color: white; border: 2px solid var(--wood-dark); border-radius: 8px;
-          padding: 6px 12px; font-family: inherit; font-size: 11px; font-weight: bold;
-          cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
-        ">⚔ 출전!</button>
       </div>
     `;
   });
+
+  // === 펫 랭킹 (전적순) ===
+  const rankedPets = owned
+    .map(([k]) => ({ key: k, ...((allStats[k]) || { wins: 0, losses: 0 }) }))
+    .filter(p => (p.wins + p.losses) > 0)
+    .sort((a, b) => b.wins - a.wins || (b.wins / Math.max(1, b.wins + b.losses)) - (a.wins / Math.max(1, a.wins + a.losses)));
+
+  if (rankedPets.length > 0) {
+    html += `
+      <div style="margin-top:14px; background:linear-gradient(to bottom, #fff3e0, #ffe0b2); border:3px solid #fb8c00; border-radius:10px; padding:10px;">
+        <div style="font-size:13px; font-weight:bold; color:#e65100; margin-bottom:6px; text-align:center;">🏆 내 펫 랭킹 (전적순)</div>
+    `;
+    rankedPets.slice(0, 5).forEach((p, i) => {
+      const def = PETS[p.key];
+      const matches = p.wins + p.losses;
+      const rate = matches > 0 ? ((p.wins / matches) * 100).toFixed(0) : 0;
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+      const tierColor = PET_TIER_COLORS[def.tier] || '#999';
+      html += `
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:${i < rankedPets.slice(0,5).length-1 ? '1px dashed #fb8c00' : 'none'};">
+          <div style="font-size:14px; font-weight:bold; min-width:24px;">${medal}</div>
+          <div style="font-size:20px;">${def.emoji}</div>
+          <div style="flex:1; font-size:11px;">
+            <div style="font-weight:bold; color:${tierColor};">${def.name}</div>
+            <div style="color:var(--wood-dark);">⚔${def.power} · ${p.wins}승 ${p.losses}패 · ${rate}%</div>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
 
   c.innerHTML = html;
 }
@@ -12279,6 +12706,38 @@ function handleCanvasClickFromCanvas(x, y) {
     return;
   }
 
+  // ─── 재배치 모드 ON: 모닥불 / 건물 탭 → 자동으로 이동 모드 진입 ───
+  if (game.relocateMode && !game.visiting) {
+    // 모닥불 탭?
+    if (game.home) {
+      const hx = game.home.x, hy = game.home.y;
+      const dist = Math.sqrt((worldX - hx) ** 2 + (worldY - hy) ** 2);
+      if (dist < 20) {
+        startHomeRelocate();
+        return;
+      }
+    }
+    // 건물 탭?
+    for (const b of game.buildings) {
+      const bx = b.gx * TILE, by = b.gy * TILE;
+      const bw = b.def.size * TILE, bh = b.def.size * TILE;
+      if (worldX >= bx && worldX <= bx + bw && worldY >= by && worldY <= by + bh) {
+        if (b.state === 'complete') {
+          startRelocate(b);
+          return;
+        } else {
+          showToast('건설 중인 건물은 이동할 수 없어요', 'warn');
+          return;
+        }
+      }
+    }
+    // 빈 곳 탭 → 재배치 모드 해제
+    showToast('재배치 모드 해제', '');
+    game.relocateMode = false;
+    rebuildBuildBar();
+    return;
+  }
+
   // ─── 모닥불 클릭 감지 (방문 중이 아닐 때만) ───
   if (game.home && !game.visiting) {
     const hx = game.home.x, hy = game.home.y;
@@ -12326,6 +12785,8 @@ function handleCanvasClickFromCanvas(x, y) {
             `+${result.amount} ${RES_ICONS[result.res]}`,
             RES_COLORS[result.res] || '#fff'
           ));
+          try { checkQuestProgress('harvest'); } catch (e) {}
+          try { checkDailyQuestProgress('daily_harvest'); } catch (e) {}
           checkLevelUp();
           updateHUD();
         }
@@ -13382,6 +13843,7 @@ function tapHarvest() {
   else addRes('stone', 1 * power);
   game.exp += 1;
   if (typeof checkQuestProgress === 'function') checkQuestProgress('tap');
+  if (typeof checkDailyQuestProgress === 'function') checkDailyQuestProgress('daily_tap');
   // 통계
   if (!game.stats) game.stats = {};
   game.stats.tapCount = (game.stats.tapCount || 0) + 1;
@@ -13395,6 +13857,10 @@ function tick(now) {
     let dt = (now - lastTime) / 1000;
     if (dt > 0.25) dt = 0.25;
     lastTime = now;
+
+    // 게임 속도 배수 적용 (1x / 2x / 4x)
+    const speedMult = game.gameSpeed || 1;
+    dt *= speedMult;
 
     // update entities
     for (const b of game.buildings) {
@@ -13742,6 +14208,37 @@ function centerOnHome() {
   game.camX = game.home.x - (cw / game.zoom) / 2;
   game.camY = game.home.y - (ch / game.zoom) / 2;
 }
+
+// === 게임 속도 토글 (1x → 2x → 4x → 1x) ===
+function toggleGameSpeed() {
+  const current = game.gameSpeed || 1;
+  let next;
+  if (current === 1) next = 2;
+  else if (current === 2) next = 4;
+  else next = 1;  // 4 → 1로 순환
+
+  game.gameSpeed = next;
+  const btn = document.getElementById('cam-speed');
+  if (btn) {
+    btn.textContent = `⚡${next}x`;
+    // 시각적 강조
+    if (next === 1) {
+      btn.style.background = 'linear-gradient(to bottom, #ffd54f, #f9a825)';
+      btn.style.color = 'var(--wood-dark)';
+      btn.style.boxShadow = '0 3px 0 var(--wood-dark)';
+    } else if (next === 2) {
+      btn.style.background = 'linear-gradient(to bottom, #ff9800, #e65100)';
+      btn.style.color = 'white';
+      btn.style.boxShadow = '0 3px 0 var(--wood-dark), 0 0 8px #ff9800';
+    } else {
+      btn.style.background = 'linear-gradient(to bottom, #ef5350, #b71c1c)';
+      btn.style.color = 'white';
+      btn.style.boxShadow = '0 3px 0 var(--wood-dark), 0 0 12px #ef5350';
+    }
+  }
+  showToast(`⚡ 게임 속도 ${next}배`, next === 1 ? '' : 'gain');
+}
+window.toggleGameSpeed = toggleGameSpeed;
 
 // ============================================================================
 // SETUP
@@ -14238,6 +14735,7 @@ async function _initImpl() {
   document.getElementById('cam-zoom-out').onclick = () => zoomAtCenter(1 / 1.2);
   document.getElementById('cam-home').onclick = () => centerOnHome();
   document.getElementById('cam-rotate').onclick = () => toggleOrientation();
+  document.getElementById('cam-speed').onclick = () => toggleGameSpeed();
 
   // Battle history button
   document.getElementById('btn-battles').onclick = openBattleHistory;

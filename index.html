@@ -1074,6 +1074,7 @@
     </div>
     <div class="icon-btn" id="btn-shop">🏪<div class="label">상점</div></div>
     <div class="icon-btn" id="btn-pets">🦁<div class="label">펫</div></div>
+    <div class="icon-btn" id="btn-arena" title="펫 투기장">🏟<div class="label">투기장</div></div>
     <div class="icon-btn" id="btn-army">⚔️<div class="label">군대</div></div>
     <div class="icon-btn" id="btn-quests">📜<div class="label">퀘스트</div><div class="badge" id="quests-badge" style="display:none">!</div></div>
     <div class="icon-btn" id="btn-achievements">🏅<div class="label">업적</div><div class="badge" id="achievements-badge" style="display:none">!</div></div>
@@ -1181,6 +1182,14 @@
   </div>
 </div>
 
+<!-- 🏟 펫 투기장 모달 -->
+<div class="modal-bg" id="m-arena">
+  <div class="modal">
+    <div class="modal-header">🏟 펫 투기장 <button class="modal-close" data-close>✕</button></div>
+    <div class="modal-body" id="arena-body"></div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -1197,14 +1206,13 @@
 // 설정 안 하면 자동으로 오프라인 모드로 작동
 // ============================================================================
 const FIREBASE_CONFIG = {
-   apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
+ apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
   authDomain: "wild-age-c82f9.firebaseapp.com",
   databaseURL: "https://wild-age-c82f9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "wild-age-c82f9",
   storageBucket: "wild-age-c82f9.firebasestorage.app",
   messagingSenderId: "347263246630",
   appId: "1:347263246630:web:572eb3e85e0559ae7c21e7"
-
 };
 
 // 온라인 모드 활성화 여부
@@ -1344,9 +1352,25 @@ async function changePassword(nickname, oldPassword, newPassword) {
 }
 window.changePassword = changePassword;
 
-// === 클라우드 세이브 (게임 진행 상황 업로드) ===
-async function uploadCloudSave() {
+// === 클라우드 세이브 (게임 진행 상황 업로드) — 디바운싱 적용 ===
+let _lastCloudUploadAt = 0;
+let _pendingCloudUpload = null;
+async function uploadCloudSave(force) {
   if (!_onlineMode || !game.player) return { ok: false };
+
+  // 디바운싱: 3초 이내 중복 호출 시 무시 (force=true 제외)
+  const now = Date.now();
+  if (!force && (now - _lastCloudUploadAt) < 3000) {
+    // 마지막 호출 대신 지연 실행 예약
+    if (_pendingCloudUpload) clearTimeout(_pendingCloudUpload);
+    _pendingCloudUpload = setTimeout(() => {
+      _pendingCloudUpload = null;
+      uploadCloudSave(true);
+    }, 3000 - (now - _lastCloudUploadAt));
+    return { ok: true, deferred: true };
+  }
+  _lastCloudUploadAt = now;
+
   try {
     // 게임 상태를 직렬화
     const saveData = {
@@ -1375,6 +1399,8 @@ async function uploadCloudSave() {
       warehouseStorage: game.warehouseStorage || {},
       quests: game.quests || [],
       completedQuests: game.completedQuests || [],
+      dailyQuests: game.dailyQuests || [],
+      dailyQuestsDate: game.dailyQuestsDate || '',
       achievements: game.achievements || {},
       stats: game.stats || {},
       home: game.home || null,
@@ -1392,6 +1418,7 @@ async function uploadCloudSave() {
     };
     const ref = _firebaseDB.ref('saves/' + encodeURIComponent(game.player.nickname));
     await ref.set(saveData);
+    console.log(`[Cloud] 업로드 완료 at ${new Date().toLocaleTimeString()}`);
     return { ok: true };
   } catch (e) {
     console.warn('[Firebase] cloud save failed', e);
@@ -7675,8 +7702,47 @@ function loadGame() {
 function hasSave() {
   try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
 }
-function resetGame() {
-  // 완전 초기화: localStorage의 모든 게임 관련 키 삭제 + 닉네임 + 캐시
+async function resetGame() {
+  // 1. 클라우드 데이터도 삭제 (온라인 모드인 경우)
+  const wasOnline = (typeof isOnlineMode === 'function' && isOnlineMode() && game.player && game.player.nickname);
+  const oldNickname = wasOnline ? game.player.nickname : null;
+
+  if (wasOnline && oldNickname) {
+    try {
+      showToast('☁️ 클라우드 데이터 삭제 중...', '');
+      // 디바운싱 보류된 업로드 취소
+      try {
+        if (_pendingCloudUpload) {
+          clearTimeout(_pendingCloudUpload);
+          _pendingCloudUpload = null;
+        }
+        _lastCloudUploadAt = Date.now() + 999999;  // 향후 업로드 차단
+      } catch (e) {}
+      // 클라우드 세이브 삭제
+      await _firebaseDB.ref('saves/' + encodeURIComponent(oldNickname)).remove();
+      // 마을 데이터 삭제
+      await _firebaseDB.ref('villages/' + encodeURIComponent(oldNickname)).remove();
+      // 프로필 삭제
+      await _firebaseDB.ref('players/' + encodeURIComponent(oldNickname)).remove();
+      // 친구 관계 삭제
+      await _firebaseDB.ref('friends/' + encodeURIComponent(oldNickname)).remove();
+      // 받은 친구 요청 삭제
+      await _firebaseDB.ref('friend_requests/' + encodeURIComponent(oldNickname)).remove();
+      // 받은 선물 삭제
+      await _firebaseDB.ref('gifts/' + encodeURIComponent(oldNickname)).remove();
+      // 받은 공격 기록 삭제
+      await _firebaseDB.ref('attacks/' + encodeURIComponent(oldNickname)).remove();
+      // 계정 정보(비밀번호) 삭제 → 같은 닉네임 재사용 가능
+      await _firebaseDB.ref('accounts/' + encodeURIComponent(oldNickname)).remove();
+      // 옛 nicknames 시스템 흔적도 정리
+      await _firebaseDB.ref('nicknames/' + encodeURIComponent(oldNickname)).remove();
+      console.log('[Reset] 클라우드 데이터 삭제 완료: ' + oldNickname);
+    } catch (e) {
+      console.warn('[Reset] 클라우드 삭제 실패', e);
+    }
+  }
+
+  // 2. 로컬 데이터 완전 삭제
   try {
     localStorage.removeItem(SAVE_KEY);
     // 혹시 다른 키도 있으면 전부 청소 (게임 관련만)
@@ -7688,13 +7754,21 @@ function resetGame() {
       }
     }
     keysToRemove.forEach(k => localStorage.removeItem(k));
+    // 자동 로그인 정보도 명시적으로 삭제
+    localStorage.removeItem('wildage_logged_in_as');
+    localStorage.removeItem('wildage_device_id');
   } catch (e) { console.warn('localStorage cleanup failed', e); }
-  // 메모리 상태도 즉시 리셋해서 자동저장이 일어나지 않게
+
+  // 3. 메모리 상태도 즉시 리셋해서 자동저장이 일어나지 않게
   game.player = { nickname: null, code: null, createdAt: null };
   game.settings.autoSave = false; // unload 핸들러가 다시 저장하는 걸 방지
-  // 강제 새로고침
-  location.reload();
+
+  showToast('✅ 초기화 완료! 새로고침 중...', 'gain');
+
+  // 4. 강제 새로고침
+  setTimeout(() => location.reload(), 500);
 }
+window.resetGame = resetGame;
 
 // ============================================================================
 // UI HELPERS
@@ -8224,7 +8298,9 @@ async function manualCloudSave() {
     return;
   }
   showToast('☁️ 클라우드에 동기화 중...', '');
-  const result = await uploadCloudSave();
+  // 먼저 로컬도 저장
+  try { saveGame(); } catch (e) {}
+  const result = await uploadCloudSave(true);  // force=true (디바운싱 무시)
   if (result && result.ok) {
     showToast('✅ 클라우드 동기화 완료!', 'gain');
   } else {
@@ -8243,7 +8319,7 @@ function logoutAccount() {
       if (isOnlineMode && isOnlineMode()) {
         try {
           showToast('☁️ 마지막 저장 중...', '');
-          await uploadCloudSave();
+          await uploadCloudSave(true);  // force
         } catch (e) {}
       }
       // 자동 로그인 정보 제거
@@ -8341,12 +8417,17 @@ function openChangePassword() {
 }
 window.openChangePassword = openChangePassword;
 function confirmReset() {
+  const isOnline = (typeof isOnlineMode === 'function' && isOnlineMode());
+  const msg = isOnline
+    ? '⚠️ 모든 진행 상황이 삭제됩니다!\n\n• 닉네임, 비밀번호\n• 레벨, 자원, 펫, 건물\n• 친구, 업적, 퀘스트\n• ☁️ 클라우드 데이터도 함께 삭제\n\n이 작업은 되돌릴 수 없어요.\n정말 진행할까요?'
+    : '⚠️ 모든 진행 상황이 삭제됩니다!\n\n• 닉네임, 레벨, 자원\n• 펫, 건물, 친구\n• 업적, 퀘스트\n\n이 작업은 되돌릴 수 없어요.\n정말 진행할까요?';
   showConfirmDialog(
-    '⚠ 초기화',
-    '정말 모든 진행 상황을 삭제하시겠습니까?\n닉네임, 펫, 건물, 친구 모두 초기화됩니다.\n이 작업은 되돌릴 수 없어요.',
+    '⚠ 완전 초기화',
+    msg,
     () => resetGame()
   );
 }
+window.confirmReset = confirmReset;
 
 // ============================================================================
 // CHEAT / DEV MODE
@@ -9819,11 +9900,12 @@ function renderRankingTab(container) {
           </div>
         </div>
         <button onclick="claimRankingReward()" type="button" ${!canClaim ? 'disabled' : ''} style="
-          margin-top:8px; background:linear-gradient(to bottom, ${canClaim?'#66bb6a, #2e7d32':'#bdbdbd, #757575'});
-          color:white; border:3px solid var(--wood-dark); border-radius:10px;
+          margin-top:8px; background:linear-gradient(to bottom, ${canClaim?'#ffeb3b, #f57f17':'#bdbdbd, #757575'});
+          color:${canClaim?'var(--wood-dark)':'white'}; border:3px solid var(--wood-dark); border-radius:10px;
           padding:10px 28px; font-family:inherit; font-size:14px; font-weight:bold;
           cursor:${canClaim?'pointer':'not-allowed'}; box-shadow:0 3px 0 var(--wood-dark);
-        ">${canClaim ? '🎁 일일 랭킹 보상 받기' : `⏳ ${cooldownLeft}시간 후 가능`}</button>
+          ${canClaim ? 'animation: pulse 1.2s infinite;' : ''}
+        ">${canClaim ? '🎁 보상 한번에 받기 (자원+칭호+보너스)' : `⏳ ${cooldownLeft}시간 후 가능`}</button>
       ` : `
         <div style="margin-top:8px; font-size:11px; color:var(--wood-dark);">10등 이내 진입 시 보상을 받을 수 있어요!</div>
       `}
@@ -10135,11 +10217,19 @@ function renderFriendsTab(tab) {
     });
     // suggested list — randomly picked names not yet added
     const suggList = c.querySelector('#suggested-list');
-    const pool = ['점박이','천화','소년시대','림','쿨한늑대','샤넬로즈','깜박이','전승이','디아','율본산장','돌도끼맨','불의여왕','슈팅퀘이서','CAD노가다','사자','Sad doll'];
+    const pool = [
+      // 기존 16개
+      '점박이','천화','소년시대','쿨한늑대','샤넬로즈','깜박이','전승이','디아','율본산장','돌도끼맨','불의여왕','슈팅퀘이서','CAD노가다','사자왕','Sad doll','림네스',
+      // 신규 20개 (한국식 + 영문 닉네임, 모두 2글자 이상)
+      '회오리감자','쥬얼리나','블루베어','태풍맨','구름달리기','용암군주','은하수','지존검객','달빛소녀','폭풍의눈',
+      'PixelKing','FrostByte','NeonHunter','SilverWolf','CrimsonAce','DarkRaven','EpicFalcon','ShadowFox','QuickArrow','MysticOwl'
+    ];
     const available = pool.filter(n =>
       !game.friends.find(f => f.nickname === n) && n !== game.player.nickname
     );
-    available.slice(0, 6).forEach(name => {
+    // 매번 다른 순서 (셔플)
+    const shuffled = [...available].sort(() => Math.random() - 0.5);
+    shuffled.slice(0, 8).forEach(name => {
       const div = document.createElement('div');
       div.style.cssText = `background: linear-gradient(to bottom, #fff, var(--parchment-dark));
         border: 2px solid var(--wood-dark); border-radius: 10px;
@@ -10203,8 +10293,86 @@ function renderFriendsTab(tab) {
     `;
     return;
   }
-  c.innerHTML = '';
-  for (const f of game.friends) {
+
+  // 새로고침 + 정렬 버튼 (상단)
+  const online = typeof isOnlineMode === 'function' && isOnlineMode();
+  const refreshBar = document.createElement('div');
+  refreshBar.style.cssText = `
+    display: flex; gap: 6px; margin-bottom: 10px;
+    background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
+    border: 2px solid var(--wood); border-radius: 8px; padding: 6px;
+  `;
+  refreshBar.innerHTML = `
+    <button id="friends-refresh-btn" type="button" style="
+      flex: 1;
+      background: linear-gradient(to bottom, #42a5f5, #1565c0);
+      color: white; border: 2px solid var(--wood-dark); border-radius: 6px;
+      padding: 8px; font-family: inherit; font-weight: bold; font-size: 12px;
+      cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+    ">🔄 친구 정보 새로고침</button>
+    <button id="friends-sort-btn" type="button" style="
+      background: linear-gradient(to bottom, #ab47bc, #6a1b9a);
+      color: white; border: 2px solid var(--wood-dark); border-radius: 6px;
+      padding: 8px 14px; font-family: inherit; font-weight: bold; font-size: 12px;
+      cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+    ">📊 정렬</button>
+  `;
+  c.appendChild(refreshBar);
+
+  // 정렬 적용
+  let friendList = [...game.friends];
+  const sortMode = game._friendSortMode || 'level';
+  if (sortMode === 'level') {
+    friendList.sort((a, b) => (b.level || 0) - (a.level || 0));
+  } else if (sortMode === 'power') {
+    friendList.sort((a, b) => (b.power || 0) - (a.power || 0));
+  } else if (sortMode === 'name') {
+    friendList.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || ''));
+  }
+
+  // 새로고침 핸들러
+  refreshBar.querySelector('#friends-refresh-btn').onclick = async () => {
+    const btn = refreshBar.querySelector('#friends-refresh-btn');
+    btn.disabled = true;
+    btn.textContent = '🔄 새로고침 중...';
+    showToast('🔄 친구 정보 동기화 중...', '');
+    if (online) {
+      // 온라인 친구들의 최신 정보 가져오기
+      try {
+        for (const f of game.friends) {
+          if (f.isOnline) {
+            const profile = await searchPlayer(f.nickname);
+            if (profile) {
+              f.level = profile.level || f.level;
+              f.power = profile.power || f.power;
+              f.avatar = profile.avatar || f.avatar;
+              f.petCount = profile.petCount || f.petCount;
+            }
+          }
+        }
+        showToast('✅ 친구 정보 업데이트 완료!', 'gain');
+      } catch (e) {
+        showToast('❌ 새로고침 실패', 'warn');
+      }
+    } else {
+      showToast('📴 오프라인 모드 (로컬 정보 표시)', '');
+    }
+    btn.disabled = false;
+    btn.textContent = '🔄 친구 정보 새로고침';
+    renderFriendsTab('list');
+  };
+
+  // 정렬 핸들러
+  refreshBar.querySelector('#friends-sort-btn').onclick = () => {
+    const modes = ['level', 'power', 'name'];
+    const cur = modes.indexOf(game._friendSortMode || 'level');
+    game._friendSortMode = modes[(cur + 1) % modes.length];
+    const labels = { level: '레벨순', power: '전투력순', name: '이름순' };
+    showToast(`📊 ${labels[game._friendSortMode]}`, '');
+    renderFriendsTab('list');
+  };
+
+  for (const f of friendList) {
     const card = document.createElement('div');
     card.className = 'friend-card' + (f.conquered ? ' conquered' : '');
     const hasGift = f.giftClaimed === false;
@@ -12033,22 +12201,376 @@ function renderPetArenaTab(c) {
 }
 window.renderPetArenaTab = renderPetArenaTab;
 
+// === 🏟 독립 투기장 모달 ===
+function openArena() {
+  const modal = document.getElementById('m-arena');
+  if (!modal) return;
+  modal.classList.add('show');
+  renderArenaModal();
+}
+window.openArena = openArena;
+
+function renderArenaModal() {
+  const body = document.getElementById('arena-body');
+  if (!body) return;
+  const owned = Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
+
+  // 전체 전적
+  const allStats = game.petArenaStats || {};
+  let totalWins = 0, totalLosses = 0;
+  for (const k in allStats) {
+    totalWins += (allStats[k].wins || 0);
+    totalLosses += (allStats[k].losses || 0);
+  }
+  const totalMatches = totalWins + totalLosses;
+  const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : '0.0';
+
+  // 전체 펫 전투력
+  let totalPower = 0;
+  owned.forEach(([k]) => totalPower += PETS[k].power || 0);
+
+  // 등급
+  let rankBadge = '🥉 신참';
+  let rankColor = '#a1887f';
+  if (totalWins >= 100) { rankBadge = '👑 챔피언'; rankColor = '#ffd700'; }
+  else if (totalWins >= 50) { rankBadge = '🏆 마스터'; rankColor = '#e91e63'; }
+  else if (totalWins >= 20) { rankBadge = '⚔ 베테랑'; rankColor = '#f57c00'; }
+  else if (totalWins >= 10) { rankBadge = '🛡 도전자'; rankColor = '#1565c0'; }
+  else if (totalWins >= 5) { rankBadge = '⚡ 견습'; rankColor = '#2e7d32'; }
+
+  // 친구 마을 펫 풀
+  const friendPool = getFriendPetPool();
+
+  if (owned.length === 0) {
+    body.innerHTML = `
+      <div style="text-align:center; padding:30px; color:var(--wood-dark);">
+        <div style="font-size:48px;">⚔</div>
+        <div style="font-size:14px; margin-top:12px;">투기장에 출전할 펫이 없어요</div>
+        <div style="font-size:11px; margin-top:6px;">제단에서 펫을 소환하세요!</div>
+      </div>
+    `;
+    return;
+  }
+
+  // === 상단 패널: 전적 + 등급 ===
+  let html = `
+    <div style="background:linear-gradient(135deg, #5d4037, #3e2723); border:3px solid ${rankColor}; border-radius:12px; padding:14px; margin-bottom:10px; color:white; box-shadow: 0 0 12px ${rankColor}55;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <div>
+          <div style="font-size:20px; font-weight:bold; color:${rankColor}; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">${rankBadge}</div>
+          <div style="font-size:11px; color:#ffd54f;">투기장 등급</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:24px; font-weight:bold; color:#ffd54f;">⚔ ${totalPower.toLocaleString()}</div>
+          <div style="font-size:10px; color:#fff8e1;">총 전투력</div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; padding-top:10px; border-top:1px dashed rgba(255,213,79,0.4);">
+        <div style="text-align:center;">
+          <div style="font-size:20px; font-weight:bold; color:#66bb6a;">${totalWins}</div>
+          <div style="font-size:10px; color:#a5d6a7;">승</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:20px; font-weight:bold; color:#ef5350;">${totalLosses}</div>
+          <div style="font-size:10px; color:#ef9a9a;">패</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:20px; font-weight:bold; color:#42a5f5;">${winRate}%</div>
+          <div style="font-size:10px; color:#90caf9;">승률</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // === 친구 펫 도전 섹션 ===
+  if (friendPool.length > 0) {
+    html += `
+      <div style="background:linear-gradient(to bottom, #fff3e0, #ffe0b2); border:3px solid #fb8c00; border-radius:10px; padding:10px; margin-bottom:10px;">
+        <div style="font-size:13px; font-weight:bold; color:#e65100; margin-bottom:8px; text-align:center;">⚔ 친구 마을 펫에게 도전!</div>
+        <div style="font-size:10px; color:var(--wood-dark); text-align:center; margin-bottom:8px;">상대 펫을 선택하고 내 펫으로 도전하세요!</div>
+        <div id="enemy-pet-list" style="max-height:200px; overflow-y:auto;"></div>
+      </div>
+    `;
+  }
+
+  // === 내 펫 리스트 (자동 매칭용) ===
+  html += `<div style="font-size:12px; font-weight:bold; color:var(--wood-dark); margin-top:10px; margin-bottom:6px;">🦁 내 펫 (자동 매칭):</div>`;
+
+  owned.forEach(([key, count]) => {
+    const def = PETS[key];
+    const tierColor = PET_TIER_COLORS[def.tier] || '#999';
+    const stats = allStats[key] || { wins: 0, losses: 0 };
+    const petMatches = stats.wins + stats.losses;
+    const petWinRate = petMatches > 0 ? ((stats.wins / petMatches) * 100).toFixed(0) : '-';
+    html += `
+      <div style="background:linear-gradient(to bottom, #fff, ${tierColor}22); border:2px solid ${tierColor}; border-radius:8px; padding:6px 8px; margin-bottom:5px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:28px;">${def.emoji}</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold; font-size:12px; color:${tierColor};">${def.name}</div>
+            <div style="font-size:10px; color:var(--wood-dark);">⚔ ${def.power}${petMatches > 0 ? ` · ${stats.wins}승/${stats.losses}패 · ${petWinRate}%` : ''}</div>
+          </div>
+          <button onclick="startPetArenaMatch('${key}')" type="button" style="
+            background: linear-gradient(to bottom, #ef5350, #c62828);
+            color: white; border: 2px solid var(--wood-dark); border-radius: 6px;
+            padding: 5px 10px; font-family: inherit; font-size: 10px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+          ">⚡ 자동</button>
+        </div>
+      </div>
+    `;
+  });
+
+  // === 펫 랭킹 (TOP 10) ===
+  const rankedPets = owned
+    .map(([k]) => ({ key: k, ...((allStats[k]) || { wins: 0, losses: 0 }) }))
+    .filter(p => (p.wins + p.losses) > 0)
+    .sort((a, b) => b.wins - a.wins);
+
+  if (rankedPets.length > 0) {
+    html += `
+      <div style="margin-top:12px; background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px;">
+        <div style="font-size:13px; font-weight:bold; color:#bf8b00; margin-bottom:6px; text-align:center;">🏆 내 펫 랭킹 (승수)</div>
+    `;
+    rankedPets.slice(0, 10).forEach((p, i) => {
+      const def = PETS[p.key];
+      const matches = p.wins + p.losses;
+      const rate = matches > 0 ? ((p.wins / matches) * 100).toFixed(0) : 0;
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+      const tierColor = PET_TIER_COLORS[def.tier] || '#999';
+      html += `
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:${i < rankedPets.slice(0,10).length-1 ? '1px dashed #fb8c00' : 'none'};">
+          <div style="font-size:14px; font-weight:bold; min-width:24px;">${medal}</div>
+          <div style="font-size:20px;">${def.emoji}</div>
+          <div style="flex:1; font-size:11px;">
+            <div style="font-weight:bold; color:${tierColor};">${def.name}</div>
+            <div style="color:var(--wood-dark);">⚔${def.power} · ${p.wins}승 ${p.losses}패 · ${rate}%</div>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+
+  // === 친구 펫 도전 리스트 렌더 ===
+  const enemyList = body.querySelector('#enemy-pet-list');
+  if (enemyList && friendPool.length > 0) {
+    // 비슷한 전투력의 펫만 보여주기 (또는 모두 보여주기)
+    // 펫별로 정렬: tier (낮은 순) → power
+    const sorted = [...friendPool].sort((a, b) => (PETS[a.petKey].power || 0) - (PETS[b.petKey].power || 0));
+    sorted.slice(0, 20).forEach(enemy => {
+      const enemyDef = PETS[enemy.petKey];
+      if (!enemyDef) return;
+      const tierColor = PET_TIER_COLORS[enemyDef.tier] || '#999';
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background: linear-gradient(to bottom, #fff, ${tierColor}22);
+        border: 2px solid ${tierColor};
+        border-radius: 8px; padding: 6px 8px; margin-bottom: 5px;
+      `;
+      // 내 펫 선택 드롭다운 (간단히 클릭 시 비슷한 power의 내 펫으로 매칭)
+      card.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:28px;">${enemyDef.emoji}</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold; font-size:12px; color:${tierColor};">${enemyDef.name}</div>
+            <div style="font-size:10px; color:var(--wood-dark);">⚔ ${enemyDef.power} · ${enemy.friendAvatar} ${enemy.friendName}</div>
+          </div>
+          <button class="enemy-fight-btn" data-pet="${enemy.petKey}" data-friend="${enemy.friendName}" data-avatar="${enemy.friendAvatar}" type="button" style="
+            background: linear-gradient(to bottom, #ffa726, #ef6c00);
+            color: white; border: 2px solid var(--wood-dark); border-radius: 6px;
+            padding: 5px 10px; font-family: inherit; font-size: 10px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+          ">⚔ 도전</button>
+        </div>
+      `;
+      enemyList.appendChild(card);
+    });
+
+    // 도전 버튼 핸들러
+    enemyList.querySelectorAll('.enemy-fight-btn').forEach(btn => {
+      btn.onclick = () => {
+        const enemyPetKey = btn.dataset.pet;
+        const friendName = btn.dataset.friend;
+        const friendAvatar = btn.dataset.avatar;
+        chooseMyPetForBattle(enemyPetKey, friendName, friendAvatar);
+      };
+    });
+  }
+}
+window.renderArenaModal = renderArenaModal;
+
+// === 상대 펫 선택 후 내 펫 선택 모달 ===
+function chooseMyPetForBattle(enemyPetKey, friendName, friendAvatar) {
+  const owned = Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
+  if (owned.length === 0) {
+    showToast('출전할 펫이 없어요', 'warn');
+    return;
+  }
+  const enemyDef = PETS[enemyPetKey];
+  if (!enemyDef) return;
+
+  // 동적 모달
+  const existing = document.getElementById('pet-pick-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'pet-pick-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  `;
+
+  const enemyTierColor = PET_TIER_COLORS[enemyDef.tier] || '#999';
+  let listHTML = '';
+  // 추천 (비슷한 power 우선)
+  const sortedOwned = [...owned].sort((a, b) => {
+    const da = Math.abs((PETS[a[0]].power || 0) - enemyDef.power);
+    const db = Math.abs((PETS[b[0]].power || 0) - enemyDef.power);
+    return da - db;
+  });
+  sortedOwned.forEach(([k]) => {
+    const def = PETS[k];
+    const tierColor = PET_TIER_COLORS[def.tier] || '#999';
+    const advantage = def.power - enemyDef.power;
+    const advLabel = advantage >= 0
+      ? `<span style="color:#2e7d32;">+${advantage}</span>`
+      : `<span style="color:#c62828;">${advantage}</span>`;
+    listHTML += `
+      <div data-pet="${k}" class="my-pet-pick" style="
+        background:linear-gradient(to bottom, #fff, ${tierColor}22);
+        border:2px solid ${tierColor}; border-radius:8px;
+        padding:8px; margin-bottom:6px; cursor:pointer;
+        display:flex; align-items:center; gap:10px;
+      ">
+        <div style="font-size:28px;">${def.emoji}</div>
+        <div style="flex:1;">
+          <div style="font-weight:bold; font-size:13px; color:${tierColor};">${def.name}</div>
+          <div style="font-size:10px; color:var(--wood-dark);">⚔ ${def.power} (${advLabel} 차이)</div>
+        </div>
+        <button style="
+          background: linear-gradient(to bottom, #ef5350, #c62828);
+          color: white; border: 2px solid var(--wood-dark); border-radius: 6px;
+          padding: 6px 12px; font-family: inherit; font-size: 11px; font-weight: bold;
+          cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark); pointer-events:none;
+        ">⚔ 출전</button>
+      </div>
+    `;
+  });
+
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(to bottom, #f5e6c8, #e0c896);
+      border: 5px solid #3e2723;
+      border-radius: 18px;
+      padding: 20px;
+      max-width: 380px; width: 100%;
+      max-height: 80vh; display:flex; flex-direction:column;
+    ">
+      <div style="text-align:center; margin-bottom:12px;">
+        <div style="font-size:14px; font-weight:bold; color:#3e2723;">VS</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:6px;">
+          <div style="font-size:36px;">${enemyDef.emoji}</div>
+          <div style="text-align:left;">
+            <div style="font-weight:bold; color:${enemyTierColor};">${enemyDef.name}</div>
+            <div style="font-size:11px; color:var(--wood-dark);">⚔ ${enemyDef.power} · ${friendAvatar} ${friendName}</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px; color:var(--wood-dark); text-align:center; margin-bottom:10px;">⚡ 출전할 내 펫 선택:</div>
+      <div style="flex:1; overflow-y:auto; max-height:50vh;">
+        ${listHTML}
+      </div>
+      <button id="pet-pick-cancel" type="button" style="
+        margin-top: 10px;
+        background: linear-gradient(to bottom, #90a4ae, #455a64);
+        color:white; border: 2px solid #3e2723; border-radius: 8px;
+        padding: 8px; font-family: inherit; font-weight: bold;
+        cursor: pointer; box-shadow: 0 2px 0 #3e2723;
+      ">취소</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // 핸들러
+  modal.querySelectorAll('.my-pet-pick').forEach(div => {
+    div.onclick = () => {
+      const myKey = div.dataset.pet;
+      modal.remove();
+      startPetArenaMatch(myKey, { petKey: enemyPetKey, friendName, friendAvatar });
+    };
+  });
+  document.getElementById('pet-pick-cancel').onclick = () => modal.remove();
+}
+window.chooseMyPetForBattle = chooseMyPetForBattle;
+
 // 펫 투기장 매치 시작
-function startPetArenaMatch(myPetKey) {
+// === 친구 마을 펫 풀 생성 ===
+function getFriendPetPool() {
+  const pool = [];
+  for (const f of (game.friends || [])) {
+    try {
+      // 친구 마을 펫 정보 — buildFriendVillage 결과의 pets 사용
+      const village = buildFriendVillage(f.nickname, f.code);
+      if (village && village.pets) {
+        for (const petKey in village.pets) {
+          if (PETS[petKey] && village.pets[petKey] > 0) {
+            pool.push({
+              petKey,
+              friendName: f.nickname,
+              friendLevel: f.level || 1,
+              friendAvatar: f.avatar || '⛺',
+            });
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return pool;
+}
+
+// === 자동 도전 (랜덤 상대) ===
+function startPetArenaMatch(myPetKey, enemyInfo) {
   const myDef = PETS[myPetKey];
   if (!myDef) return;
 
-  // 도전 상대 선택: 비슷한 power의 랜덤 펫
-  const allPets = Object.keys(PETS);
-  const candidates = allPets.filter(k => {
-    const p = PETS[k].power;
-    return p >= myDef.power * 0.7 && p <= myDef.power * 1.4 && k !== myPetKey;
-  });
-  if (candidates.length === 0) {
-    showToast('비슷한 상대가 없어요', 'warn');
-    return;
+  // 도전 상대: 명시적 입력이 있으면 그걸 사용, 없으면 친구 마을 펫 중 랜덤
+  let enemyKey, enemyFriendName, enemyFriendAvatar;
+  if (enemyInfo && enemyInfo.petKey) {
+    enemyKey = enemyInfo.petKey;
+    enemyFriendName = enemyInfo.friendName;
+    enemyFriendAvatar = enemyInfo.friendAvatar;
+  } else {
+    // 친구 마을 펫 풀에서 비슷한 전투력으로 매칭
+    const pool = getFriendPetPool();
+    let filtered = pool.filter(p => {
+      const pp = PETS[p.petKey].power;
+      return pp >= myDef.power * 0.7 && pp <= myDef.power * 1.4 && p.petKey !== myPetKey;
+    });
+    if (filtered.length === 0) filtered = pool.filter(p => p.petKey !== myPetKey);
+    if (filtered.length === 0) {
+      // 친구 없음 → 같은 등급 다른 펫과 매칭
+      const same = Object.keys(PETS).filter(k => PETS[k].tier === myDef.tier && k !== myPetKey);
+      if (same.length > 0) {
+        enemyKey = same[Math.floor(Math.random() * same.length)];
+        enemyFriendName = '야생';
+        enemyFriendAvatar = '🌲';
+      } else {
+        showToast('비슷한 상대가 없어요', 'warn');
+        return;
+      }
+    } else {
+      const sel = filtered[Math.floor(Math.random() * filtered.length)];
+      enemyKey = sel.petKey;
+      enemyFriendName = sel.friendName;
+      enemyFriendAvatar = sel.friendAvatar;
+    }
   }
-  const enemyKey = candidates[Math.floor(Math.random() * candidates.length)];
+
   const enemyDef = PETS[enemyKey];
 
   // 결과 결정: 전투력 + 약간의 랜덤성
@@ -12067,16 +12589,17 @@ function startPetArenaMatch(myPetKey) {
     addRes('gold', 50);
     game.exp = (game.exp || 0) + 10;
     try { checkLevelUp(); } catch (e) {}
+    try { checkDailyQuestProgress('daily_arena', 1); } catch (e) {}
   } else {
     addRes('gold', 10);
   }
 
   // 결과 모달 표시 (독립 모달)
-  showPetArenaResult(myPetKey, enemyKey, won, myFinalPower, enemyFinalPower);
+  showPetArenaResult(myPetKey, enemyKey, won, myFinalPower, enemyFinalPower, enemyFriendName, enemyFriendAvatar);
 }
 window.startPetArenaMatch = startPetArenaMatch;
 
-function showPetArenaResult(myKey, enemyKey, won, myP, enemyP) {
+function showPetArenaResult(myKey, enemyKey, won, myP, enemyP, enemyFriendName, enemyFriendAvatar) {
   const myDef = PETS[myKey];
   const enemyDef = PETS[enemyKey];
   const myTier = PET_TIER_COLORS[myDef.tier];
@@ -12129,6 +12652,7 @@ function showPetArenaResult(myKey, enemyKey, won, myP, enemyP) {
           ">${enemyDef.emoji}</div>
           <div style="font-size:11px; margin-top:4px; font-weight:bold;">${enemyDef.name}</div>
           <div style="font-size:10px; color:var(--wood-dark);">⚔ ${Math.floor(enemyP)}</div>
+          ${enemyFriendName ? `<div style="font-size:10px; color:var(--gold); margin-top:2px; font-weight:bold;">${enemyFriendAvatar || '⛺'} ${enemyFriendName}</div>` : ''}
         </div>
       </div>
       <div style="font-size:13px; color:var(--wood-dark);">${won ? '💰 +50 + ✨ 경험치 +10' : '💰 +10 (위로금)'}</div>
@@ -12147,9 +12671,11 @@ function showPetArenaResult(myKey, enemyKey, won, myP, enemyP) {
   const close = () => {
     const m = document.getElementById('pet-arena-result');
     if (m) m.remove();
-    // 투기장 탭 갱신
-    if (document.getElementById('m-pets').classList.contains('show')) {
-      renderPetCatalogTab('arena');
+    // 투기장 모달이나 펫 모달 갱신
+    if (document.getElementById('m-arena') && document.getElementById('m-arena').classList.contains('show')) {
+      try { renderArenaModal(); } catch (e) {}
+    } else if (document.getElementById('m-pets').classList.contains('show')) {
+      try { renderPetCatalogTab('arena'); } catch (e) {}
     }
   };
   const closeBtn = document.getElementById('pet-arena-close');
@@ -13276,7 +13802,7 @@ function confirmHomeRelocate(worldX, worldY) {
   // 즉시 저장
   try { saveGame(); } catch (e) {}
   if (typeof isOnlineMode === 'function' && isOnlineMode()) {
-    try { uploadCloudSave(); } catch (e) {}
+    try { uploadCloudSave(true); } catch (e) {}
   }
 }
 window.confirmHomeRelocate = confirmHomeRelocate;
@@ -13416,7 +13942,7 @@ function finishBuildingDrag() {
     // 즉시 저장
     try { saveGame(); } catch (e) {}
     if (typeof isOnlineMode === 'function' && isOnlineMode()) {
-      try { uploadCloudSave(); } catch (e) {}
+      try { uploadCloudSave(true); } catch (e) {}
       try { uploadMyVillage(); } catch (e) {}
     }
   }
@@ -13512,7 +14038,7 @@ function confirmRelocate(gx, gy) {
   try { saveGame(); } catch (e) {}
   // 온라인 모드 즉시 동기화
   if (typeof isOnlineMode === 'function' && isOnlineMode()) {
-    try { uploadCloudSave(); } catch (e) {}
+    try { uploadCloudSave(true); } catch (e) {}
     try { uploadMyVillage(); } catch (e) {}
   }
 }
@@ -13972,12 +14498,15 @@ function tick(now) {
   if (game.settings.autoSave && game.saveTimer > 10) {
     game.saveTimer = 0;
     saveGame();
-    // 온라인 모드면 프로필도 클라우드에 동기화
-    if (typeof isOnlineMode === 'function' && isOnlineMode()) {
-      try { uploadPlayerProfile(); } catch (e) {}
-      try { uploadMyVillage(); } catch (e) {}
-      try { uploadCloudSave(); } catch (e) {}  // 클라우드 세이브
-    }
+  }
+
+  // 클라우드 동기화는 30초마다 (충돌 방지)
+  game.cloudSyncTimer = (game.cloudSyncTimer || 0) + dt;
+  if (game.cloudSyncTimer > 30 && typeof isOnlineMode === 'function' && isOnlineMode()) {
+    game.cloudSyncTimer = 0;
+    try { uploadPlayerProfile(); } catch (e) {}
+    try { uploadMyVillage(); } catch (e) {}
+    try { uploadCloudSave(true); } catch (e) {}
   }
 
   // Auto-harvest: every 2 seconds, sweep ready_to_harvest buildings
@@ -14755,6 +15284,8 @@ async function _initImpl() {
     if (game.settings.autoHarvest) autoHarvestSweep(); // immediate
   };
   document.getElementById('btn-pets').onclick = openPetDex;
+  const btnArena = document.getElementById('btn-arena');
+  if (btnArena) btnArena.onclick = openArena;
   document.getElementById('btn-army').onclick = openArmyPanel;
   document.getElementById('btn-quests').onclick = openQuestPanel;
   document.getElementById('btn-achievements').onclick = openAchievements;
@@ -14818,7 +15349,53 @@ async function _initImpl() {
         // 자동 로그인 확인 (이전에 로그인했던 닉네임)
         const autoLoginNick = localStorage.getItem('wildage_logged_in_as');
         if (autoLoginNick && autoLoginNick === d.player.nickname) {
-          continueGame();
+          // === 클라우드 vs 로컬 비교 후 더 최신 것 사용 ===
+          if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+            // 로딩 토스트 표시
+            const fb = document.getElementById('loading-fallback');
+            if (fb) {
+              const txt = fb.querySelector('div:nth-child(2)');
+              if (txt) txt.textContent = '☁️ 클라우드 확인 중...';
+            }
+            // 비동기로 클라우드 가져오기
+            (async () => {
+              try {
+                const cloudSave = await fetchCloudSave(d.player.nickname);
+                const localTime = d.savedAt || 0;
+                const cloudTime = (cloudSave && cloudSave.uploadedAt) || 0;
+                if (cloudSave && cloudTime > localTime + 5000) {
+                  // 클라우드가 5초 이상 최신 → 클라우드 사용
+                  console.log(`[Sync] 클라우드가 최신 (cloud: ${new Date(cloudTime).toLocaleTimeString()}, local: ${new Date(localTime).toLocaleTimeString()})`);
+                  // 1) 일단 빈 게임 시작
+                  continueGame();
+                  // 2) 곧바로 클라우드 데이터 적용
+                  setTimeout(() => {
+                    if (applyCloudSave(cloudSave)) {
+                      try { recomputePower(); } catch (e) {}
+                      try { recomputeTotems(); } catch (e) {}
+                      try { rebuildPetCompanions(); } catch (e) {}
+                      try { rebuildBuildBar(); } catch (e) {}
+                      try { updateHUD(); } catch (e) {}
+                      try { updateOccupiedUI(); } catch (e) {}
+                      const ageSec = Math.floor((Date.now() - cloudTime) / 1000);
+                      const ageStr = ageSec < 60 ? `${ageSec}초 전` : ageSec < 3600 ? `${Math.floor(ageSec/60)}분 전` : `${Math.floor(ageSec/3600)}시간 전`;
+                      showToast(`☁️ 더 최신 클라우드 데이터 복구! (${ageStr})`, 'gain');
+                    }
+                  }, 500);
+                } else {
+                  // 로컬이 최신 또는 동일 → 로컬 사용
+                  console.log('[Sync] 로컬이 최신이거나 같음');
+                  continueGame();
+                }
+              } catch (err) {
+                console.warn('[Sync] 클라우드 확인 실패, 로컬 사용', err);
+                continueGame();
+              }
+            })();
+          } else {
+            // 오프라인 모드 → 그냥 로컬 로드
+            continueGame();
+          }
         } else {
           // 자동 로그인 정보 없음 → 닉네임 화면
           showNicknameScreen(() => continueGame());
@@ -14852,9 +15429,19 @@ async function _initImpl() {
 
   // page-hidden save
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && game.settings.autoSave) saveGame();
+    if (document.hidden && game.settings.autoSave) {
+      saveGame();
+      if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+        try { uploadCloudSave(true); } catch (e) {}  // force
+      }
+    }
   });
-  window.addEventListener('beforeunload', () => { if (game.settings.autoSave) saveGame(); });
+  window.addEventListener('beforeunload', () => {
+    if (game.settings.autoSave) saveGame();
+    if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try { uploadCloudSave(true); } catch (e) {}  // force, 마지막 동기화
+    }
+  });
 }
 
 function showNicknameScreen(onDone) {

@@ -1075,6 +1075,7 @@
     <div class="icon-btn" id="btn-shop">🏪<div class="label">상점</div></div>
     <div class="icon-btn" id="btn-pets">🦁<div class="label">펫</div></div>
     <div class="icon-btn" id="btn-arena" title="펫 투기장">🏟<div class="label">투기장</div></div>
+    <div class="icon-btn" id="btn-dungeon" title="던전 탐험">🗝<div class="label">던전</div></div>
     <div class="icon-btn" id="btn-army">⚔️<div class="label">군대</div></div>
     <div class="icon-btn" id="btn-quests">📜<div class="label">퀘스트</div><div class="badge" id="quests-badge" style="display:none">!</div></div>
     <div class="icon-btn" id="btn-achievements">🏅<div class="label">업적</div><div class="badge" id="achievements-badge" style="display:none">!</div></div>
@@ -1168,6 +1169,14 @@
   </div>
 </div>
 
+<!-- 🛡 운영자 대시보드 모달 -->
+<div class="modal-bg" id="m-admin">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">🛡 운영자 대시보드 <button class="modal-close" data-close>✕</button></div>
+    <div class="modal-body" id="admin-body"></div>
+  </div>
+</div>
+
 <!-- BATTLE OVERLAY -->
 <div class="battle-overlay" id="battle-overlay">
   <div class="vs" id="battle-vs">⚔ 침략 ⚔</div>
@@ -1190,6 +1199,14 @@
   </div>
 </div>
 
+<!-- 🗝 던전 모달 -->
+<div class="modal-bg" id="m-dungeon">
+  <div class="modal">
+    <div class="modal-header">🗝 던전 탐험 <button class="modal-close" data-close>✕</button></div>
+    <div class="modal-body" id="dungeon-body"></div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -1206,7 +1223,7 @@
 // 설정 안 하면 자동으로 오프라인 모드로 작동
 // ============================================================================
 const FIREBASE_CONFIG = {
- apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
+  apiKey: "AIzaSyDxdElSR5rr_hwYcR0HF9DttM19EaN6954",
   authDomain: "wild-age-c82f9.firebaseapp.com",
   databaseURL: "https://wild-age-c82f9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "wild-age-c82f9",
@@ -1772,6 +1789,188 @@ function startFriendRequestListener() {
   } catch (e) {}
 }
 window.startFriendRequestListener = startFriendRequestListener;
+
+// === 🛡 운영자 선물 시스템 ===
+let _adminGiftListener = null;
+function startAdminGiftListener() {
+  if (!_onlineMode || !game.player) return;
+  if (_adminGiftListener) return;
+  try {
+    const ref = _firebaseDB.ref('admin_gifts/' + encodeURIComponent(game.player.nickname));
+    _adminGiftListener = ref.on('value', (snap) => {
+      const gifts = snap.val() || {};
+      const unclaimed = Object.entries(gifts).filter(([id, g]) => !g.claimed);
+      if (unclaimed.length > 0) {
+        // 가장 최근 선물 자동 알림
+        for (const [id, g] of unclaimed) {
+          showAdminGiftPopup(id, g);
+        }
+      }
+    });
+  } catch (e) {}
+}
+window.startAdminGiftListener = startAdminGiftListener;
+
+function showAdminGiftPopup(giftId, gift) {
+  // 이미 표시 중이면 스킵
+  if (document.getElementById('admin-gift-' + giftId)) return;
+
+  const rewards = gift.rewards || {};
+  const rewardStr = Object.entries(rewards).filter(([k,v]) => v > 0).map(([k,v]) => {
+    const ico = { gold: '💰', gem: '💎', food: '🍖', wood: '🪵', stone: '🪨', exp: '✨' }[k];
+    return `<div style="display:flex; align-items:center; gap:6px; font-size:16px; font-weight:bold;">${ico} +${v.toLocaleString()}</div>`;
+  }).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-gift-' + giftId;
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, #ffd700, #fff8e1);
+      border: 5px solid #3e2723;
+      border-radius: 18px;
+      padding: 24px;
+      max-width: 380px; width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(255, 215, 0, 0.5);
+      animation: bounceIn 0.5s;
+    ">
+      <div style="font-size: 56px; animation: shake 0.6s infinite alternate;">🎁</div>
+      <div style="font-size: 22px; font-weight: bold; color: #3e2723; margin-top: 8px;">운영자 선물 도착!</div>
+      <div style="font-size: 13px; color: #5d4037; margin-top: 4px;">From: <b>${gift.from || '운영자'}</b></div>
+      <div style="margin-top: 14px; padding: 12px; background: rgba(255,255,255,0.7); border: 2px solid #3e2723; border-radius: 12px; color: #3e2723;">
+        <div style="font-size: 13px; font-weight: bold;">${gift.message || '🎁 선물이 도착했어요!'}</div>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; color: #3e2723;">
+          ${rewardStr || '<div style="color:#888;">아이템 없음</div>'}
+        </div>
+      </div>
+      <button id="claim-admin-gift-${giftId}" type="button" style="
+        margin-top: 16px;
+        background: linear-gradient(to bottom, #66bb6a, #2e7d32);
+        color: white; border: 3px solid #3e2723; border-radius: 12px;
+        padding: 12px 36px; font-family: inherit; font-size: 16px;
+        cursor: pointer; font-weight: bold;
+        box-shadow: 0 3px 0 #3e2723;
+        animation: pulse 1.2s infinite;
+      ">🎁 받기</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('claim-admin-gift-' + giftId).onclick = async () => {
+    // 보상 지급
+    if (rewards.gold) addRes('gold', rewards.gold);
+    if (rewards.gem) addRes('gem', rewards.gem);
+    if (rewards.food) addRes('food', rewards.food);
+    if (rewards.wood) addRes('wood', rewards.wood);
+    if (rewards.stone) addRes('stone', rewards.stone);
+    if (rewards.exp) {
+      game.exp = (game.exp || 0) + rewards.exp;
+      try { checkLevelUp(); } catch (e) {}
+    }
+
+    // 받음 표시
+    try {
+      await _firebaseDB.ref('admin_gifts/' + encodeURIComponent(game.player.nickname) + '/' + giftId + '/claimed').set(true);
+      await _firebaseDB.ref('admin_gifts/' + encodeURIComponent(game.player.nickname) + '/' + giftId + '/claimedAt').set(Date.now());
+    } catch (e) {}
+
+    showToast('🎁 운영자 선물을 받았습니다!', 'gain');
+    modal.remove();
+    updateHUD();
+    try { saveGame(); } catch (e) {}
+    try { uploadCloudSave(true); } catch (e) {}
+  };
+
+  // 외부 클릭으로 안 닫히게 (반드시 받아야 함)
+}
+window.showAdminGiftPopup = showAdminGiftPopup;
+
+// === 📢 운영자 공지사항 시스템 ===
+let _adminNoticeListener = null;
+let _seenNotices = null;
+function startAdminNoticeListener() {
+  if (!_onlineMode || !game.player) return;
+  if (_adminNoticeListener) return;
+  try {
+    // 본 공지 목록 로드 (로컬)
+    try {
+      _seenNotices = JSON.parse(localStorage.getItem('wildage_seen_notices') || '[]');
+    } catch (e) { _seenNotices = []; }
+
+    const ref = _firebaseDB.ref('admin_notices');
+    _adminNoticeListener = ref.on('value', (snap) => {
+      const notices = snap.val() || {};
+      const active = Object.entries(notices)
+        .filter(([id, n]) => n.active && !_seenNotices.includes(id))
+        .sort((a, b) => b[1].postedAt - a[1].postedAt);
+      if (active.length > 0) {
+        // 가장 최근 안 본 공지 표시
+        const [id, notice] = active[0];
+        showAdminNoticePopup(id, notice);
+      }
+    });
+  } catch (e) {}
+}
+window.startAdminNoticeListener = startAdminNoticeListener;
+
+function showAdminNoticePopup(noticeId, notice) {
+  if (document.getElementById('admin-notice-' + noticeId)) return;
+
+  const color = notice.priority === 'urgent' ? '#c62828' : notice.priority === 'important' ? '#ff9800' : '#1565c0';
+  const icon = notice.priority === 'urgent' ? '⚠️' : notice.priority === 'important' ? '🔥' : '📢';
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-notice-' + noticeId;
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, ${color}, ${color}88);
+      border: 5px solid #3e2723;
+      border-radius: 18px;
+      padding: 24px;
+      max-width: 380px; width: 100%;
+      color: white;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    ">
+      <div style="text-align: center; font-size: 48px;">${icon}</div>
+      <div style="text-align: center; font-size: 20px; font-weight: bold; margin-top: 4px;">${notice.title}</div>
+      <div style="margin-top: 14px; padding: 12px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); border-radius: 12px; white-space: pre-wrap; font-size: 13px; line-height: 1.6;">${notice.content}</div>
+      <div style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 8px; text-align: center;">
+        ${new Date(notice.postedAt).toLocaleString('ko-KR')} · ${notice.postedBy}
+      </div>
+      <button id="close-notice-${noticeId}" type="button" style="
+        width: 100%;
+        margin-top: 14px;
+        background: linear-gradient(to bottom, #ffd54f, #f9a825);
+        color: #3e2723; border: 3px solid #3e2723; border-radius: 12px;
+        padding: 10px; font-family: inherit; font-size: 14px;
+        cursor: pointer; font-weight: bold;
+        box-shadow: 0 3px 0 #3e2723;
+      ">✓ 확인</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('close-notice-' + noticeId).onclick = () => {
+    _seenNotices.push(noticeId);
+    try {
+      localStorage.setItem('wildage_seen_notices', JSON.stringify(_seenNotices));
+    } catch (e) {}
+    modal.remove();
+  };
+}
+window.showAdminNoticePopup = showAdminNoticePopup;
 
 function updateFriendRequestBadge(count) {
   const btn = document.getElementById('btn-friends');
@@ -7007,6 +7206,36 @@ const SHOP_ITEMS = [
     if (typeof onNewDay === 'function') onNewDay();
     showToast('⏩ 다음 날로!', 'gain');
   }, category: 'consumable' },
+
+  // === 🪤 포획 도구 (펫 소환 보조) ===
+  { id: 'capture_trap', name: '🪤 사냥덫', icon: '🪤', desc: '제단 소환 시 일반 펫 100% 확률', cost: { gold: 500, wood: 50 }, consumable: true, effect: () => {
+    game.captureBonus = { tier: 'common', count: 1 };
+    showToast('🪤 사냥덫 준비 완료! 다음 소환은 일반 펫 확정', 'gain');
+  }, category: 'capture' },
+  { id: 'capture_net', name: '🥢 포획 그물', icon: '🥢', desc: '제단 소환 시 희귀+ 펫 100% 확률', cost: { gold: 2000, wood: 100, gem: 5 }, consumable: true, effect: () => {
+    game.captureBonus = { tier: 'rare', count: 1 };
+    showToast('🥢 포획 그물! 다음 소환은 희귀 펫 확정', 'gain');
+  }, category: 'capture' },
+  { id: 'capture_bait', name: '🎣 사냥꾼 미끼', icon: '🎣', desc: '다음 5회 소환 +20% 좋은 펫', cost: { food: 300, gold: 800 }, consumable: true, effect: () => {
+    game.captureLuck = (game.captureLuck || 0) + 5;
+    showToast('🎣 미끼 효과! 다음 5회 소환에 +20% 행운', 'gain');
+  }, category: 'capture' },
+  { id: 'capture_key', name: '🗝 비밀의 열쇠', icon: '🗝', desc: '제단 소환 시 에픽+ 펫 100% 확률', cost: { gold: 5000, gem: 30 }, consumable: true, effect: () => {
+    game.captureBonus = { tier: 'epic', count: 1 };
+    showToast('🗝 비밀의 열쇠! 다음 소환은 에픽 펫 확정', 'gain');
+  }, category: 'capture' },
+  { id: 'capture_diamond', name: '💎 다이아 포획구', icon: '💎', desc: '제단 소환 시 전설 펫 100% 확률', cost: { gem: 100 }, consumable: true, effect: () => {
+    game.captureBonus = { tier: 'legendary', count: 1 };
+    showToast('💎 다이아 포획구! 다음 소환은 전설 펫 확정', 'gain');
+  }, category: 'capture' },
+  { id: 'capture_mythic', name: '🌌 신화의 부적', icon: '🌌', desc: '제단 소환 시 신화 펫 100% 확률', cost: { gem: 500 }, consumable: true, effect: () => {
+    game.captureBonus = { tier: 'mythic', count: 1 };
+    showToast('🌌 신화의 부적! 다음 소환은 신화 펫 확정', 'gain');
+  }, category: 'capture' },
+  { id: 'capture_summon10', name: '📦 소환 10연', icon: '📦', desc: '다음 10회 소환 가격 면제', cost: { gold: 3000, gem: 20 }, consumable: true, effect: () => {
+    game.summonFreeCount = (game.summonFreeCount || 0) + 10;
+    showToast('📦 소환 10연 확보! 다음 10회 무료', 'gain');
+  }, category: 'capture' },
   { id: 'instant_build', name: '즉시 건설',  icon: '⚡', desc: '건설 중인 건물 즉시 완료', cost: { gem: 3 }, consumable: true, effect: () => {
     let count = 0;
     for (const b of game.buildings) {
@@ -7992,6 +8221,7 @@ function openShop() {
     <div style="display:flex; gap:4px; margin-bottom:12px; border-bottom:2px dashed var(--wood-dark); padding-bottom:8px; overflow-x:auto;">
       <button class="friends-tab active" data-shop-tab="upgrade" type="button">⚡ 강화</button>
       <button class="friends-tab" data-shop-tab="combat" type="button">⚔ 전투</button>
+      <button class="friends-tab" data-shop-tab="capture" type="button">🪤 포획</button>
       <button class="friends-tab" data-shop-tab="social" type="button">🤝 외교</button>
       <button class="friends-tab" data-shop-tab="consumable" type="button">📦 소비</button>
       <button class="friends-tab" data-shop-tab="cosmetic" type="button">👑 장식</button>
@@ -8454,6 +8684,678 @@ function applyCheatVisibility() {
 }
 window.applyCheatVisibility = applyCheatVisibility;
 
+// === 🛡 운영자 대시보드 (게임 내 통합) ===
+function openAdminDashboard() {
+  if (!isAdmin()) {
+    showToast('🔒 운영자만 접근 가능', 'warn');
+    return;
+  }
+  // 치트 모달 닫기
+  document.getElementById('m-cheat').classList.remove('show');
+  // 어드민 모달 열기
+  document.getElementById('m-admin').classList.add('show');
+  renderAdminDashboard('overview');
+}
+window.openAdminDashboard = openAdminDashboard;
+
+function renderAdminDashboard(tab) {
+  const body = document.getElementById('admin-body');
+  if (!body) return;
+
+  // 탭 헤더
+  let html = `
+    <div style="display:flex; gap:4px; margin-bottom:12px; border-bottom:2px dashed var(--wood-dark); padding-bottom:8px; overflow-x:auto;">
+      <button class="admin-tab" data-atab="overview" style="background:${tab==='overview'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='overview'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">📊 대시보드</button>
+      <button class="admin-tab" data-atab="users" style="background:${tab==='users'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='users'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">👥 유저</button>
+      <button class="admin-tab" data-atab="gift" style="background:${tab==='gift'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='gift'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">🎁 지급</button>
+      <button class="admin-tab" data-atab="event" style="background:${tab==='event'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='event'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">🎉 이벤트</button>
+      <button class="admin-tab" data-atab="notice" style="background:${tab==='notice'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='notice'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">📢 공지</button>
+    </div>
+    <div id="admin-content"></div>
+  `;
+  body.innerHTML = html;
+
+  // 탭 클릭
+  body.querySelectorAll('.admin-tab').forEach(t => {
+    t.onclick = () => renderAdminDashboard(t.dataset.atab);
+  });
+
+  // 콘텐츠 렌더
+  if (tab === 'overview') renderAdminOverview();
+  else if (tab === 'users') renderAdminUsers();
+  else if (tab === 'gift') renderAdminGift();
+  else if (tab === 'event') renderAdminEvent();
+  else if (tab === 'notice') renderAdminNotice();
+}
+window.renderAdminDashboard = renderAdminDashboard;
+
+// === 대시보드: 통계 ===
+async function renderAdminOverview() {
+  const c = document.getElementById('admin-content');
+  if (!c) return;
+  c.innerHTML = '<div style="text-align:center; padding:20px;">📊 로딩 중...</div>';
+
+  if (!isOnlineMode || !isOnlineMode()) {
+    c.innerHTML = '<div style="text-align:center; padding:20px; color:var(--wood-dark);">📴 오프라인 모드에서는 사용 불가</div>';
+    return;
+  }
+
+  try {
+    const snap = await _firebaseDB.ref('players').once('value');
+    const players = snap.val() || {};
+    const list = Object.entries(players);
+
+    let online = 0, totalLevel = 0, totalPower = 0, maxLevel = 0;
+    const now = Date.now();
+    for (const [n, p] of list) {
+      if (p.lastSeen && now - p.lastSeen < 5 * 60 * 1000) online++;
+      totalLevel += p.level || 0;
+      totalPower += p.power || 0;
+      if ((p.level || 0) > maxLevel) maxLevel = p.level || 0;
+    }
+    const avg = list.length > 0 ? (totalLevel / list.length).toFixed(1) : 0;
+
+    let html = `
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-bottom:12px;">
+        <div style="background:linear-gradient(135deg, #5d4037, #3e2723); border:2px solid var(--gold); border-radius:10px; padding:12px; text-align:center; color:white;">
+          <div style="font-size:24px;">👥</div>
+          <div style="font-size:20px; font-weight:bold; color:#ffd54f;">${list.length}</div>
+          <div style="font-size:10px; color:#fff8e1;">총 유저</div>
+        </div>
+        <div style="background:linear-gradient(135deg, #2e7d32, #1b5e20); border:2px solid #66bb6a; border-radius:10px; padding:12px; text-align:center; color:white;">
+          <div style="font-size:24px;">🌐</div>
+          <div style="font-size:20px; font-weight:bold;">${online}</div>
+          <div style="font-size:10px;">5분 이내 접속</div>
+        </div>
+        <div style="background:linear-gradient(135deg, #1565c0, #0d47a1); border:2px solid #42a5f5; border-radius:10px; padding:12px; text-align:center; color:white;">
+          <div style="font-size:24px;">⭐</div>
+          <div style="font-size:20px; font-weight:bold;">${avg}</div>
+          <div style="font-size:10px;">평균 레벨</div>
+        </div>
+        <div style="background:linear-gradient(135deg, #c62828, #b71c1c); border:2px solid #ef5350; border-radius:10px; padding:12px; text-align:center; color:white;">
+          <div style="font-size:24px;">🏆</div>
+          <div style="font-size:20px; font-weight:bold;">Lv.${maxLevel}</div>
+          <div style="font-size:10px;">최고 레벨</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.5); border:2px solid var(--wood); border-radius:10px; padding:10px; margin-bottom:12px;">
+        <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:8px; text-align:center;">⚔ 총 전투력 합산</div>
+        <div style="font-size:22px; font-weight:bold; text-align:center; color:var(--gold);">${totalPower.toLocaleString()}</div>
+      </div>
+    `;
+
+    // TOP 10
+    const sorted = list.sort((a, b) => (b[1].level || 0) - (a[1].level || 0)).slice(0, 10);
+    html += `
+      <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px;">
+        <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">🏆 TOP 10 부족장</div>
+    `;
+    sorted.forEach(([nick, p], i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+      const isOnline = p.lastSeen && now - p.lastSeen < 5*60*1000;
+      const isAdminUser = ADMIN_NICKNAMES.includes(nick);
+      html += `
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:${i<9?'1px dashed #fb8c00':'none'};">
+          <div style="font-size:14px; min-width:28px; font-weight:bold;">${medal}</div>
+          <div style="flex:1; font-size:11px;">
+            <div style="font-weight:bold; color:var(--wood-dark);">
+              ${nick}
+              ${isOnline ? '<span style="background:#2e7d32; color:white; font-size:9px; padding:1px 4px; border-radius:3px;">🌐</span>' : ''}
+              ${isAdminUser ? '<span style="background:#c62828; color:white; font-size:9px; padding:1px 4px; border-radius:3px;">ADMIN</span>' : ''}
+            </div>
+            <div style="color:#888; font-size:10px;">Lv.${p.level||0} · ⚔${(p.power||0).toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+
+    c.innerHTML = html;
+  } catch (e) {
+    c.innerHTML = `<div style="color:#c62828; padding:20px; text-align:center;">❌ 로딩 실패: ${e.message}</div>`;
+  }
+}
+window.renderAdminOverview = renderAdminOverview;
+
+// === 유저 관리 ===
+async function renderAdminUsers() {
+  const c = document.getElementById('admin-content');
+  if (!c) return;
+  c.innerHTML = `
+    <div style="display:flex; gap:6px; margin-bottom:10px;">
+      <input id="admin-user-search" type="text" placeholder="닉네임 검색 (빈칸=전체)" style="flex:1; padding:8px; border:2px solid var(--wood); border-radius:6px; font-family:inherit; font-size:12px;">
+      <button id="admin-search-btn" style="background:linear-gradient(to bottom, #42a5f5, #1565c0); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">🔍</button>
+      <button id="admin-search-all" style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">전체</button>
+    </div>
+    <div id="admin-user-list" style="max-height:60vh; overflow-y:auto;"></div>
+  `;
+  document.getElementById('admin-search-btn').onclick = () => loadAdminUsers(document.getElementById('admin-user-search').value.trim());
+  document.getElementById('admin-search-all').onclick = () => loadAdminUsers('');
+  document.getElementById('admin-user-search').onkeypress = (e) => {
+    if (e.key === 'Enter') loadAdminUsers(document.getElementById('admin-user-search').value.trim());
+  };
+  loadAdminUsers('');
+}
+
+async function loadAdminUsers(query) {
+  const list = document.getElementById('admin-user-list');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center; padding:20px;">🔍 로딩 중...</div>';
+
+  if (!isOnlineMode || !isOnlineMode()) {
+    list.innerHTML = '<div style="color:var(--wood-dark); text-align:center; padding:20px;">📴 오프라인 모드</div>';
+    return;
+  }
+
+  try {
+    const snap = await _firebaseDB.ref('players').once('value');
+    const players = snap.val() || {};
+    let entries = Object.entries(players);
+    if (query) {
+      const q = query.toLowerCase();
+      entries = entries.filter(([n]) => n.toLowerCase().includes(q));
+    }
+    entries.sort((a, b) => (b[1].level || 0) - (a[1].level || 0));
+
+    if (entries.length === 0) {
+      list.innerHTML = '<div style="color:var(--wood-dark); text-align:center; padding:20px;">유저가 없습니다</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    const now = Date.now();
+    entries.forEach(([nick, p]) => {
+      const isOnline = p.lastSeen && now - p.lastSeen < 5*60*1000;
+      const isAdminUser = ADMIN_NICKNAMES.includes(nick);
+      const card = document.createElement('div');
+      card.style.cssText = `background:linear-gradient(to bottom, #fff, #fff3e0); border:2px solid var(--wood); border-radius:8px; padding:8px; margin-bottom:6px;`;
+      card.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:24px;">${p.avatar || '⛺'}</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold; font-size:13px; color:var(--wood-dark);">
+              ${nick}
+              ${isOnline ? '<span style="background:#2e7d32; color:white; font-size:9px; padding:1px 5px; border-radius:4px;">🌐</span>' : ''}
+              ${isAdminUser ? '<span style="background:#c62828; color:white; font-size:9px; padding:1px 5px; border-radius:4px;">ADMIN</span>' : ''}
+            </div>
+            <div style="font-size:11px; color:#666;">Lv.${p.level||0} · ⚔${(p.power||0).toLocaleString()} · 🦁${p.petCount||0}</div>
+            <div style="font-size:10px; color:#999;">${p.lastSeen ? new Date(p.lastSeen).toLocaleString('ko-KR') : '-'}</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:4px; margin-top:6px;">
+          <button class="admin-detail-btn" data-nick="${nick}" style="flex:1; background:linear-gradient(to bottom, #42a5f5, #1565c0); color:white; border:1px solid var(--wood-dark); border-radius:5px; padding:5px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">📋 상세</button>
+          <button class="admin-gift-btn" data-nick="${nick}" style="flex:1; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:1px solid var(--wood-dark); border-radius:5px; padding:5px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">🎁 지급</button>
+          <button class="admin-pw-btn" data-nick="${nick}" style="flex:1; background:linear-gradient(to bottom, #ffa726, #ef6c00); color:white; border:1px solid var(--wood-dark); border-radius:5px; padding:5px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">🔑 PW</button>
+          ${!isAdminUser ? `<button class="admin-del-btn" data-nick="${nick}" style="flex:1; background:linear-gradient(to bottom, #ef5350, #c62828); color:white; border:1px solid var(--wood-dark); border-radius:5px; padding:5px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">🗑</button>` : ''}
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    // 핸들러
+    list.querySelectorAll('.admin-detail-btn').forEach(b => b.onclick = () => showAdminUserDetail(b.dataset.nick));
+    list.querySelectorAll('.admin-gift-btn').forEach(b => b.onclick = () => quickAdminGift(b.dataset.nick));
+    list.querySelectorAll('.admin-pw-btn').forEach(b => b.onclick = () => adminResetPassword(b.dataset.nick));
+    list.querySelectorAll('.admin-del-btn').forEach(b => b.onclick = () => adminDeleteUser(b.dataset.nick));
+  } catch (e) {
+    list.innerHTML = `<div style="color:#c62828; padding:20px; text-align:center;">❌ ${e.message}</div>`;
+  }
+}
+window.loadAdminUsers = loadAdminUsers;
+
+async function showAdminUserDetail(nick) {
+  try {
+    const [pSnap, aSnap, sSnap] = await Promise.all([
+      _firebaseDB.ref('players/' + encodeURIComponent(nick)).once('value'),
+      _firebaseDB.ref('accounts/' + encodeURIComponent(nick)).once('value'),
+      _firebaseDB.ref('saves/' + encodeURIComponent(nick)).once('value'),
+    ]);
+    const p = pSnap.val() || {};
+    const a = aSnap.val() || {};
+    const s = sSnap.val() || {};
+    const res = s.res || {};
+    const pets = s.pets || {};
+    const petCount = Object.keys(pets).filter(k => pets[k] > 0).length;
+
+    showConfirmDialog(
+      `👤 ${nick}`,
+      `🆔 닉네임: ${nick}\n📅 가입: ${a.createdAt ? new Date(a.createdAt).toLocaleString('ko-KR') : '-'}\n🌐 최근 접속: ${p.lastSeen ? new Date(p.lastSeen).toLocaleString('ko-KR') : '-'}\n☁️ 최근 동기화: ${s.uploadedAt ? new Date(s.uploadedAt).toLocaleString('ko-KR') : '-'}\n\n⭐ 레벨: ${s.level || 0}\n⚔ 전투력: ${(s.totalPower || p.power || 0).toLocaleString()}\n🦁 펫: ${petCount}마리\n👥 친구: ${(s.friends || []).length}명\n\n💰 ${(res.gold||0).toLocaleString()}\n💎 ${(res.gem||0).toLocaleString()}\n🍖 ${(res.food||0).toLocaleString()}\n🪵 ${(res.wood||0).toLocaleString()}\n🪨 ${(res.stone||0).toLocaleString()}`,
+      () => {},
+      null,
+      '확인'
+    );
+  } catch (e) {
+    showToast('상세 로드 실패: ' + e.message, 'warn');
+  }
+}
+window.showAdminUserDetail = showAdminUserDetail;
+
+function quickAdminGift(nick) {
+  renderAdminDashboard('gift');
+  setTimeout(() => {
+    const inp = document.getElementById('admin-gift-target');
+    if (inp) inp.value = nick;
+  }, 100);
+}
+window.quickAdminGift = quickAdminGift;
+
+async function adminResetPassword(nick) {
+  const newPw = prompt(`${nick}의 새 비밀번호 (4자 이상):`);
+  if (!newPw || newPw.length < 4) {
+    showToast('비밀번호는 4자 이상이어야 해요', 'warn');
+    return;
+  }
+  try {
+    const hashed = await hashPassword(newPw);
+    await _firebaseDB.ref('accounts/' + encodeURIComponent(nick) + '/password').set(hashed);
+    await logAdminAction('password_reset', nick, '비밀번호 초기화');
+    showToast(`✅ ${nick} 비밀번호 변경 완료`, 'gain');
+  } catch (e) {
+    showToast('초기화 실패: ' + e.message, 'warn');
+  }
+}
+window.adminResetPassword = adminResetPassword;
+
+async function adminDeleteUser(nick) {
+  if (ADMIN_NICKNAMES.includes(nick)) {
+    showToast('운영자 계정은 삭제할 수 없어요', 'warn');
+    return;
+  }
+  showConfirmDialog(
+    `🗑 유저 삭제`,
+    `"${nick}" 유저의 모든 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`,
+    async () => {
+      try {
+        const paths = ['accounts','players','saves','villages','friends','friend_requests','gifts','attacks','nicknames'];
+        for (const p of paths) {
+          await _firebaseDB.ref(p + '/' + encodeURIComponent(nick)).remove();
+        }
+        await logAdminAction('user_delete', nick, '유저 데이터 전체 삭제');
+        showToast(`✅ ${nick} 삭제 완료`, 'gain');
+        loadAdminUsers('');
+      } catch (e) {
+        showToast('삭제 실패: ' + e.message, 'warn');
+      }
+    }
+  );
+}
+window.adminDeleteUser = adminDeleteUser;
+
+// === 아이템 지급 ===
+function renderAdminGift() {
+  const c = document.getElementById('admin-content');
+  if (!c) return;
+  c.innerHTML = `
+    <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:12px;">
+      <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">🎁 개별 발송</div>
+      <input id="admin-gift-target" type="text" placeholder="대상 닉네임" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:6px; font-family:inherit; font-size:12px; box-sizing:border-box;">
+      <input id="admin-gift-msg" type="text" placeholder="메시지 (선택)" value="🎁 운영자 선물입니다!" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:8px; font-family:inherit; font-size:12px; box-sizing:border-box;">
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px;">
+        <input id="admin-gift-gold" type="number" min="0" value="0" placeholder="💰 금화" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-gift-gem" type="number" min="0" value="0" placeholder="💎 보석" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-gift-food" type="number" min="0" value="0" placeholder="🍖 식량" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-gift-wood" type="number" min="0" value="0" placeholder="🪵 목재" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-gift-stone" type="number" min="0" value="0" placeholder="🪨 석재" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-gift-exp" type="number" min="0" value="0" placeholder="✨ 경험치" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+      </div>
+      <button id="admin-gift-send" style="width:100%; margin-top:8px; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:10px; font-family:inherit; font-weight:bold; cursor:pointer;">📨 개별 발송</button>
+    </div>
+
+    <div style="background:linear-gradient(to bottom, #ffcdd2, #ef9a9a); border:3px solid #c62828; border-radius:10px; padding:10px;">
+      <div style="font-weight:bold; color:#b71c1c; text-align:center; margin-bottom:6px;">🎉 전체 일괄 지급</div>
+      <div style="font-size:10px; color:#b71c1c; text-align:center; margin-bottom:8px;">⚠️ 모든 등록 유저에게 발송됩니다</div>
+      <input id="admin-mass-msg" type="text" placeholder="메시지" value="🎉 이벤트 보상!" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:8px; font-family:inherit; font-size:12px; box-sizing:border-box;">
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px;">
+        <input id="admin-mass-gold" type="number" min="0" value="0" placeholder="💰 금화" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-mass-gem" type="number" min="0" value="0" placeholder="💎 보석" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-mass-food" type="number" min="0" value="0" placeholder="🍖 식량" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-mass-wood" type="number" min="0" value="0" placeholder="🪵 목재" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-mass-stone" type="number" min="0" value="0" placeholder="🪨 석재" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-mass-exp" type="number" min="0" value="0" placeholder="✨ 경험치" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+      </div>
+      <button id="admin-mass-send" style="width:100%; margin-top:8px; background:linear-gradient(to bottom, #ef5350, #c62828); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:10px; font-family:inherit; font-weight:bold; cursor:pointer;">📢 전체 발송</button>
+    </div>
+  `;
+  document.getElementById('admin-gift-send').onclick = adminSendGift;
+  document.getElementById('admin-mass-send').onclick = adminSendMassGift;
+}
+window.renderAdminGift = renderAdminGift;
+
+async function adminSendGift() {
+  const target = document.getElementById('admin-gift-target').value.trim();
+  const msg = document.getElementById('admin-gift-msg').value.trim() || '🎁 운영자 선물';
+  if (!target) { showToast('대상 닉네임 필요', 'warn'); return; }
+
+  const rewards = {
+    gold: parseInt(document.getElementById('admin-gift-gold').value) || 0,
+    gem: parseInt(document.getElementById('admin-gift-gem').value) || 0,
+    food: parseInt(document.getElementById('admin-gift-food').value) || 0,
+    wood: parseInt(document.getElementById('admin-gift-wood').value) || 0,
+    stone: parseInt(document.getElementById('admin-gift-stone').value) || 0,
+    exp: parseInt(document.getElementById('admin-gift-exp').value) || 0,
+  };
+  if (Object.values(rewards).reduce((a,b) => a+b, 0) === 0) {
+    showToast('지급할 아이템 없음', 'warn');
+    return;
+  }
+
+  try {
+    const accSnap = await _firebaseDB.ref('accounts/' + encodeURIComponent(target)).once('value');
+    if (!accSnap.val()) {
+      showToast(`⛔ "${target}" 유저가 존재하지 않음`, 'warn');
+      return;
+    }
+    const giftId = 'admin_' + Date.now();
+    await _firebaseDB.ref('admin_gifts/' + encodeURIComponent(target) + '/' + giftId).set({
+      from: game.player.nickname,
+      message: msg,
+      rewards: rewards,
+      sentAt: Date.now(),
+      claimed: false,
+    });
+    await logAdminAction('gift_send', target, msg);
+    showToast(`✅ ${target}에게 발송 완료!`, 'gain');
+    ['gold','gem','food','wood','stone','exp'].forEach(k => {
+      document.getElementById('admin-gift-' + k).value = 0;
+    });
+  } catch (e) {
+    showToast('발송 실패: ' + e.message, 'warn');
+  }
+}
+window.adminSendGift = adminSendGift;
+
+async function adminSendMassGift() {
+  const msg = document.getElementById('admin-mass-msg').value.trim() || '🎉 이벤트 보상';
+  const rewards = {
+    gold: parseInt(document.getElementById('admin-mass-gold').value) || 0,
+    gem: parseInt(document.getElementById('admin-mass-gem').value) || 0,
+    food: parseInt(document.getElementById('admin-mass-food').value) || 0,
+    wood: parseInt(document.getElementById('admin-mass-wood').value) || 0,
+    stone: parseInt(document.getElementById('admin-mass-stone').value) || 0,
+    exp: parseInt(document.getElementById('admin-mass-exp').value) || 0,
+  };
+  if (Object.values(rewards).reduce((a,b) => a+b, 0) === 0) {
+    showToast('지급할 아이템 없음', 'warn');
+    return;
+  }
+
+  showConfirmDialog(
+    '⚠️ 전체 발송',
+    '모든 등록된 유저에게 발송합니다. 계속할까요?\n(되돌릴 수 없습니다)',
+    async () => {
+      try {
+        showToast('📤 발송 중...', '');
+        const snap = await _firebaseDB.ref('players').once('value');
+        const players = snap.val() || {};
+        const nicks = Object.keys(players);
+        const giftId = 'mass_' + Date.now();
+        const updates = {};
+        for (const n of nicks) {
+          updates['admin_gifts/' + encodeURIComponent(n) + '/' + giftId] = {
+            from: game.player.nickname,
+            message: msg,
+            rewards: rewards,
+            sentAt: Date.now(),
+            claimed: false,
+          };
+        }
+        await _firebaseDB.ref().update(updates);
+        await logAdminAction('mass_gift', 'ALL', `${nicks.length}명: ${msg}`);
+        showToast(`✅ ${nicks.length}명에게 발송 완료!`, 'gain');
+        ['gold','gem','food','wood','stone','exp'].forEach(k => {
+          document.getElementById('admin-mass-' + k).value = 0;
+        });
+      } catch (e) {
+        showToast('발송 실패: ' + e.message, 'warn');
+      }
+    }
+  );
+}
+window.adminSendMassGift = adminSendMassGift;
+
+// === 이벤트 ===
+function renderAdminEvent() {
+  const c = document.getElementById('admin-content');
+  if (!c) return;
+  c.innerHTML = `
+    <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:12px;">
+      <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">🎉 이벤트 보상 일괄 발송</div>
+      <input id="admin-event-name" type="text" placeholder="이벤트 이름 (예: 🎊 신년 이벤트)" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:6px; font-family:inherit; font-size:12px; box-sizing:border-box;">
+      <textarea id="admin-event-desc" placeholder="이벤트 설명" rows="3" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:8px; font-family:inherit; font-size:12px; box-sizing:border-box; resize:vertical;"></textarea>
+      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; margin-bottom:8px;">
+        <input id="admin-event-gold" type="number" min="0" value="1000" placeholder="💰 금화" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-event-gem" type="number" min="0" value="50" placeholder="💎 보석" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-event-food" type="number" min="0" value="500" placeholder="🍖 식량" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-event-wood" type="number" min="0" value="500" placeholder="🪵 목재" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-event-stone" type="number" min="0" value="500" placeholder="🪨 석재" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+        <input id="admin-event-exp" type="number" min="0" value="500" placeholder="✨ 경험치" style="padding:6px; border:2px solid var(--wood); border-radius:4px; font-family:inherit; font-size:11px; box-sizing:border-box;">
+      </div>
+      <button id="admin-event-start" style="width:100%; background:linear-gradient(to bottom, #ab47bc, #6a1b9a); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:10px; font-family:inherit; font-weight:bold; cursor:pointer;">🚀 이벤트 시작 (전체 발송)</button>
+    </div>
+    <div style="background:rgba(255,255,255,0.5); border:2px solid var(--wood); border-radius:10px; padding:10px;">
+      <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:8px;">📋 진행 중인 이벤트</div>
+      <div id="admin-event-list"></div>
+    </div>
+  `;
+  document.getElementById('admin-event-start').onclick = adminCreateEvent;
+  loadAdminEvents();
+}
+window.renderAdminEvent = renderAdminEvent;
+
+async function adminCreateEvent() {
+  const name = document.getElementById('admin-event-name').value.trim();
+  const desc = document.getElementById('admin-event-desc').value.trim();
+  if (!name) { showToast('이벤트 이름 필요', 'warn'); return; }
+
+  const rewards = {
+    gold: parseInt(document.getElementById('admin-event-gold').value) || 0,
+    gem: parseInt(document.getElementById('admin-event-gem').value) || 0,
+    food: parseInt(document.getElementById('admin-event-food').value) || 0,
+    wood: parseInt(document.getElementById('admin-event-wood').value) || 0,
+    stone: parseInt(document.getElementById('admin-event-stone').value) || 0,
+    exp: parseInt(document.getElementById('admin-event-exp').value) || 0,
+  };
+
+  showConfirmDialog(
+    `🚀 ${name} 시작`,
+    `모든 유저에게 보상을 발송하고 이벤트를 시작합니다.\n계속할까요?`,
+    async () => {
+      try {
+        // 이벤트 기록
+        const eventId = 'event_' + Date.now();
+        await _firebaseDB.ref('admin_events/' + eventId).set({
+          name, desc, rewards,
+          createdAt: Date.now(),
+          createdBy: game.player.nickname,
+          active: true,
+        });
+
+        // 전체 발송
+        showToast('📤 발송 중...', '');
+        const snap = await _firebaseDB.ref('players').once('value');
+        const players = snap.val() || {};
+        const nicks = Object.keys(players);
+        const giftId = 'event_' + Date.now();
+        const updates = {};
+        for (const n of nicks) {
+          updates['admin_gifts/' + encodeURIComponent(n) + '/' + giftId] = {
+            from: game.player.nickname,
+            message: `🎉 ${name}\n${desc}`,
+            rewards: rewards,
+            sentAt: Date.now(),
+            claimed: false,
+          };
+        }
+        await _firebaseDB.ref().update(updates);
+        await logAdminAction('event_create', eventId, `${name} (${nicks.length}명)`);
+        showToast(`✅ "${name}" 시작! ${nicks.length}명에게 보상 발송`, 'gain');
+        document.getElementById('admin-event-name').value = '';
+        document.getElementById('admin-event-desc').value = '';
+        loadAdminEvents();
+      } catch (e) {
+        showToast('실패: ' + e.message, 'warn');
+      }
+    }
+  );
+}
+window.adminCreateEvent = adminCreateEvent;
+
+async function loadAdminEvents() {
+  const c = document.getElementById('admin-event-list');
+  if (!c) return;
+  try {
+    const snap = await _firebaseDB.ref('admin_events').once('value');
+    const events = snap.val() || {};
+    const list = Object.entries(events).filter(([id,e]) => e.active).sort((a,b) => b[1].createdAt - a[1].createdAt);
+    if (list.length === 0) {
+      c.innerHTML = '<div style="text-align:center; color:#888; padding:10px;">진행 중인 이벤트가 없습니다</div>';
+      return;
+    }
+    c.innerHTML = '';
+    list.forEach(([id, e]) => {
+      const rewardStr = Object.entries(e.rewards).filter(([k,v]) => v > 0).map(([k,v]) => {
+        const ico = { gold: '💰', gem: '💎', food: '🍖', wood: '🪵', stone: '🪨', exp: '✨' }[k];
+        return `${ico}${v}`;
+      }).join(' ');
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#fff; border:2px solid var(--gold); border-radius:6px; padding:8px; margin-bottom:6px;';
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+          <div style="flex:1;">
+            <div style="font-weight:bold; color:#bf8b00; font-size:13px;">${e.name}</div>
+            <div style="font-size:11px; color:#666; margin-top:2px;">${e.desc || ''}</div>
+            <div style="font-size:10px; margin-top:3px;">🎁 ${rewardStr}</div>
+            <div style="font-size:9px; color:#999; margin-top:2px;">${new Date(e.createdAt).toLocaleString('ko-KR')}</div>
+          </div>
+          <button class="admin-event-end" data-id="${id}" style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:4px 8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">종료</button>
+        </div>
+      `;
+      c.appendChild(card);
+    });
+    c.querySelectorAll('.admin-event-end').forEach(b => {
+      b.onclick = async () => {
+        if (!confirm('이벤트를 종료하시겠습니까?')) return;
+        await _firebaseDB.ref('admin_events/' + b.dataset.id + '/active').set(false);
+        await logAdminAction('event_end', b.dataset.id, '이벤트 종료');
+        showToast('이벤트 종료됨', 'gain');
+        loadAdminEvents();
+      };
+    });
+  } catch (e) {
+    c.innerHTML = `<div style="color:#c62828;">❌ ${e.message}</div>`;
+  }
+}
+window.loadAdminEvents = loadAdminEvents;
+
+// === 공지사항 ===
+function renderAdminNotice() {
+  const c = document.getElementById('admin-content');
+  if (!c) return;
+  c.innerHTML = `
+    <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:12px;">
+      <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">📢 공지사항 작성</div>
+      <input id="admin-notice-title" type="text" placeholder="제목" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:6px; font-family:inherit; font-size:12px; box-sizing:border-box;">
+      <select id="admin-notice-priority" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:6px; font-family:inherit; font-size:12px; box-sizing:border-box;">
+        <option value="normal">일반 📢</option>
+        <option value="important">중요 🔥</option>
+        <option value="urgent">긴급 ⚠️</option>
+      </select>
+      <textarea id="admin-notice-content" placeholder="내용" rows="5" style="width:100%; padding:8px; border:2px solid var(--wood); border-radius:6px; margin-bottom:8px; font-family:inherit; font-size:12px; box-sizing:border-box; resize:vertical;"></textarea>
+      <button id="admin-notice-post" style="width:100%; background:linear-gradient(to bottom, #42a5f5, #1565c0); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:10px; font-family:inherit; font-weight:bold; cursor:pointer;">📣 공지 등록</button>
+    </div>
+    <div style="background:rgba(255,255,255,0.5); border:2px solid var(--wood); border-radius:10px; padding:10px;">
+      <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:8px;">📋 등록된 공지</div>
+      <div id="admin-notice-list"></div>
+    </div>
+  `;
+  document.getElementById('admin-notice-post').onclick = adminPostNotice;
+  loadAdminNotices();
+}
+window.renderAdminNotice = renderAdminNotice;
+
+async function adminPostNotice() {
+  const title = document.getElementById('admin-notice-title').value.trim();
+  const content = document.getElementById('admin-notice-content').value.trim();
+  const priority = document.getElementById('admin-notice-priority').value;
+  if (!title || !content) { showToast('제목과 내용 필수', 'warn'); return; }
+
+  try {
+    const noticeId = 'notice_' + Date.now();
+    await _firebaseDB.ref('admin_notices/' + noticeId).set({
+      title, content, priority,
+      postedAt: Date.now(),
+      postedBy: game.player.nickname,
+      active: true,
+    });
+    await logAdminAction('notice_post', noticeId, title);
+    showToast('✅ 공지 등록 완료', 'gain');
+    document.getElementById('admin-notice-title').value = '';
+    document.getElementById('admin-notice-content').value = '';
+    loadAdminNotices();
+  } catch (e) {
+    showToast('등록 실패: ' + e.message, 'warn');
+  }
+}
+window.adminPostNotice = adminPostNotice;
+
+async function loadAdminNotices() {
+  const c = document.getElementById('admin-notice-list');
+  if (!c) return;
+  try {
+    const snap = await _firebaseDB.ref('admin_notices').once('value');
+    const notices = snap.val() || {};
+    const list = Object.entries(notices).sort((a,b) => b[1].postedAt - a[1].postedAt).slice(0, 20);
+    if (list.length === 0) {
+      c.innerHTML = '<div style="text-align:center; color:#888; padding:10px;">공지가 없습니다</div>';
+      return;
+    }
+    c.innerHTML = '';
+    list.forEach(([id, n]) => {
+      const color = n.priority === 'urgent' ? '#c62828' : n.priority === 'important' ? '#ff9800' : '#1565c0';
+      const icon = n.priority === 'urgent' ? '⚠️' : n.priority === 'important' ? '🔥' : '📢';
+      const card = document.createElement('div');
+      card.style.cssText = `background:#fff; border:2px solid ${color}; border-left:4px solid ${color}; border-radius:6px; padding:8px; margin-bottom:6px;`;
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+          <div style="flex:1;">
+            <div style="font-weight:bold; color:${color}; font-size:13px;">${icon} ${n.title}</div>
+            <div style="font-size:11px; margin-top:4px; white-space:pre-wrap; color:#333;">${n.content}</div>
+            <div style="font-size:9px; color:#999; margin-top:4px;">${new Date(n.postedAt).toLocaleString('ko-KR')} · ${n.postedBy}</div>
+          </div>
+          ${n.active ? `<button class="admin-notice-del" data-id="${id}" style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:4px 8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">삭제</button>` : ''}
+        </div>
+      `;
+      c.appendChild(card);
+    });
+    c.querySelectorAll('.admin-notice-del').forEach(b => {
+      b.onclick = async () => {
+        if (!confirm('공지를 삭제하시겠습니까?')) return;
+        await _firebaseDB.ref('admin_notices/' + b.dataset.id).remove();
+        await logAdminAction('notice_delete', b.dataset.id, '공지 삭제');
+        loadAdminNotices();
+      };
+    });
+  } catch (e) {
+    c.innerHTML = `<div style="color:#c62828;">❌ ${e.message}</div>`;
+  }
+}
+window.loadAdminNotices = loadAdminNotices;
+
+// === 운영 로그 ===
+async function logAdminAction(action, target, detail) {
+  try {
+    const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    await _firebaseDB.ref('admin_logs/' + logId).set({
+      admin: game.player.nickname,
+      action, target, detail,
+      timestamp: Date.now(),
+    });
+  } catch (e) {}
+}
+window.logAdminAction = logAdminAction;
+
+// === SHA-256 해싱 헬퍼 (게임의 hashPassword와 동일) — 이미 정의됨 ===
+
 function openCheat() {
   // 안전: 운영자가 아니면 차단
   if (!isAdmin()) {
@@ -8482,6 +9384,18 @@ function openCheat() {
     <p style="margin-top:14px; font-size:11px; color:var(--wood-dark); text-align:center; line-height:1.5;">
       ※ 이 기능은 개발/디버그용입니다.<br>실제 플레이의 재미를 위해선 정상 진행을 추천!
     </p>
+    <div style="margin-top:14px; padding:14px; background:linear-gradient(135deg, #1a237e, #4527a0); border:3px solid #ffd54f; border-radius:12px; text-align:center;">
+      <div style="color:#ffd54f; font-weight:bold; font-size:14px;">🛡 운영자 대시보드</div>
+      <div style="color:#fff8e1; font-size:11px; margin-top:4px;">유저 관리 / 아이템 지급 / 이벤트 / 공지사항</div>
+      <button onclick="openAdminDashboard()" type="button" style="
+        margin-top:10px;
+        background: linear-gradient(to bottom, #ffd54f, #f9a825);
+        color: #3e2723; border: 3px solid #3e2723; border-radius: 10px;
+        padding: 10px 24px; font-family: inherit; font-size: 13px;
+        font-weight: bold; cursor: pointer;
+        box-shadow: 0 3px 0 #3e2723;
+      ">🛡 대시보드 열기</button>
+    </div>
   `;
   body.querySelectorAll('.cheat-row').forEach(btn => {
     btn.onclick = () => {
@@ -10091,7 +11005,7 @@ function openFriends() {
   renderFriendsTab('list');
   document.getElementById('m-friends').classList.add('show');
   // 친구 요청 리스너 시작
-  try { startFriendRequestListener(); } catch (e) {}
+  try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {}
 }
 
 function renderFriendsTab(tab) {
@@ -10440,13 +11354,20 @@ function renderFriendsTab(tab) {
   // 정렬 적용
   let friendList = [...game.friends];
   const sortMode = game._friendSortMode || 'level';
+  const sortAsc = game._friendSortAsc || false;  // 기본: 내림차순(높은 게 위)
+
   if (sortMode === 'level') {
-    friendList.sort((a, b) => (b.level || 0) - (a.level || 0));
+    friendList.sort((a, b) => sortAsc ? (a.level || 0) - (b.level || 0) : (b.level || 0) - (a.level || 0));
   } else if (sortMode === 'power') {
-    friendList.sort((a, b) => (b.power || 0) - (a.power || 0));
+    friendList.sort((a, b) => sortAsc ? (a.power || 0) - (b.power || 0) : (b.power || 0) - (a.power || 0));
   } else if (sortMode === 'name') {
-    friendList.sort((a, b) => (a.nickname || '').localeCompare(b.nickname || ''));
+    friendList.sort((a, b) => sortAsc ? (a.nickname || '').localeCompare(b.nickname || '') : (b.nickname || '').localeCompare(a.nickname || ''));
   }
+
+  // 정렬 상태 표시
+  const sortLabels = { level: '⭐ 레벨', power: '⚔ 전투력', name: '🔤 이름' };
+  const dirArrow = sortAsc ? '↑' : '↓';
+  refreshBar.querySelector('#friends-sort-btn').textContent = `${sortLabels[sortMode]} ${dirArrow}`;
 
   // 새로고침 핸들러
   refreshBar.querySelector('#friends-refresh-btn').onclick = async () => {
@@ -10480,16 +11401,12 @@ function renderFriendsTab(tab) {
     renderFriendsTab('list');
   };
 
-  // 정렬 핸들러
+  // 정렬 클릭: 정렬 메뉴 띄우기
   refreshBar.querySelector('#friends-sort-btn').onclick = () => {
-    const modes = ['level', 'power', 'name'];
-    const cur = modes.indexOf(game._friendSortMode || 'level');
-    game._friendSortMode = modes[(cur + 1) % modes.length];
-    const labels = { level: '레벨순', power: '전투력순', name: '이름순' };
-    showToast(`📊 ${labels[game._friendSortMode]}`, '');
-    renderFriendsTab('list');
+    showFriendSortMenu();
   };
 
+  // === 친구 카드 렌더링 ===
   for (const f of friendList) {
     const card = document.createElement('div');
     card.className = 'friend-card' + (f.conquered ? ' conquered' : '');
@@ -10555,6 +11472,106 @@ function renderFriendsTab(tab) {
     c.appendChild(card);
   }
 }
+
+// === 친구 정렬 메뉴 ===
+function showFriendSortMenu() {
+  const existing = document.getElementById('friend-sort-menu');
+  if (existing) existing.remove();
+  const current = game._friendSortMode || 'level';
+  const asc = game._friendSortAsc || false;
+
+  const modal = document.createElement('div');
+  modal.id = 'friend-sort-menu';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.8);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  `;
+  const opts = [
+    { key: 'level', label: '⭐ 레벨', icon: '⭐' },
+    { key: 'power', label: '⚔ 전투력', icon: '⚔' },
+    { key: 'name', label: '🔤 이름', icon: '🔤' },
+  ];
+
+  let optsHTML = '';
+  for (const opt of opts) {
+    const isActive = current === opt.key;
+    optsHTML += `
+      <div data-sort-key="${opt.key}" style="
+        background: ${isActive ? 'linear-gradient(to bottom, #fff8e1, #ffd54f)' : 'linear-gradient(to bottom, #fff, #f0e6d2)'};
+        border: 2px solid ${isActive ? '#f9a825' : 'var(--wood)'}; border-radius: 10px;
+        padding: 10px; margin-bottom: 8px; cursor: pointer;
+        display: flex; align-items: center; justify-content: space-between;
+      " class="sort-opt">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:20px;">${opt.icon}</div>
+          <div style="font-weight:bold; color:var(--wood-dark);">${opt.label}</div>
+        </div>
+        ${isActive ? `
+          <div style="display:flex; gap:4px;">
+            <button data-dir="desc" style="
+              background: ${!asc ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : '#fff'};
+              color: ${!asc ? 'white' : 'var(--wood-dark)'};
+              border: 2px solid var(--wood-dark); border-radius: 6px;
+              padding: 4px 10px; font-family: inherit; font-weight: bold;
+              font-size: 11px; cursor: pointer;
+            ">↓ 내림</button>
+            <button data-dir="asc" style="
+              background: ${asc ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : '#fff'};
+              color: ${asc ? 'white' : 'var(--wood-dark)'};
+              border: 2px solid var(--wood-dark); border-radius: 6px;
+              padding: 4px 10px; font-family: inherit; font-weight: bold;
+              font-size: 11px; cursor: pointer;
+            ">↑ 오름</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(to bottom, #f5e6c8, #e0c896);
+      border: 5px solid #3e2723; border-radius: 18px;
+      padding: 20px; max-width: 320px; width: 100%;
+    ">
+      <h3 style="text-align:center; margin:0 0 14px; color:#3e2723;">📊 친구 정렬</h3>
+      ${optsHTML}
+      <button id="sort-close" type="button" style="
+        width: 100%; margin-top: 8px;
+        background: linear-gradient(to bottom, #90a4ae, #455a64);
+        color: white; border: 2px solid #3e2723; border-radius: 8px;
+        padding: 10px; font-family: inherit; font-weight: bold;
+        cursor: pointer; box-shadow: 0 2px 0 #3e2723;
+      ">닫기</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll('.sort-opt').forEach(div => {
+    div.onclick = (e) => {
+      e.stopPropagation();
+      const key = div.dataset.sortKey;
+      if (key !== current) {
+        game._friendSortMode = key;
+      }
+      modal.remove();
+      renderFriendsTab('list');
+    };
+  });
+  modal.querySelectorAll('[data-dir]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      game._friendSortAsc = btn.dataset.dir === 'asc';
+      modal.remove();
+      renderFriendsTab('list');
+    };
+  });
+  document.getElementById('sort-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+window.showFriendSortMenu = showFriendSortMenu;
 
 // === 원조: 친구에게 자원 선물 (자원 보내고 우정 증가) ===
 function sendAidToFriend(nickname) {
@@ -12002,17 +13019,62 @@ function openPetSummon() {
 }
 
 function doSummon(count) {
-  const cost = count === 10 ? 45 : 5;
+  // 무료 소환 효과 (📦 소환 10연)
+  let cost = count === 10 ? 45 : 5;
+  if (game.summonFreeCount > 0) {
+    const useFree = Math.min(count, game.summonFreeCount);
+    if (useFree === count) cost = 0;
+    else cost = Math.floor(cost * (count - useFree) / count);
+    game.summonFreeCount -= useFree;
+    if (useFree > 0) showToast(`📦 무료 소환 사용 (${useFree}회)`, 'gain');
+  }
   if (game.res.gem < cost) { showToast('💎 보석 부족!', 'warn'); return; }
   game.res.gem -= cost;
   // 일일 퀘스트 진행
   try { checkDailyQuestProgress('daily_pet_summon', 1); } catch (e) {}
+
+  // 포획 도구 효과 (captureBonus: 특정 등급 펫 확정)
+  const forceTier = (game.captureBonus && game.captureBonus.count > 0) ? game.captureBonus.tier : null;
 
   const results = [];
   let duplicates = 0;
   let refund = 0;
   for (let i = 0; i < count; i++) {
     let pet = rollPet(true); // exclude owned
+
+    // 포획 도구 효과: 1회 소환에만 적용 (첫 번째)
+    if (forceTier && i === 0) {
+      const owned = (game.pets && game.pets);
+      const candidates = Object.entries(PETS).filter(([k,p]) =>
+        p.tier === forceTier && !(owned && owned[k] > 0)
+      );
+      if (candidates.length > 0) {
+        const [key, def] = candidates[Math.floor(Math.random() * candidates.length)];
+        pet = { key, def };
+      }
+      // 한 번 사용 후 소진
+      game.captureBonus.count--;
+      if (game.captureBonus.count <= 0) game.captureBonus = null;
+    }
+    // 포획 미끼 효과 (captureLuck: +20% 확률로 한 등급 위 펫)
+    else if (game.captureLuck > 0) {
+      const t = pet.def.tier;
+      if (Math.random() < 0.2) {
+        const tierOrder = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+        const curIdx = tierOrder.indexOf(t);
+        if (curIdx >= 0 && curIdx < tierOrder.length - 1) {
+          const nextTier = tierOrder[curIdx + 1];
+          const candidates = Object.entries(PETS).filter(([k,p]) =>
+            p.tier === nextTier && !(game.pets && game.pets[k] > 0)
+          );
+          if (candidates.length > 0) {
+            const [key, def] = candidates[Math.floor(Math.random() * candidates.length)];
+            pet = { key, def };
+          }
+        }
+      }
+      game.captureLuck--;
+    }
     // 10회 마지막은 전설+ 확정 (소유 안한 것만)
     if (count === 10 && i === count - 1) {
       const t = pet.def.tier;
@@ -12352,6 +13414,525 @@ async function openArena() {
   }
 }
 window.openArena = openArena;
+
+// ============================================================================
+// 🗝 던전 시스템
+// ============================================================================
+const DUNGEONS = [
+  // === 경험치 던전 ===
+  {
+    id: 'exp_easy',
+    name: '🌱 학습의 동굴',
+    icon: '🌱',
+    type: 'exp',
+    levelReq: 1,
+    cost: { food: 50 },
+    powerReq: 100,
+    duration: 30,    // 30초 탐험
+    rewards: { exp: 800, gold: 100 },
+    desc: '초보자를 위한 작은 동굴. 경험치 +800',
+    color: '#43a047',
+  },
+  {
+    id: 'exp_normal',
+    name: '📚 지혜의 미궁',
+    icon: '📚',
+    type: 'exp',
+    levelReq: 10,
+    cost: { food: 200, wood: 100 },
+    powerReq: 500,
+    duration: 60,
+    rewards: { exp: 3000, gold: 500 },
+    desc: '학자들이 머물던 미궁. 경험치 +3000',
+    color: '#1976d2',
+  },
+  {
+    id: 'exp_hard',
+    name: '🌌 고대 지식의 신전',
+    icon: '🌌',
+    type: 'exp',
+    levelReq: 25,
+    cost: { food: 500, wood: 300, stone: 200 },
+    powerReq: 2000,
+    duration: 120,
+    rewards: { exp: 12000, gold: 2000, gem: 5 },
+    desc: '고대 신비가 깃든 곳. 경험치 +12000',
+    color: '#7b1fa2',
+  },
+  {
+    id: 'exp_extreme',
+    name: '✨ 시간의 차원',
+    icon: '✨',
+    type: 'exp',
+    levelReq: 45,
+    cost: { food: 1000, wood: 500, stone: 500, gem: 5 },
+    powerReq: 5000,
+    duration: 180,
+    rewards: { exp: 40000, gold: 10000, gem: 20 },
+    desc: '시공간을 초월한 던전. 경험치 +40000',
+    color: '#ff6f00',
+  },
+
+  // === 재화 던전 ===
+  {
+    id: 'gold_easy',
+    name: '💰 골드 광산',
+    icon: '⛏',
+    type: 'gold',
+    levelReq: 3,
+    cost: { food: 80 },
+    powerReq: 150,
+    duration: 45,
+    rewards: { gold: 2000, exp: 100 },
+    desc: '풍부한 금광맥. 금화 +2000',
+    color: '#ffb300',
+  },
+  {
+    id: 'gold_normal',
+    name: '💎 보석 동굴',
+    icon: '💎',
+    type: 'gold',
+    levelReq: 15,
+    cost: { food: 300, wood: 100 },
+    powerReq: 800,
+    duration: 90,
+    rewards: { gold: 8000, gem: 10, exp: 500 },
+    desc: '반짝이는 보석. 금화 +8000, 💎+10',
+    color: '#00acc1',
+  },
+  {
+    id: 'gold_hard',
+    name: '🏛 잊혀진 보고',
+    icon: '🏛',
+    type: 'gold',
+    levelReq: 30,
+    cost: { food: 800, wood: 400, stone: 400 },
+    powerReq: 3000,
+    duration: 150,
+    rewards: { gold: 30000, gem: 30, food: 500, wood: 500, stone: 500, exp: 2000 },
+    desc: '왕의 보물창고. 자원 풍부',
+    color: '#d84315',
+  },
+  {
+    id: 'gold_extreme',
+    name: '👑 황금 궁전',
+    icon: '👑',
+    type: 'gold',
+    levelReq: 50,
+    cost: { food: 2000, wood: 1000, stone: 1000, gem: 10 },
+    powerReq: 8000,
+    duration: 240,
+    rewards: { gold: 150000, gem: 100, food: 3000, wood: 3000, stone: 3000, exp: 5000 },
+    desc: '전설의 황금 궁전',
+    color: '#ffd700',
+  },
+
+  // === 펫 던전 ===
+  {
+    id: 'pet_easy',
+    name: '🐾 야생 동물의 숲',
+    icon: '🌲',
+    type: 'pet',
+    levelReq: 5,
+    cost: { food: 150 },
+    powerReq: 200,
+    duration: 60,
+    rewards: { petTier: 'common', exp: 200 },
+    desc: '일반 펫 1마리 (확률 100%)',
+    color: '#43a047',
+  },
+  {
+    id: 'pet_normal',
+    name: '🌳 신비의 숲',
+    icon: '🌳',
+    type: 'pet',
+    levelReq: 18,
+    cost: { food: 400, wood: 200 },
+    powerReq: 1000,
+    duration: 100,
+    rewards: { petTier: 'rare', exp: 1000 },
+    desc: '희귀 펫 1마리 (확률 100%)',
+    color: '#1976d2',
+  },
+  {
+    id: 'pet_hard',
+    name: '🌋 화산의 둥지',
+    icon: '🌋',
+    type: 'pet',
+    levelReq: 35,
+    cost: { food: 1000, wood: 500, stone: 500 },
+    powerReq: 4000,
+    duration: 180,
+    rewards: { petTier: 'epic', exp: 3000, gold: 1000 },
+    desc: '에픽 펫 1마리 (확률 100%)',
+    color: '#7b1fa2',
+  },
+  {
+    id: 'pet_legendary',
+    name: '⚡ 천둥의 성역',
+    icon: '⚡',
+    type: 'pet',
+    levelReq: 50,
+    cost: { food: 2000, wood: 1000, stone: 1000, gem: 15 },
+    powerReq: 7000,
+    duration: 240,
+    rewards: { petTier: 'legendary', exp: 8000, gold: 5000, gem: 20 },
+    desc: '전설 펫 1마리 (확률 100%)',
+    color: '#c62828',
+  },
+];
+
+function openDungeon() {
+  const modal = document.getElementById('m-dungeon');
+  if (!modal) return;
+  modal.classList.add('show');
+  renderDungeonModal();
+}
+window.openDungeon = openDungeon;
+
+function renderDungeonModal() {
+  const body = document.getElementById('dungeon-body');
+  if (!body) return;
+
+  // 진행 중인 던전 체크
+  const inProgress = game.activeDungeon;
+  if (inProgress) {
+    renderDungeonProgress();
+    return;
+  }
+
+  // 던전 타입별 그룹화
+  const expDungeons = DUNGEONS.filter(d => d.type === 'exp');
+  const goldDungeons = DUNGEONS.filter(d => d.type === 'gold');
+  const petDungeons = DUNGEONS.filter(d => d.type === 'pet');
+
+  let html = `
+    <div style="background:linear-gradient(135deg, #4527a0, #1a237e); border:3px solid #7c4dff; border-radius:12px; padding:12px; margin-bottom:10px; color:white; text-align:center;">
+      <div style="font-size:32px;">🗝</div>
+      <div style="font-size:14px; font-weight:bold; margin-top:4px;">던전 탐험</div>
+      <div style="font-size:11px; color:#bbdefb; margin-top:4px;">시간이 지나면 보상을 받을 수 있어요!</div>
+    </div>
+  `;
+
+  // 탭
+  html += `
+    <div style="display:flex; gap:4px; margin-bottom:10px;">
+      <button class="dungeon-tab active" data-dtab="exp" style="flex:1; background:linear-gradient(to bottom, #ba68c8, #6a1b9a); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">📚 경험치</button>
+      <button class="dungeon-tab" data-dtab="gold" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">💰 재화</button>
+      <button class="dungeon-tab" data-dtab="pet" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">🦁 펫</button>
+    </div>
+    <div id="dungeon-list"></div>
+  `;
+  body.innerHTML = html;
+
+  const renderList = (type) => {
+    const list = body.querySelector('#dungeon-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const dungeons = DUNGEONS.filter(d => d.type === type);
+    for (const d of dungeons) {
+      const locked = game.level < d.levelReq;
+      const canPower = (game.totalPower || 0) >= d.powerReq;
+      const canPay = canAfford(d.cost);
+      const canEnter = !locked && canPower && canPay;
+
+      const costStr = Object.entries(d.cost).map(([k, v]) => {
+        const ico = { gold: '💰', food: '🍖', wood: '🪵', stone: '🪨', gem: '💎' }[k];
+        return `${ico}${v}`;
+      }).join(' ');
+
+      const rewardStr = Object.entries(d.rewards).filter(([k]) => k !== 'petTier').map(([k, v]) => {
+        const ico = { gold: '💰', food: '🍖', wood: '🪵', stone: '🪨', gem: '💎', exp: '✨' }[k];
+        return `${ico}+${v.toLocaleString()}`;
+      }).join(' ');
+      const petStr = d.rewards.petTier ? ` 🦁 ${d.rewards.petTier.toUpperCase()} 펫` : '';
+
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background: linear-gradient(to bottom, #fff, ${d.color}22);
+        border: 3px solid ${locked ? '#9e9e9e' : d.color};
+        border-radius: 10px; padding: 10px; margin-bottom: 8px;
+        ${locked ? 'opacity:0.5;' : ''}
+      `;
+      card.innerHTML = `
+        <div style="display:flex; align-items:start; gap:10px;">
+          <div style="font-size:36px;">${d.icon}</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold; color:${d.color}; font-size:14px;">${d.name}</div>
+            <div style="font-size:11px; color:var(--wood-dark); margin-top:2px;">${d.desc}</div>
+            <div style="font-size:10px; color:#888; margin-top:3px;">
+              ⏱ ${d.duration}초 · Lv.${d.levelReq}+ · ⚔ ${d.powerReq}+ 필요
+            </div>
+            <div style="font-size:10px; color:var(--wood-dark); margin-top:3px;">
+              💸 비용: <b>${costStr}</b>
+            </div>
+            <div style="font-size:11px; color:#2e7d32; font-weight:bold; margin-top:2px;">
+              🎁 보상: ${rewardStr}${petStr}
+            </div>
+          </div>
+        </div>
+        <button class="dungeon-enter-btn" data-id="${d.id}" type="button" ${!canEnter ? 'disabled' : ''} style="
+          width: 100%; margin-top: 8px;
+          background: linear-gradient(to bottom, ${canEnter ? '#66bb6a, #2e7d32' : '#bdbdbd, #757575'});
+          color: white; border: 2px solid var(--wood-dark); border-radius: 8px;
+          padding: 8px; font-family: inherit; font-weight: bold; font-size: 13px;
+          cursor: ${canEnter ? 'pointer' : 'not-allowed'}; box-shadow: 0 2px 0 var(--wood-dark);
+        ">${locked ? `🔒 Lv.${d.levelReq} 필요` : !canPower ? `⚔ 전투력 ${d.powerReq} 필요` : !canPay ? `💸 자원 부족` : '⚔ 입장!'}</button>
+      `;
+      list.appendChild(card);
+    }
+    // 입장 핸들러
+    list.querySelectorAll('.dungeon-enter-btn').forEach(btn => {
+      btn.onclick = () => {
+        if (!btn.disabled) enterDungeon(btn.dataset.id);
+      };
+    });
+  };
+
+  // 탭 클릭
+  body.querySelectorAll('.dungeon-tab').forEach(t => {
+    t.onclick = () => {
+      body.querySelectorAll('.dungeon-tab').forEach(x => {
+        x.classList.remove('active');
+        x.style.background = '#fff';
+        x.style.color = 'var(--wood-dark)';
+      });
+      t.classList.add('active');
+      t.style.background = 'linear-gradient(to bottom, #ba68c8, #6a1b9a)';
+      t.style.color = 'white';
+      renderList(t.dataset.dtab);
+    };
+  });
+  renderList('exp');
+}
+window.renderDungeonModal = renderDungeonModal;
+
+function enterDungeon(id) {
+  const d = DUNGEONS.find(x => x.id === id);
+  if (!d) return;
+  if (game.activeDungeon) {
+    showToast('이미 던전을 탐험 중이에요', 'warn');
+    return;
+  }
+  if (!canAfford(d.cost)) {
+    showToast('자원 부족!', 'warn');
+    return;
+  }
+  if (!spendRes(d.cost)) return;
+
+  game.activeDungeon = {
+    id: d.id,
+    startTime: Date.now(),
+    duration: d.duration * 1000,
+  };
+  try { saveGame(); } catch (e) {}
+  if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+  showToast(`🗝 "${d.name}" 탐험 시작!`, 'gain');
+  renderDungeonModal();
+}
+window.enterDungeon = enterDungeon;
+
+function renderDungeonProgress() {
+  const body = document.getElementById('dungeon-body');
+  if (!body || !game.activeDungeon) return;
+  const d = DUNGEONS.find(x => x.id === game.activeDungeon.id);
+  if (!d) {
+    game.activeDungeon = null;
+    renderDungeonModal();
+    return;
+  }
+  const elapsed = Date.now() - game.activeDungeon.startTime;
+  const remaining = Math.max(0, game.activeDungeon.duration - elapsed);
+  const progress = Math.min(100, (elapsed / game.activeDungeon.duration) * 100);
+  const ready = remaining <= 0;
+
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+  const timeStr = remaining > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : '완료!';
+
+  const rewardStr = Object.entries(d.rewards).filter(([k]) => k !== 'petTier').map(([k, v]) => {
+    const ico = { gold: '💰', food: '🍖', wood: '🪵', stone: '🪨', gem: '💎', exp: '✨' }[k];
+    return `${ico}+${v.toLocaleString()}`;
+  }).join(' ');
+  const petStr = d.rewards.petTier ? ` 🦁 ${d.rewards.petTier.toUpperCase()} 펫` : '';
+
+  body.innerHTML = `
+    <div style="background:linear-gradient(135deg, ${d.color}, ${d.color}88); border:4px solid var(--wood-dark); border-radius:14px; padding:18px; text-align:center; color:white; box-shadow:0 0 18px ${d.color}77;">
+      <div style="font-size:48px;">${d.icon}</div>
+      <div style="font-size:18px; font-weight:bold; margin-top:6px;">${d.name}</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.85); margin-top:4px;">${d.desc}</div>
+      <div style="margin-top:14px; background:rgba(0,0,0,0.4); border:2px solid #fff; border-radius:10px; height:22px; overflow:hidden; position:relative;">
+        <div style="background:linear-gradient(to right, #ffd54f, #ffeb3b); height:100%; width:${progress}%; transition: width 0.5s;"></div>
+        <div style="position:absolute; inset:0; text-align:center; font-size:12px; font-weight:bold; color:#fff; text-shadow:1px 1px 2px rgba(0,0,0,0.8); line-height:22px;">${timeStr} ${ready ? '' : `(${Math.floor(progress)}%)`}</div>
+      </div>
+      <div style="margin-top:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px;">
+        <div style="font-size:11px; color:#ffd54f;">🎁 예상 보상</div>
+        <div style="font-size:13px; font-weight:bold; margin-top:4px;">${rewardStr}${petStr}</div>
+      </div>
+      <button id="dungeon-claim" type="button" ${!ready ? 'disabled' : ''} style="
+        margin-top: 16px;
+        background: ${ready ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #bdbdbd, #757575)'};
+        color: white; border: 3px solid var(--wood-dark); border-radius: 12px;
+        padding: 12px 32px; font-family: inherit; font-weight: bold; font-size: 16px;
+        cursor: ${ready ? 'pointer' : 'not-allowed'}; box-shadow: 0 3px 0 var(--wood-dark);
+        ${ready ? 'animation: pulse 1s infinite;' : ''}
+      ">${ready ? '🎁 보상 받기!' : '⏳ 대기 중...'}</button>
+      ${!ready ? `
+        <button id="dungeon-skip" type="button" style="
+          margin-top: 10px;
+          background: linear-gradient(to bottom, #ffd54f, #f9a825);
+          color: var(--wood-dark); border: 2px solid var(--wood-dark); border-radius: 8px;
+          padding: 8px 20px; font-family: inherit; font-weight: bold; font-size: 12px;
+          cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+        ">💎 ${Math.ceil(remaining/60000) * 5}로 즉시 완료</button>
+      ` : ''}
+    </div>
+  `;
+
+  // 핸들러
+  const claimBtn = body.querySelector('#dungeon-claim');
+  if (claimBtn && ready) claimBtn.onclick = claimDungeonReward;
+  const skipBtn = body.querySelector('#dungeon-skip');
+  if (skipBtn) skipBtn.onclick = () => {
+    const cost = Math.ceil(remaining / 60000) * 5;
+    if ((game.res.gem || 0) < cost) {
+      showToast(`💎 ${cost} 필요!`, 'warn');
+      return;
+    }
+    game.res.gem -= cost;
+    game.activeDungeon.startTime = Date.now() - game.activeDungeon.duration;
+    showToast(`💎 즉시 완료!`, 'gain');
+    updateHUD();
+    renderDungeonProgress();
+  };
+
+  // 자동 갱신 (1초마다)
+  if (!ready) {
+    clearTimeout(window._dungeonTimer);
+    window._dungeonTimer = setTimeout(renderDungeonProgress, 1000);
+  }
+}
+window.renderDungeonProgress = renderDungeonProgress;
+
+function claimDungeonReward() {
+  if (!game.activeDungeon) return;
+  const d = DUNGEONS.find(x => x.id === game.activeDungeon.id);
+  if (!d) return;
+  const elapsed = Date.now() - game.activeDungeon.startTime;
+  if (elapsed < game.activeDungeon.duration) {
+    showToast('아직 완료되지 않았어요', 'warn');
+    return;
+  }
+
+  // 보상 지급
+  const rewards = d.rewards;
+  let summary = '';
+  if (rewards.gold) { addRes('gold', rewards.gold); summary += `💰+${rewards.gold} `; }
+  if (rewards.food) { addRes('food', rewards.food); summary += `🍖+${rewards.food} `; }
+  if (rewards.wood) { addRes('wood', rewards.wood); summary += `🪵+${rewards.wood} `; }
+  if (rewards.stone) { addRes('stone', rewards.stone); summary += `🪨+${rewards.stone} `; }
+  if (rewards.gem) { addRes('gem', rewards.gem); summary += `💎+${rewards.gem} `; }
+  if (rewards.exp) {
+    game.exp = (game.exp || 0) + rewards.exp;
+    summary += `✨+${rewards.exp} `;
+    try { checkLevelUp(); } catch (e) {}
+  }
+
+  // 펫 보상
+  let petGot = null;
+  if (rewards.petTier) {
+    const candidates = Object.keys(PETS).filter(k => PETS[k].tier === rewards.petTier && !game.pets[k]);
+    if (candidates.length > 0) {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      game.pets[pick] = 1;
+      if (!game.petAcquiredAt) game.petAcquiredAt = {};
+      game.petAcquiredAt[pick] = Date.now();
+      petGot = pick;
+      try { recomputePower(); } catch (e) {}
+      try { rebuildPetCompanions(); } catch (e) {}
+      summary += `🦁 ${PETS[pick].emoji} ${PETS[pick].name}! `;
+    } else {
+      // 모든 펫 보유 → 보석 보상
+      addRes('gem', 30);
+      summary += `💎+30 (모든 ${rewards.petTier} 펫 보유) `;
+    }
+  }
+
+  // 통계
+  if (!game.stats) game.stats = {};
+  game.stats.dungeonsCleared = (game.stats.dungeonsCleared || 0) + 1;
+
+  // 던전 완료 처리
+  game.activeDungeon = null;
+  try { saveGame(); } catch (e) {}
+  if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+
+  // 결과 모달
+  showDungeonResult(d, summary, petGot);
+  updateHUD();
+}
+window.claimDungeonReward = claimDungeonReward;
+
+function showDungeonResult(d, summary, petGot) {
+  const existing = document.getElementById('dungeon-result');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'dungeon-result';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, ${d.color}, #fff8e1);
+      border: 5px solid #3e2723;
+      border-radius: 18px;
+      padding: 24px;
+      max-width: 380px; width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    ">
+      <div style="font-size: 60px; margin-bottom: 8px;">${d.icon}</div>
+      <div style="font-size: 24px; font-weight: bold; color: var(--wood-dark);">🎉 던전 클리어!</div>
+      <div style="font-size: 14px; color: var(--wood-dark); margin-top: 6px; font-weight: bold;">${d.name}</div>
+      <div style="margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.7); border: 2px solid var(--wood-dark); border-radius: 12px;">
+        <div style="font-size: 11px; color: var(--wood-dark);">🎁 획득한 보상</div>
+        <div style="font-size: 16px; font-weight: bold; margin-top: 6px; line-height: 1.6; color: var(--wood-dark);">${summary}</div>
+      </div>
+      ${petGot ? `
+        <div style="margin-top: 12px; padding: 10px; background: linear-gradient(135deg, #ffd700, #fff8e1); border: 3px solid #f9a825; border-radius: 12px;">
+          <div style="font-size: 11px; color: var(--wood-dark);">🌟 펫 획득!</div>
+          <div style="font-size: 32px; margin-top: 4px;">${PETS[petGot].emoji}</div>
+          <div style="font-size: 14px; font-weight: bold; color: ${PET_TIER_COLORS[PETS[petGot].tier]};">${PETS[petGot].name}</div>
+        </div>
+      ` : ''}
+      <button id="dungeon-result-close" type="button" style="
+        margin-top: 16px;
+        background: linear-gradient(to bottom, #ffd54f, #f9a825);
+        border: 3px solid #3e2723; border-radius: 12px;
+        padding: 10px 32px; font-family: inherit; font-size: 14px;
+        cursor: pointer; font-weight: bold; color: #3e2723;
+        box-shadow: 0 3px 0 #3e2723;
+      ">✕ 닫기</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('dungeon-result-close').onclick = () => {
+    modal.remove();
+    if (document.getElementById('m-dungeon').classList.contains('show')) {
+      renderDungeonModal();
+    }
+  };
+}
+window.showDungeonResult = showDungeonResult;
 
 function renderArenaModal() {
   const body = document.getElementById('arena-body');
@@ -14727,6 +16308,94 @@ function startBuildingDrag(b) {
   canvas.style.cursor = 'move';
 }
 
+// === 모닥불 드래그 시스템 ===
+function startHomeDrag() {
+  if (game.visiting) return;
+  if (!game.home) return;
+  game.draggingHome = true;
+  game.dragHomeOriginalX = game.home.x;
+  game.dragHomeOriginalY = game.home.y;
+  canvas.style.cursor = 'move';
+  showToast('🔥 드래그해서 옮기세요', '');
+}
+window.startHomeDrag = startHomeDrag;
+
+function finishHomeDrag() {
+  if (!game.draggingHome || !game.home) return;
+  const worldX = game.home.x;
+  const worldY = game.home.y;
+  const gx = Math.floor(worldX / TILE);
+  const gy = Math.floor(worldY / TILE);
+
+  let bad = false;
+  let badReason = '';
+
+  // 물 타일 검사
+  if (game.tilemap && typeof game.tilemap.tileAt === 'function') {
+    try {
+      if (game.tilemap.tileAt(gx, gy) === 'water') {
+        bad = true;
+        badReason = '🌊 물 위에는 둘 수 없어요';
+      }
+    } catch (e) {}
+  }
+
+  // 건물 위에 둘 수 없음
+  if (!bad) {
+    for (const b of game.buildings) {
+      if (gx >= b.gx && gx < b.gx + b.def.size &&
+          gy >= b.gy && gy < b.gy + b.def.size) {
+        bad = true;
+        badReason = `⚠ ${b.def.name} 위에는 둘 수 없어요`;
+        break;
+      }
+    }
+  }
+
+  if (bad) {
+    // 원래 위치로 복귀
+    game.home.x = game.dragHomeOriginalX;
+    game.home.y = game.dragHomeOriginalY;
+    showToast(badReason, 'warn');
+  } else if (worldX !== game.dragHomeOriginalX || worldY !== game.dragHomeOriginalY) {
+    // 이동 성공 — 주민들 위치 업데이트
+    for (const v of game.villagers) {
+      v.homeX = worldX;
+      v.homeY = worldY;
+    }
+    if (game.petCompanions) {
+      for (const p of game.petCompanions) {
+        if (p) {
+          p.homeX = worldX;
+          p.homeY = worldY;
+        }
+      }
+    }
+    // FX
+    for (let i = 0; i < 16; i++) {
+      const ang = (i / 16) * Math.PI * 2;
+      spawnParticle({
+        x: worldX, y: worldY,
+        vx: Math.cos(ang) * 80, vy: Math.sin(ang) * 80 - 30,
+        size: 4, life: 0.8,
+        color: '#ff5722', shape: 'circle', drag: 0.93,
+      });
+    }
+    showToast('🔥 모닥불 이동 완료!', 'gain');
+    // 즉시 저장
+    try { saveGame(); } catch (e) {}
+    if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try { uploadCloudSave(true); } catch (e) {}
+    }
+  }
+
+  game.draggingHome = false;
+  game.dragHomeOriginalX = null;
+  game.dragHomeOriginalY = null;
+  canvas.style.cursor = 'grab';
+}
+window.finishHomeDrag = finishHomeDrag;
+
 function finishBuildingDrag() {
   const b = game.draggingBuilding;
   if (!b) return;
@@ -15770,7 +17439,7 @@ function beginGame() {
       setTimeout(() => {
         try { uploadPlayerProfile(); } catch (e) {}
         try { uploadMyVillage(); } catch (e) {}
-        try { startFriendRequestListener(); } catch (e) {}
+        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {}
       }, 1500);
     }
   } catch (e) {}
@@ -15890,6 +17559,31 @@ async function _initImpl() {
     if (!game.visiting && !game.relocating && !game.selectedBuild) {
       const w = screenToWorld(p.x, p.y);
       const wx = w.x, wy = w.y;
+
+      // === 모닥불 감지 (재배치 모드일 때 즉시 드래그) ===
+      if (game.home) {
+        const hx = game.home.x, hy = game.home.y;
+        const dist = Math.sqrt((wx - hx) ** 2 + (wy - hy) ** 2);
+        const clickRadius = Math.max(30, Math.min(60, 30 / Math.max(0.5, game.zoom)));
+        if (dist < clickRadius) {
+          if (game.relocateMode) {
+            // 재배치 모드: 즉시 드래그 시작
+            startHomeDrag();
+            game.isPanning = false;
+            // for 루프 진입 안 하고 종료
+            return;
+          } else {
+            // 일반: 500ms 길게 누르면 드래그 시작
+            game.longPressHomeTimer = setTimeout(() => {
+              if (game.longPressHomeTimer && !game.pointerMoved) {
+                startHomeDrag();
+              }
+            }, 500);
+            return;
+          }
+        }
+      }
+
       // 클릭한 위치에 건물이 있는지 확인
       for (const b of game.buildings) {
         const bx = b.gx * TILE, by = b.gy * TILE;
@@ -15939,6 +17633,11 @@ async function _initImpl() {
           const w = screenToWorld(x, y);
           game.draggingBuilding.gx = Math.floor(w.x / TILE) - Math.floor(game.draggingBuilding.def.size / 2);
           game.draggingBuilding.gy = Math.floor(w.y / TILE) - Math.floor(game.draggingBuilding.def.size / 2);
+        } else if (game.draggingHome) {
+          // 모닥불 드래그
+          const w = screenToWorld(x, y);
+          game.home.x = w.x;
+          game.home.y = w.y;
         } else {
           game.camX = game.panStartCamX - dx / game.zoom;
           game.camY = game.panStartCamY - dy / game.zoom;
@@ -15958,7 +17657,7 @@ async function _initImpl() {
     }
   });
   window.addEventListener('mouseup', (e) => {
-    if (!game.isPanning) return;
+    if (!game.isPanning && !game.draggingHome) return;
     game.isPanning = false;
     canvas.style.cursor = fx.hoverBuilding ? 'pointer' : 'grab';
     // longPress 타이머 정리
@@ -15967,9 +17666,18 @@ async function _initImpl() {
       game.longPressTimer = null;
       game.longPressTarget = null;
     }
+    if (game.longPressHomeTimer) {
+      clearTimeout(game.longPressHomeTimer);
+      game.longPressHomeTimer = null;
+    }
     // 건물 드래그 종료
     if (game.draggingBuilding) {
       finishBuildingDrag();
+      return;
+    }
+    // 모닥불 드래그 종료
+    if (game.draggingHome) {
+      finishHomeDrag();
       return;
     }
     if (!game.pointerMoved) {
@@ -16011,6 +17719,28 @@ async function _initImpl() {
       // long-press 건물 드래그 시작 체크 (터치)
       if (!game.visiting && !game.relocating && !game.selectedBuild) {
         const w = screenToWorld(p.x, p.y);
+
+        // === 모닥불 감지 ===
+        if (game.home) {
+          const hx = game.home.x, hy = game.home.y;
+          const dist = Math.sqrt((w.x - hx) ** 2 + (w.y - hy) ** 2);
+          const clickRadius = Math.max(30, Math.min(60, 30 / Math.max(0.5, game.zoom)));
+          if (dist < clickRadius) {
+            if (game.relocateMode) {
+              startHomeDrag();
+              game.isPanning = false;
+              return;
+            } else {
+              game.longPressHomeTimer = setTimeout(() => {
+                if (game.longPressHomeTimer && !game.pointerMoved) {
+                  startHomeDrag();
+                }
+              }, 500);
+              return;
+            }
+          }
+        }
+
         for (const b of game.buildings) {
           const bx = b.gx * TILE, by = b.gy * TILE;
           const bw = b.def.size * TILE, bh = b.def.size * TILE;
@@ -16049,18 +17779,22 @@ async function _initImpl() {
     }
   }, { passive: false });
   canvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 1 && game.isPanning) {
+    if (e.touches.length === 1 && (game.isPanning || game.draggingHome)) {
       e.preventDefault();
       const p = getRelPos(e);
       const dx = p.x - game.panStartX;
       const dy = p.y - game.panStartY;
       if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
         game.pointerMoved = true;
-        // 움직이면 long-press 취소
+        // 움직이면 long-press 취소 (드래그 중이 아닐 때만)
         if (game.longPressTimer && !game.draggingBuilding) {
           clearTimeout(game.longPressTimer);
           game.longPressTimer = null;
           game.longPressTarget = null;
+        }
+        if (game.longPressHomeTimer && !game.draggingHome) {
+          clearTimeout(game.longPressHomeTimer);
+          game.longPressHomeTimer = null;
         }
       }
       if (game.pointerMoved) {
@@ -16069,6 +17803,11 @@ async function _initImpl() {
           const w = screenToWorld(p.x, p.y);
           game.draggingBuilding.gx = Math.floor(w.x / TILE) - Math.floor(game.draggingBuilding.def.size / 2);
           game.draggingBuilding.gy = Math.floor(w.y / TILE) - Math.floor(game.draggingBuilding.def.size / 2);
+        } else if (game.draggingHome) {
+          // 모닥불 따라옴
+          const w = screenToWorld(p.x, p.y);
+          game.home.x = w.x;
+          game.home.y = w.y;
         } else {
           game.camX = game.panStartCamX - dx / game.zoom;
           game.camY = game.panStartCamY - dy / game.zoom;
@@ -16112,9 +17851,23 @@ async function _initImpl() {
       game.longPressTimer = null;
       game.longPressTarget = null;
     }
+    if (game.longPressHomeTimer) {
+      clearTimeout(game.longPressHomeTimer);
+      game.longPressHomeTimer = null;
+    }
     // 건물 드래그 종료
     if (game.draggingBuilding) {
       finishBuildingDrag();
+      if (e.touches.length === 0) {
+        game.isPanning = false;
+        fx.hoverBuilding = null;
+        game.pinchDist = 0;
+      }
+      return;
+    }
+    // 모닥불 드래그 종료
+    if (game.draggingHome) {
+      finishHomeDrag();
       if (e.touches.length === 0) {
         game.isPanning = false;
         fx.hoverBuilding = null;
@@ -16150,6 +17903,8 @@ async function _initImpl() {
   document.getElementById('btn-pets').onclick = openPetDex;
   const btnArena = document.getElementById('btn-arena');
   if (btnArena) btnArena.onclick = openArena;
+  const btnDungeon = document.getElementById('btn-dungeon');
+  if (btnDungeon) btnDungeon.onclick = openDungeon;
   document.getElementById('btn-army').onclick = openArmyPanel;
   document.getElementById('btn-quests').onclick = openQuestPanel;
   document.getElementById('btn-achievements').onclick = openAchievements;
@@ -16479,6 +18234,8 @@ function showNicknameScreen(onDone) {
         uploadPlayerProfile();
         uploadMyVillage();
         startFriendRequestListener();
+        try { startAdminGiftListener(); } catch (e) {}
+        try { startAdminNoticeListener(); } catch (e) {}
       }, 2000);
     } catch (e) {}
   };

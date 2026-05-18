@@ -86,6 +86,8 @@
     .build-card .preview { width: 48px; height: 42px; font-size: 26px; }
     .build-card .bname { font-size: 10px; }
     .build-card .bcost { font-size: 8px; }
+    .build-cat-bar { padding: 4px; gap: 4px; bottom: 116px; }
+    .build-cat-bar .build-cat-btn { padding: 6px 4px; font-size: 11px; }
 
     /* 탭 버튼 위치를 약간 올려서 건설바와 사이드바를 안 겹치게 */
     .tap-btn {
@@ -111,6 +113,7 @@
   /* 가로 회전 시 (landscape) — 좌우 여백 잘 활용 */
   @media (min-aspect-ratio: 4/3) {
     .buildbar { max-width: 800px; margin: 0 auto; left: 80px; right: 80px; }
+    .build-cat-bar { max-width: 800px; margin: 0 auto; left: 80px; right: 80px; }
   }
 
   /* === FRIENDS UI === */
@@ -739,9 +742,33 @@
     letter-spacing: 0.5px;
   }
 
-  /* BUILD BAR — 상단 카탈로그 스타일 (HUD 바로 아래, 화면 위쪽) */
+  /* BUILD CATEGORY BAR — 카테고리 탭 (빌드바 바로 위쪽, 카탈로그 스타일) */
+  .build-cat-bar {
+    position: absolute; bottom: 122px; left: 8px; right: 8px;
+    background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
+    border: 4px solid var(--wood-dark);
+    border-radius: 16px;
+    padding: 6px;
+    display: flex; gap: 6px;
+    box-shadow: 0 4px 0 var(--wood-dark);
+    z-index: 51;
+  }
+  .build-cat-bar .build-cat-btn {
+    flex: 1;
+    border: 2px solid var(--wood-dark);
+    border-radius: 10px;
+    padding: 8px 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 0 var(--wood-dark);
+  }
+  .build-cat-bar .build-cat-btn:active { transform: translateY(2px); box-shadow: none; }
+
+  /* BUILD BAR — 화면 아래쪽 (재배치 + 건물 카탈로그) */
   .buildbar {
-    position: absolute; top: 80px; left: 8px; right: 8px;
+    position: absolute; bottom: 8px; left: 8px; right: 8px;
     background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
     border: 4px solid var(--wood-dark);
     border-radius: 16px;
@@ -1119,6 +1146,7 @@
 
   <button class="tap-btn" id="tap-btn" title="채집하기">⛏️</button>
 
+  <div class="build-cat-bar" id="build-cat-bar"></div>
   <div class="buildbar" id="buildbar"></div>
 </div>
 
@@ -1464,6 +1492,30 @@ window.changePassword = changePassword;
 // === 클라우드 세이브 (게임 진행 상황 업로드) — 디바운싱 적용 ===
 let _lastCloudUploadAt = 0;
 let _pendingCloudUpload = null;
+
+// Firebase는 undefined 값을 거부함 → 모든 undefined를 재귀적으로 제거
+// null/false/0/''은 유지 (유효한 값)
+function stripUndefined(value) {
+  if (value === undefined) return null;
+  if (value === null) return null;
+  if (Array.isArray(value)) {
+    return value.map(v => (v === undefined ? null : stripUndefined(v)));
+  }
+  if (typeof value === 'object') {
+    const out = {};
+    for (const k in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, k)) continue;
+      const v = value[k];
+      if (v === undefined) continue;  // undefined 프로퍼티는 아예 제외
+      out[k] = stripUndefined(v);
+    }
+    return out;
+  }
+  // number / string / boolean
+  if (typeof value === 'number' && !isFinite(value)) return 0;  // NaN/Infinity 차단
+  return value;
+}
+
 async function uploadCloudSave(force) {
   if (!_onlineMode || !game.player) return { ok: false };
 
@@ -1481,7 +1533,7 @@ async function uploadCloudSave(force) {
   _lastCloudUploadAt = now;
 
   try {
-    // 게임 상태를 직렬화
+    // 게임 상태를 직렬화 (모든 필드에 안전한 기본값)
     const saveData = {
       level: game.level || 1,
       exp: game.exp || 0,
@@ -1493,13 +1545,14 @@ async function uploadCloudSave(force) {
       summonedPet: game.summonedPet || null,
       friends: game.friends || [],
       buildings: (game.buildings || []).map(b => ({
-        type: b.type,
-        gx: b.gx, gy: b.gy,
-        state: b.state,
-        uniqueId: b.uniqueId,
-        buildProgress: b.buildProgress,
-        stored: b.stored,
-        productionTimer: b.productionTimer,
+        type: b.type || '',
+        gx: b.gx || 0,
+        gy: b.gy || 0,
+        state: b.state || 'idle',
+        uniqueId: b.uniqueId || 0,
+        buildProgress: b.buildProgress || 0,
+        stored: b.stored || 0,
+        productionTimer: b.productionTimer || 0,
       })),
       buildingUpgrades: game.buildingUpgrades || {},
       research: game.research || {},
@@ -1524,7 +1577,7 @@ async function uploadCloudSave(force) {
       tribe: game.tribe || 'forest',
       avatar: (game.player && game.player.avatar) || '⛺',
       // 추가 필드
-      worldSeed: game.worldSeed,
+      worldSeed: game.worldSeed || 0,
       activeDungeon: game.activeDungeon || null,
       dungeonClearedToday: game.dungeonClearedToday || {},
       dungeonClearedDate: game.dungeonClearedDate || '',
@@ -1543,8 +1596,10 @@ async function uploadCloudSave(force) {
       shopPurchased: game.shopPurchased || [],
       uploadedAt: Date.now(),
     };
+    // 안전망: 혹시 남아있을 undefined / NaN / Infinity 전부 제거
+    const cleanData = stripUndefined(saveData);
     const ref = _firebaseDB.ref('saves/' + encodeURIComponent(game.player.nickname));
-    await ref.set(saveData);
+    await ref.set(cleanData);
     console.log(`[Cloud] 업로드 완료 at ${new Date().toLocaleTimeString()}`);
     return { ok: true };
   } catch (e) {
@@ -1685,17 +1740,17 @@ async function uploadPlayerProfile() {
   if (!_onlineMode || !game.player) return;
   try {
     const ref = _firebaseDB.ref('players/' + encodeURIComponent(game.player.nickname));
-    await ref.set({
-      nickname: game.player.nickname,
-      code: game.player.code,
+    await ref.set(stripUndefined({
+      nickname: game.player.nickname || '',
+      code: game.player.code || '',
       level: game.level || 1,
       power: game.totalPower || 0,
       petCount: Object.keys(game.pets || {}).length,
       day: game.day || 1,
-      score: (typeof getMyScore === 'function') ? getMyScore() : 0,
+      score: (typeof getMyScore === 'function') ? (getMyScore() || 0) : 0,
       avatar: game.player.avatar || '⛺',
       updatedAt: Date.now(),
-    });
+    }));
   } catch (e) {
     console.warn('[Firebase] upload profile failed', e);
   }
@@ -8600,45 +8655,33 @@ function rebuildBuildBar() {
   const bar = document.getElementById('buildbar');
   bar.innerHTML = '';
 
-  // === 카테고리 탭 ===
+  // === 카테고리 탭 (별도 바: build-cat-bar) ===
   if (!game.buildCategory) game.buildCategory = 'building';  // 'building' or 'decoration' or 'path'
 
-  const tabBar = document.createElement('div');
-  tabBar.style.cssText = 'display:flex; gap:4px; min-width:240px; flex-shrink:0;';
-  tabBar.innerHTML = `
-    <button class="build-cat-btn" data-cat="building" style="
-      flex:1; min-width:60px;
-      background: ${game.buildCategory === 'building' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, #e0e0e0)'};
-      color: ${game.buildCategory === 'building' ? 'white' : '#3e2723'};
-      border: 2px solid var(--wood-dark); border-radius: 8px;
-      padding: 6px; font-family: inherit; font-size: 10px;
-      font-weight: bold; cursor: pointer;
-    ">🏗 건물</button>
-    <button class="build-cat-btn" data-cat="decoration" style="
-      flex:1; min-width:60px;
-      background: ${game.buildCategory === 'decoration' ? 'linear-gradient(to bottom, #ec407a, #ad1457)' : 'linear-gradient(to bottom, #fff, #e0e0e0)'};
-      color: ${game.buildCategory === 'decoration' ? 'white' : '#3e2723'};
-      border: 2px solid var(--wood-dark); border-radius: 8px;
-      padding: 6px; font-family: inherit; font-size: 10px;
-      font-weight: bold; cursor: pointer;
-    ">🎨 장식</button>
-    <button class="build-cat-btn" data-cat="path" style="
-      flex:1; min-width:60px;
-      background: ${game.buildCategory === 'path' ? 'linear-gradient(to bottom, #8d6e63, #5d4037)' : 'linear-gradient(to bottom, #fff, #e0e0e0)'};
-      color: ${game.buildCategory === 'path' ? 'white' : '#3e2723'};
-      border: 2px solid var(--wood-dark); border-radius: 8px;
-      padding: 6px; font-family: inherit; font-size: 10px;
-      font-weight: bold; cursor: pointer;
-    ">🛤 길</button>
-  `;
-  bar.appendChild(tabBar);
-  tabBar.querySelectorAll('.build-cat-btn').forEach(btn => {
-    btn.onclick = () => {
-      game.buildCategory = btn.dataset.cat;
-      game.selectedBuild = null;
-      rebuildBuildBar();
-    };
-  });
+  const catBar = document.getElementById('build-cat-bar');
+  if (catBar) {
+    catBar.innerHTML = `
+      <button class="build-cat-btn" data-cat="building" style="
+        background: ${game.buildCategory === 'building' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, #e0e0e0)'};
+        color: ${game.buildCategory === 'building' ? 'white' : '#3e2723'};
+      ">🏗 건물</button>
+      <button class="build-cat-btn" data-cat="decoration" style="
+        background: ${game.buildCategory === 'decoration' ? 'linear-gradient(to bottom, #ec407a, #ad1457)' : 'linear-gradient(to bottom, #fff, #e0e0e0)'};
+        color: ${game.buildCategory === 'decoration' ? 'white' : '#3e2723'};
+      ">🎨 장식</button>
+      <button class="build-cat-btn" data-cat="path" style="
+        background: ${game.buildCategory === 'path' ? 'linear-gradient(to bottom, #8d6e63, #5d4037)' : 'linear-gradient(to bottom, #fff, #e0e0e0)'};
+        color: ${game.buildCategory === 'path' ? 'white' : '#3e2723'};
+      ">🛤 길</button>
+    `;
+    catBar.querySelectorAll('.build-cat-btn').forEach(btn => {
+      btn.onclick = () => {
+        game.buildCategory = btn.dataset.cat;
+        game.selectedBuild = null;
+        rebuildBuildBar();
+      };
+    });
+  }
 
   // === 재배치 모드 버튼 ===
   const relocateCard = document.createElement('div');

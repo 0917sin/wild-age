@@ -9267,11 +9267,16 @@ window.updateTitlesBadge = updateTitlesBadge;
 function equipTitle(id) {
   if (id === null) {
     game.equippedTitle = null;
+    showToast('👑 칭호 해제됨', '');
   } else if (game.titles && game.titles[id]) {
     game.equippedTitle = id;
     const t = TITLES.find(x => x.id === id);
     if (t) showToast(`👑 "${t.name}" 칭호 장착!`, 'gain');
   }
+  // 칭호 효과 즉시 적용 → 전투력 재계산 + HUD 갱신
+  try { recomputePower(); } catch (e) {}
+  try { updateHUD(); } catch (e) {}
+  try { uploadPlayerProfile(); } catch (e) {}
   renderTitlesBody();
 }
 window.equipTitle = equipTitle;
@@ -9333,10 +9338,44 @@ function renderTitlesBody() {
   const unlocked = TITLES.filter(t => game.titles[t.id]);
   const equippedT = game.equippedTitle && TITLES.find(t => t.id === game.equippedTitle);
 
+  // 효과 미리 적용해서 전투력 계산
+  let currentPower = game.totalPower || 0;
+
+  // 칭호 미장착 시 전투력 (참고용)
+  const savedTitle = game.equippedTitle;
+  game.equippedTitle = null;
+  try { recomputePower(); } catch (e) {}
+  const basePower = game.totalPower || 0;
+  // 원복
+  game.equippedTitle = savedTitle;
+  try { recomputePower(); } catch (e) {}
+  currentPower = game.totalPower || 0;
+
+  const powerBoost = currentPower - basePower;
+  const boostPct = basePower > 0 ? Math.round((powerBoost / basePower) * 100) : 0;
+
   let html = `
     <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:12px; text-align:center;">
       <div style="font-size:12px; font-weight:bold; color:#bf8b00;">획득한 칭호</div>
       <div style="font-size:22px; font-weight:bold; color:var(--wood-dark); margin-top:2px;">${unlocked.length} / ${TITLES.length}</div>
+      <div style="margin-top:8px; padding:8px; background:linear-gradient(135deg, #5d4037, #3e2723); border:2px solid #ffd54f; border-radius:8px; color:white;">
+        <div style="display:flex; align-items:center; justify-content:space-around; gap:8px;">
+          <div style="text-align:center;">
+            <div style="font-size:10px; color:#bbdefb;">칭호 없음</div>
+            <div style="font-size:18px; font-weight:bold; color:#fff;">⚔ ${basePower.toLocaleString()}</div>
+          </div>
+          <div style="font-size:18px; color:#ffd54f;">→</div>
+          <div style="text-align:center;">
+            <div style="font-size:10px; color:#ffd54f;">현재 (장착 후)</div>
+            <div style="font-size:22px; font-weight:bold; color:#ffd54f;">⚔ ${currentPower.toLocaleString()}</div>
+          </div>
+        </div>
+        ${powerBoost > 0 ? `
+          <div style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(255,213,79,0.4); font-size:12px; color:#66bb6a; font-weight:bold;">
+            ✨ +${powerBoost.toLocaleString()} (${boostPct > 0 ? '+' : ''}${boostPct}%)
+          </div>
+        ` : ''}
+      </div>
       ${equippedT ? `
         <div style="margin-top:8px; padding:8px 12px; background:linear-gradient(to bottom, #fff, ${equippedT.color}66); border:3px solid ${equippedT.color}; border-radius:14px;">
           <div style="font-size:11px; color:var(--wood-dark);">현재 장착</div>
@@ -9382,6 +9421,7 @@ window.renderTitlesBody = renderTitlesBody;
 function equipBorder(id) {
   if (id === null) {
     game.equippedBorder = null;
+    showToast('🖼️ 테두리 해제됨', '');
   } else {
     const b = BORDERS.find(x => x.id === id);
     if (b && b.unlock()) {
@@ -9389,7 +9429,10 @@ function equipBorder(id) {
       showToast(`🖼️ "${b.name}" 테두리 장착!`, 'gain');
     }
   }
+  // 테두리 효과 즉시 적용
   try { recomputePower(); } catch (e) {}
+  try { updateHUD(); } catch (e) {}
+  try { uploadPlayerProfile(); } catch (e) {}
   renderBordersBody();
 }
 window.equipBorder = equipBorder;
@@ -9468,10 +9511,11 @@ function openRankings() {
         <button class="modal-close" onclick="document.getElementById('m-rankings').classList.remove('show')">✕</button>
         <h2 style="margin:0 0 10px; color:var(--wood-dark); text-align:center;">🏆 랭킹</h2>
         <div style="display:flex; gap:4px; margin-bottom:10px; border-bottom:2px dashed var(--wood-dark); padding-bottom:8px; flex-wrap:wrap;">
-          <button class="rk-tab active" data-rk-tab="total" style="flex:1; background:linear-gradient(to bottom, #ffd54f, #f9a825); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; min-width:0;">🏆 종합</button>
-          <button class="rk-tab" data-rk-tab="level" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; min-width:0;">⭐ 레벨</button>
-          <button class="rk-tab" data-rk-tab="power" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; min-width:0;">⚔ 전투력</button>
-          <button class="rk-tab" data-rk-tab="pet" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; min-width:0;">🦁 펫</button>
+          <button class="rk-tab active" data-rk-tab="total" style="flex:1; background:linear-gradient(to bottom, #ffd54f, #f9a825); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏆 종합</button>
+          <button class="rk-tab" data-rk-tab="level" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">⭐ 레벨</button>
+          <button class="rk-tab" data-rk-tab="power" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">⚔ 전투력</button>
+          <button class="rk-tab" data-rk-tab="pet" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🦁 펫</button>
+          <button class="rk-tab" data-rk-tab="arena" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏟 투기장</button>
         </div>
         <div id="rankings-body" style="overflow-y:auto; max-height:calc(85vh - 130px); padding:0 4px;"></div>
       </div>
@@ -9509,6 +9553,18 @@ function gatherAllPlayers() {
   let myPetPower = 0;
   myPetEntries.forEach(([k, v]) => { myPetPower += PETS[k].power * v; });
 
+  // 내 투기장 전적
+  const myArenaStats = game.petArenaStats || {};
+  let myArenaWins = 0, myArenaLosses = 0;
+  for (const k in myArenaStats) {
+    myArenaWins += (myArenaStats[k].wins || 0);
+    myArenaLosses += (myArenaStats[k].losses || 0);
+  }
+  const myArenaMatches = myArenaWins + myArenaLosses;
+  const myArenaWinRate = myArenaMatches > 0 ? myArenaWins / myArenaMatches : 0;
+  // 투기장 점수 = 승수 * 100 + 승률 * 1000 + 펫 전투력
+  const myArenaScore = myArenaWins * 100 + Math.floor(myArenaWinRate * 1000) + Math.floor(myPetPower / 10);
+
   players.push({
     name: game.player.nickname || '나',
     isMe: true,
@@ -9517,11 +9573,15 @@ function gatherAllPlayers() {
     petPower: myPetPower,
     petCount: myPetEntries.length,
     pets: myPetEntries,
-    score: (game.level || 1) * 1000 + ((game.totalPower || 0) + myArmyPower) * 5 + myPetEntries.length * 200 + ((game.buildings || []).filter(b => b.state === 'complete').length) * 100 + ((game.friends || []).filter(f => f.conquered).length) * 500 + Math.floor(totalRes / 100),
+    arenaWins: myArenaWins,
+    arenaLosses: myArenaLosses,
+    arenaWinRate: myArenaWinRate,
+    arenaScore: myArenaScore,
+    score: (game.level || 1) * 1000 + ((game.totalPower || 0) + myArmyPower) * 5 + myPetEntries.length * 200 + ((game.buildings || []).filter(b => b.state === 'complete').length) * 100 + ((game.friends || []).filter(f => f.conquered).length) * 500 + Math.floor(totalRes / 100) + myArenaWins * 50,
     title: game.equippedTitle,
   });
 
-  // 친구들
+  // 친구들 — 가짜 투기장 전적 시뮬레이션 (레벨/펫 기반)
   for (const f of (game.friends || [])) {
     try {
       const village = buildFriendVillage(f.nickname, f.code);
@@ -9530,6 +9590,19 @@ function gatherAllPlayers() {
       friendPets.forEach(([k, v]) => { petP += PETS[k].power * v; });
       const fLv = village.level || f.level || 1;
       const fPow = village.power || f.power || 100;
+      // 친구의 가상 투기장 전적 (레벨 기반 시뮬레이션, 일관성을 위해 nickname 해시 사용)
+      let hash = 0;
+      for (let i = 0; i < f.nickname.length; i++) {
+        hash = ((hash << 5) - hash) + f.nickname.charCodeAt(i);
+        hash |= 0;
+      }
+      const seed = Math.abs(hash);
+      const fakeWins = Math.floor(fLv * 0.8) + (seed % 25);
+      const fakeLosses = Math.floor(fLv * 0.3) + (seed % 15);
+      const fakeMatches = fakeWins + fakeLosses;
+      const fakeWinRate = fakeMatches > 0 ? fakeWins / fakeMatches : 0;
+      const fakeArenaScore = fakeWins * 100 + Math.floor(fakeWinRate * 1000) + Math.floor(petP / 10);
+
       players.push({
         name: f.nickname,
         isMe: false,
@@ -9538,7 +9611,11 @@ function gatherAllPlayers() {
         petPower: petP,
         petCount: friendPets.length,
         pets: friendPets,
-        score: fLv * 1000 + fPow * 5 + friendPets.length * 200 + (village.buildings || []).length * 100 + fLv * 500,
+        arenaWins: fakeWins,
+        arenaLosses: fakeLosses,
+        arenaWinRate: fakeWinRate,
+        arenaScore: fakeArenaScore,
+        score: fLv * 1000 + fPow * 5 + friendPets.length * 200 + (village.buildings || []).length * 100 + fLv * 500 + fakeWins * 50,
         title: null,
       });
     } catch (e) {}
@@ -9565,13 +9642,16 @@ function renderRankingByType(type) {
   if (!c) return;
   const players = gatherAllPlayers();
 
-  let sortKey, getValue, valueLabel, valueIcon;
+  let sortKey, getValue, valueLabel, valueIcon, extraInfo;
   if (type === 'level') {
     sortKey = 'level'; getValue = p => p.level; valueLabel = '레벨'; valueIcon = '⭐';
   } else if (type === 'power') {
     sortKey = 'totalPower'; getValue = p => p.totalPower; valueLabel = '전투력'; valueIcon = '⚔';
   } else if (type === 'pet') {
     sortKey = 'petPower'; getValue = p => p.petPower; valueLabel = '펫 전투력'; valueIcon = '🦁';
+  } else if (type === 'arena') {
+    sortKey = 'arenaScore'; getValue = p => p.arenaScore; valueLabel = '투기장 점수'; valueIcon = '🏟';
+    extraInfo = p => `${p.arenaWins}승 ${p.arenaLosses}패 · ${Math.floor(p.arenaWinRate * 100)}%`;
   } else {
     sortKey = 'score'; getValue = p => p.score; valueLabel = '종합 점수'; valueIcon = '🏆';
   }
@@ -9628,6 +9708,29 @@ function renderRankingByType(type) {
       petPreview = `<div style="margin-top:3px;">${top.map(pt => `<span style="font-size:16px;">${PETS[pt[0]].emoji}</span>`).join(' ')}</div>`;
     }
 
+    // 투기장 추가 정보 (arena 탭에서)
+    let arenaExtra = '';
+    if (type === 'arena') {
+      const matches = p.arenaWins + p.arenaLosses;
+      const rate = matches > 0 ? Math.floor(p.arenaWinRate * 100) : 0;
+      // 등급 뱃지
+      let arenaBadge = '🥉 신참';
+      let arenaBadgeColor = '#a1887f';
+      if (p.arenaWins >= 100) { arenaBadge = '👑 챔피언'; arenaBadgeColor = '#ffd700'; }
+      else if (p.arenaWins >= 50) { arenaBadge = '🏆 마스터'; arenaBadgeColor = '#e91e63'; }
+      else if (p.arenaWins >= 20) { arenaBadge = '⚔ 베테랑'; arenaBadgeColor = '#f57c00'; }
+      else if (p.arenaWins >= 10) { arenaBadge = '🛡 도전자'; arenaBadgeColor = '#1565c0'; }
+      else if (p.arenaWins >= 5) { arenaBadge = '⚡ 견습'; arenaBadgeColor = '#2e7d32'; }
+      arenaExtra = `
+        <div style="margin-top:3px; font-size:10px;">
+          <span style="background:${arenaBadgeColor}; color:white; padding:1px 6px; border-radius:4px; font-weight:bold;">${arenaBadge}</span>
+          <span style="color:#2e7d32; font-weight:bold;">${p.arenaWins}승</span> ·
+          <span style="color:#c62828; font-weight:bold;">${p.arenaLosses}패</span> ·
+          <span style="color:#1565c0; font-weight:bold;">${rate}%</span>
+        </div>
+      `;
+    }
+
     html += `
       <div style="background:${bgGrad}; border:${rank<=3?'3':'2'}px solid ${border}; border-radius:10px; padding:8px; margin-bottom:5px; ${rank<=3 && tt ? `box-shadow: 0 0 10px ${tt.color}55;` : ''}">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -9638,6 +9741,7 @@ function renderRankingByType(type) {
             </div>
             <div style="font-size:10px; color:var(--wood-dark);">Lv.${p.level} · ⚔${p.totalPower} · 🦁${p.petCount}</div>
             ${petPreview}
+            ${arenaExtra}
           </div>
           <div style="text-align:right;">
             <div style="font-size:14px; font-weight:bold; color:var(--wood-dark);">${valueIcon}</div>

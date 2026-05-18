@@ -1842,7 +1842,7 @@ function showAdminGiftPopup(giftId, gift) {
     ">
       <div style="font-size: 56px; animation: shake 0.6s infinite alternate;">🎁</div>
       <div style="font-size: 22px; font-weight: bold; color: #3e2723; margin-top: 8px;">운영자 선물 도착!</div>
-      <div style="font-size: 13px; color: #5d4037; margin-top: 4px;">From: <b>${gift.from || '운영자'}</b></div>
+      <div style="font-size: 13px; color: #5d4037; margin-top: 4px;">From: <b>${(()=>{try{return decodeURIComponent(gift.from||'운영자')}catch(e){return gift.from||'운영자'}})()}</b></div>
       <div style="margin-top: 14px; padding: 12px; background: rgba(255,255,255,0.7); border: 2px solid #3e2723; border-radius: 12px; color: #3e2723;">
         <div style="font-size: 13px; font-weight: bold;">${gift.message || '🎁 선물이 도착했어요!'}</div>
         <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; color: #3e2723;">
@@ -1947,7 +1947,7 @@ function showAdminNoticePopup(noticeId, notice) {
       <div style="text-align: center; font-size: 20px; font-weight: bold; margin-top: 4px;">${notice.title}</div>
       <div style="margin-top: 14px; padding: 12px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); border-radius: 12px; white-space: pre-wrap; font-size: 13px; line-height: 1.6;">${notice.content}</div>
       <div style="font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 8px; text-align: center;">
-        ${new Date(notice.postedAt).toLocaleString('ko-KR')} · ${notice.postedBy}
+        ${new Date(notice.postedAt).toLocaleString('ko-KR')} · ${(()=>{try{return decodeURIComponent(notice.postedBy||'')}catch(e){return notice.postedBy||''}})()}
       </div>
       <button id="close-notice-${noticeId}" type="button" style="
         width: 100%;
@@ -8729,6 +8729,15 @@ function renderAdminDashboard(tab) {
 }
 window.renderAdminDashboard = renderAdminDashboard;
 
+// === 닉네임 디코딩 헬퍼 (Firebase 키 → 한글 복원) ===
+function decodeNick(encoded) {
+  try {
+    return decodeURIComponent(encoded);
+  } catch (e) {
+    return encoded;
+  }
+}
+
 // === 대시보드: 통계 ===
 async function renderAdminOverview() {
   const c = document.getElementById('admin-content');
@@ -8743,7 +8752,8 @@ async function renderAdminOverview() {
   try {
     const snap = await _firebaseDB.ref('players').once('value');
     const players = snap.val() || {};
-    const list = Object.entries(players);
+    // 키 디코딩
+    const list = Object.entries(players).map(([encodedNick, p]) => [decodeNick(encodedNick), p]);
 
     let online = 0, totalLevel = 0, totalPower = 0, maxLevel = 0;
     const now = Date.now();
@@ -8791,15 +8801,16 @@ async function renderAdminOverview() {
         <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">🏆 TOP 10 부족장</div>
     `;
     sorted.forEach(([nick, p], i) => {
+      const decodedNick = decodeNick(nick);
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
       const isOnline = p.lastSeen && now - p.lastSeen < 5*60*1000;
-      const isAdminUser = ADMIN_NICKNAMES.includes(nick);
+      const isAdminUser = ADMIN_NICKNAMES.includes(decodedNick);
       html += `
         <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:${i<9?'1px dashed #fb8c00':'none'};">
           <div style="font-size:14px; min-width:28px; font-weight:bold;">${medal}</div>
           <div style="flex:1; font-size:11px;">
             <div style="font-weight:bold; color:var(--wood-dark);">
-              ${nick}
+              ${decodedNick}
               ${isOnline ? '<span style="background:#2e7d32; color:white; font-size:9px; padding:1px 4px; border-radius:3px;">🌐</span>' : ''}
               ${isAdminUser ? '<span style="background:#c62828; color:white; font-size:9px; padding:1px 4px; border-radius:3px;">ADMIN</span>' : ''}
             </div>
@@ -8850,10 +8861,17 @@ async function loadAdminUsers(query) {
   try {
     const snap = await _firebaseDB.ref('players').once('value');
     const players = snap.val() || {};
-    let entries = Object.entries(players);
+    // 모든 키를 디코딩하여 정렬/검색
+    let entries = Object.entries(players).map(([encodedNick, p]) => {
+      return [decodeNick(encodedNick), p];
+    });
     if (query) {
       const q = query.toLowerCase();
-      entries = entries.filter(([n]) => n.toLowerCase().includes(q));
+      // 디코딩된 닉네임 + 원본(인코딩) 양쪽 모두 매칭
+      entries = entries.filter(([n]) => {
+        if (n.toLowerCase().includes(q)) return true;
+        try { return decodeURIComponent(n).toLowerCase().includes(q); } catch (e) { return false; }
+      });
     }
     entries.sort((a, b) => (b[1].level || 0) - (a[1].level || 0));
 
@@ -8869,6 +8887,7 @@ async function loadAdminUsers(query) {
       const isAdminUser = ADMIN_NICKNAMES.includes(nick);
       const card = document.createElement('div');
       card.style.cssText = `background:linear-gradient(to bottom, #fff, #fff3e0); border:2px solid var(--wood); border-radius:8px; padding:8px; margin-bottom:6px;`;
+      // data-nick는 디코딩된 닉네임 사용 (이후 encodeURIComponent로 다시 인코딩됨)
       card.innerHTML = `
         <div style="display:flex; align-items:center; gap:8px;">
           <div style="font-size:24px;">${p.avatar || '⛺'}</div>
@@ -9320,7 +9339,7 @@ async function loadAdminNotices() {
           <div style="flex:1;">
             <div style="font-weight:bold; color:${color}; font-size:13px;">${icon} ${n.title}</div>
             <div style="font-size:11px; margin-top:4px; white-space:pre-wrap; color:#333;">${n.content}</div>
-            <div style="font-size:9px; color:#999; margin-top:4px;">${new Date(n.postedAt).toLocaleString('ko-KR')} · ${n.postedBy}</div>
+            <div style="font-size:9px; color:#999; margin-top:4px;">${new Date(n.postedAt).toLocaleString('ko-KR')} · ${decodeNick(n.postedBy || '')}</div>
           </div>
           ${n.active ? `<button class="admin-notice-del" data-id="${id}" style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:4px 8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">삭제</button>` : ''}
         </div>

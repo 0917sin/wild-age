@@ -98,6 +98,8 @@
 
     /* day display 더 작게 */
     .day-display { font-size: 11px; padding: 3px 8px; top: 50px; }
+    /* 전투력 표시도 같이 */
+    .power-display { font-size: 11px; padding: 3px 8px; top: 82px; }
   }
 
   /* 매우 좁은 화면 (작은 폰) */
@@ -602,6 +604,23 @@
     overflow: hidden;
     box-shadow: 0 1px 0 var(--wood-dark);
   }
+  /* VIP 뱃지: 경험치바 아래쪽 */
+  .vip-badge-hud {
+    position: absolute;
+    top: calc(100% + 14px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ffd700, #f57c00);
+    color: #3e2723;
+    border: 2px solid #3e2723;
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 2px 0 #3e2723;
+    z-index: 5;
+  }
   .exp-bar-fill {
     height: 100%;
     background: linear-gradient(to right, #66bb6a, #2e7d32);
@@ -1096,6 +1115,7 @@
       <div class="lv-text">LV</div>
       <div class="lv-num" id="lv-num">1</div>
       <div class="exp-bar-wrap"><div class="exp-bar-fill" id="exp-bar"></div></div>
+      <div class="vip-badge-hud" id="vip-badge-hud" style="display:none;">👑 <span id="vip-level-text">0</span></div>
     </div>
     <div class="resource gold"><div class="icon">💰</div><div class="val" id="res-gold">500</div></div>
     <div class="resource food"><div class="icon">🍖</div><div class="val" id="res-food">50</div></div>
@@ -1105,7 +1125,7 @@
   </div>
 
   <div class="day-display">Day <b id="day-num">1</b> <span id="time-of-day" style="margin-left:4px;">☀️</span> <span id="time-hour" style="font-size:9px; opacity:0.8;">06:00</span></div>
-  <div class="power-display" id="power-display" style="display:none">⚔ <b id="total-power">0</b></div>
+  <div class="power-display" id="power-display">⚔ <b id="total-power">0</b><div id="power-breakdown" style="font-size:9px; color:#666; margin-top:2px; line-height:1.2;">대기 중...</div></div>
 
   <div class="cam-controls">
     <div class="cam-btn" id="cam-zoom-in" title="확대">＋</div>
@@ -9487,6 +9507,11 @@ function addRes(key, amount) {
     // 👥 부족 보너스: 부족 레벨당 +1% 자원
     if (game._myTribeCache && game._myTribeCache.level) {
       amount = Math.floor(amount * (1 + game._myTribeCache.level * 0.01));
+      // 부족 업그레이드: 경제 강화 (resPct)
+      const ub = game._myTribeCache.upgradeBonuses;
+      if (ub && ub.resPct) {
+        amount = Math.floor(amount * (1 + ub.resPct));
+      }
     }
   }
   game.res[key] = (game.res[key] || 0) + amount;
@@ -9780,6 +9805,17 @@ function updateHUD() {
     document.getElementById('res-stone').textContent = Math.floor(game.res.stone || 0);
     document.getElementById('res-gem').textContent = Math.floor(game.res.gem || 0);
     document.getElementById('lv-num').textContent = (game.level || 1) >= MAX_LEVEL ? 'MAX' : (game.level || 1);
+    // === VIP HUD 뱃지 (레벨 박스 아래) ===
+    const vipBadgeHud = document.getElementById('vip-badge-hud');
+    const vipLevelText = document.getElementById('vip-level-text');
+    if (vipBadgeHud && vipLevelText) {
+      if (game.vipLevel && game.vipLevel > 0) {
+        vipBadgeHud.style.display = 'block';
+        vipLevelText.textContent = game.vipLevel;
+      } else {
+        vipBadgeHud.style.display = 'none';
+      }
+    }
   } catch (e) {}
   // 장착된 테두리 적용
   try {
@@ -9825,13 +9861,38 @@ function updateHUD() {
       hourEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     }
   } catch (e) {}
-  // 전투력은 펫을 한 마리라도 가지면 표시
+  // === 전투력 실시간 표시 (펫 + 군대 + 칭호 등 합산) ===
   const powerEl = document.getElementById('power-display');
-  if (game.totalPower > 0) {
+  if (powerEl) {
     powerEl.style.display = 'block';
-    document.getElementById('total-power').textContent = game.totalPower;
-  } else {
-    powerEl.style.display = 'none';
+    // 펫 전투력 계산
+    let petPower = 0;
+    for (const [k, count] of Object.entries(game.pets || {})) {
+      if (PETS[k]) {
+        const evoLv = (game.petEvolutions || {})[k] || 0;
+        petPower += Math.floor(PETS[k].power * count * (1 + evoLv * 0.5));
+      }
+    }
+    // 군대 전투력
+    const armyPow = (typeof getTotalArmyPower === 'function') ? getTotalArmyPower() : 0;
+    // 레벨 보너스
+    const lv = game.level || 1;
+    const levelPow = Math.floor(lv * 50 + lv * lv * 0.5);
+    // 칭호/테두리 효과 (% 표시)
+    let titlePct = 0;
+    try {
+      const eff = getEquippedEffects ? getEquippedEffects() : {};
+      if (eff.power) titlePct = Math.round(eff.power * 100);
+    } catch (e) {}
+    // 부족 보너스
+    const tribePct = (game._myTribeCache && game._myTribeCache.level) ? (game._myTribeCache.level * 2) : 0;
+    // 합산 표시
+    const total = game.totalPower || 0;
+    document.getElementById('total-power').textContent = total.toLocaleString();
+    const bd = document.getElementById('power-breakdown');
+    if (bd) {
+      bd.innerHTML = `🦁${petPower.toLocaleString()} · ⚔${armyPow.toLocaleString()} · 📈${levelPow.toLocaleString()}${titlePct ? ' · 👑+' + titlePct + '%' : ''}${tribePct ? ' · 👥+' + tribePct + '%' : ''}`;
+    }
   }
   const att = checkAttendanceAvailable();
   document.getElementById('att-badge').style.display = att ? 'flex' : 'none';
@@ -16161,6 +16222,11 @@ function recomputePower() {
   if (game._myTribeCache && game._myTribeCache.level) {
     const tribeBonus = game._myTribeCache.level * 0.02;
     combined = Math.floor(combined * (1 + tribeBonus));
+    // 부족 업그레이드: 전투 훈련소 (powerPct)
+    const ub = game._myTribeCache.upgradeBonuses;
+    if (ub && ub.powerPct) {
+      combined = Math.floor(combined * (1 + ub.powerPct));
+    }
   }
   game.totalPower = combined;
 
@@ -17640,6 +17706,7 @@ async function renderMyTribe(tribe) {
       <button class="tribe-tab active" data-tab="overview" style="flex:1; background:linear-gradient(to bottom, #ab47bc, #6a1b9a); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏠 개요</button>
       <button class="tribe-tab" data-tab="members" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">👥 멤버</button>
       <button class="tribe-tab" data-tab="vault" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏛 금고</button>
+      <button class="tribe-tab" data-tab="upgrades" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">⚒ 업그레이드</button>
       <button class="tribe-tab" data-tab="chat" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">💬 채팅</button>
       <button class="tribe-tab" data-tab="notice" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">📢 공지</button>
     </div>
@@ -17713,6 +17780,18 @@ async function renderTribeTab(tribe, tab, ctx) {
           💰 자원 획득 <b style="color:var(--green-ok);">+${(tribe.level || 1) * 1}%</b><br>
           🦁 펫 전투력 <b style="color:#1976d2;">+${Math.floor((tribe.level || 1) * 1.5)}%</b><br>
         </div>
+        ${(() => {
+          // 업그레이드 보너스도 표시
+          const ups = tribe.upgrades || {};
+          const lines = [];
+          for (const def of TRIBE_UPGRADES) {
+            const lv = ups[def.id] || 0;
+            if (lv > 0) {
+              lines.push(`${def.icon} <b style="color:${def.color};">${def.name} Lv.${lv}</b>: ${def.effectDesc(lv)}`);
+            }
+          }
+          return lines.length > 0 ? `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--wood-dark); font-size:11px; line-height:1.6;">${lines.join('<br>')}</div>` : '';
+        })()}
       </div>
       <div style="background:rgba(255,255,255,0.5); border:2px dashed var(--wood-dark); border-radius:10px; padding:10px; margin-top:8px;">
         <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:4px;">💡 레벨업 방법</div>
@@ -17814,6 +17893,10 @@ async function renderTribeTab(tribe, tab, ctx) {
       <div style="background:linear-gradient(to bottom, #fff8e1, #ffe082); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:8px; text-align:center;">
         <div style="font-weight:bold; color:var(--wood-dark);">🏛 부족 금고</div>
         <div style="font-size:10px; color:var(--wood-dark); margin-top:2px;">기부 시 부족 EXP 누적 → 자동 레벨업</div>
+        <div style="font-size:10px; color:#43a047; margin-top:4px; padding:4px; background:rgba(255,255,255,0.6); border-radius:4px;">
+          🎁 <b>개인 보상</b>: 기부 EXP 100당 💎 1개 환급 (최대 50개)<br>
+          🎁 <b>시즌 패스 EXP</b>도 함께 누적!
+        </div>
       </div>
       ${Object.entries(resInfo).map(([k, info]) => {
         const owned = game.res[k] || 0;
@@ -17839,6 +17922,83 @@ async function renderTribeTab(tribe, tab, ctx) {
     `;
     c.querySelectorAll('.donate-btn').forEach(btn => {
       btn.onclick = () => tribeDonate(tribe.id, btn.dataset.res, btn.dataset.amt);
+    });
+    return;
+  }
+
+  // === ⚒ 부족 업그레이드 탭 ===
+  if (tab === 'upgrades') {
+    const upgrades = tribe.upgrades || {};
+    const tribeLevel = tribe.level || 1;
+    const totalExp = tribe.totalDonated || 0;  // 누적 기부 EXP
+
+    c.innerHTML = `
+      <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:8px; text-align:center;">
+        <div style="font-weight:bold; color:var(--wood-dark);">⚒ 부족 업그레이드</div>
+        <div style="font-size:10px; color:var(--wood-dark); margin-top:2px;">부족 금고의 자원을 사용해 영구 보너스를 강화하세요</div>
+        <div style="margin-top:6px; padding:4px; background:rgba(255,255,255,0.5); border-radius:4px; font-size:11px;">
+          🏛 금고: 💰${(tribe.vault?.gold||0).toLocaleString()} · 🪨${(tribe.vault?.stone||0).toLocaleString()} · 💎${(tribe.vault?.gem||0).toLocaleString()}
+        </div>
+      </div>
+      ${!ctx.isLeader && !ctx.isOfficer ? `
+        <div style="background:rgba(0,0,0,0.05); border:2px dashed var(--wood-dark); border-radius:8px; padding:10px; margin-bottom:8px; text-align:center; font-size:11px; color:var(--wood-dark);">
+          ℹ️ 업그레이드는 부족장/부방장만 구매할 수 있어요.<br>
+          하지만 효과는 모든 부족원에게 적용됩니다!
+        </div>
+      ` : ''}
+      <div id="tribe-upgrade-list"></div>
+    `;
+
+    const list = c.querySelector('#tribe-upgrade-list');
+    for (const def of TRIBE_UPGRADES) {
+      const curLv = upgrades[def.id] || 0;
+      const isMax = curLv >= def.maxLevel;
+      const cost = isMax ? null : def.costFn(curLv);
+      const canAfford = cost && (
+        (tribe.vault?.gold || 0) >= (cost.gold || 0) &&
+        (tribe.vault?.stone || 0) >= (cost.stone || 0) &&
+        (tribe.vault?.gem || 0) >= (cost.gem || 0)
+      );
+      const card = document.createElement('div');
+      card.style.cssText = `background:linear-gradient(to bottom, #fff, ${def.color}22); border:3px solid ${def.color}; border-radius:10px; padding:10px; margin-bottom:6px;`;
+      const effectStr = def.effectDesc(curLv);
+      const nextEffectStr = isMax ? null : def.effectDesc(curLv + 1);
+      const costStr = cost ? Object.entries(cost).filter(([k,v])=>v>0).map(([k,v]) => {
+        const ico = {gold:'💰',stone:'🪨',gem:'💎'}[k]; return `${ico} ${v.toLocaleString()}`;
+      }).join(' + ') : '';
+      const canBuy = (ctx.isLeader || ctx.isOfficer) && !isMax && canAfford;
+      card.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:30px;">${def.icon}</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold; font-size:13px; color:var(--wood-dark);">${def.name} <span style="background:${def.color}; color:white; padding:1px 5px; border-radius:4px; font-size:10px;">Lv.${curLv}/${def.maxLevel}</span></div>
+            <div style="font-size:10px; color:var(--wood-dark); margin-top:2px;">${def.desc}</div>
+          </div>
+        </div>
+        <div style="background:rgba(255,255,255,0.5); border:1px dashed var(--wood-dark); border-radius:6px; padding:6px; margin-top:6px; font-size:11px;">
+          <div style="color:#43a047; font-weight:bold;">✓ 현재: ${effectStr}</div>
+          ${nextEffectStr ? `<div style="color:#1976d2; font-weight:bold; margin-top:2px;">↑ 다음: ${nextEffectStr}</div>` : ''}
+        </div>
+        ${isMax ? `
+          <div style="margin-top:6px; text-align:center; padding:6px; background:linear-gradient(to bottom, #ffd700, #f57c00); color:#3e2723; border-radius:6px; font-size:11px; font-weight:bold;">🏆 최대 레벨!</div>
+        ` : (ctx.isLeader || ctx.isOfficer) ? `
+          <button class="tribe-upgrade-btn" data-id="${def.id}" ${!canBuy ? 'disabled' : ''} style="
+            margin-top:6px; width:100%;
+            background: ${canBuy ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #bdbdbd, #757575)'};
+            color: white; border:2px solid var(--wood-dark); border-radius:6px;
+            padding:6px; font-family:inherit; font-weight:bold; font-size:11px;
+            cursor: ${canBuy ? 'pointer' : 'not-allowed'};
+          ">${canBuy ? `⬆ 업그레이드 (${costStr})` : `🏛 금고 부족 (${costStr})`}</button>
+        ` : `
+          <div style="margin-top:6px; text-align:center; padding:6px; background:rgba(0,0,0,0.05); border-radius:6px; font-size:10px; color:var(--wood-dark);">💰 비용: ${costStr}</div>
+        `}
+      `;
+      list.appendChild(card);
+    }
+
+    // 핸들러
+    c.querySelectorAll('.tribe-upgrade-btn').forEach(btn => {
+      btn.onclick = () => tribeBuyUpgrade(tribe.id, btn.dataset.id);
     });
     return;
   }
@@ -17953,6 +18113,10 @@ async function tribeDonate(tribeId, res, amount) {
     await _firebaseDB.ref(`tribes/${tribeId}/totalDonated`).transaction(v => (v || 0) + expGain);
     await _firebaseDB.ref(`tribes/${tribeId}/members/${encNick}/donated`).transaction(v => (v || 0) + expGain);
 
+    // 일일 기부 카운트 (개인 보상용)
+    const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+    await _firebaseDB.ref(`tribes/${tribeId}/members/${encNick}/dailyDonation/${today}`).transaction(v => (v || 0) + expGain);
+
     // 자동 레벨업 체크
     const tSnap = await _firebaseDB.ref(`tribes/${tribeId}`).once('value');
     const tribe = tSnap.val();
@@ -17970,13 +18134,33 @@ async function tribeDonate(tribeId, res, amount) {
         await _firebaseDB.ref(`tribes/${tribeId}/exp`).set(curExp);
         showToast(`🎉 부족 Lv.${curLv} 달성!`, 'gain');
         try { playSound('levelUp'); } catch (e) {}
+        // 부족 레벨업 시 전체 부족원에게 보상 (간단히 토스트로 알림)
       }
     }
 
     // 내 자원 차감
     game.res[res] -= amt;
     if (game.res[res] < 0) game.res[res] = 0;
-    showToast(`${({gold:'💰',food:'🍖',wood:'🪵',stone:'🪨',gem:'💎'})[res]} +${amt} 기부 (+${expGain} EXP)`, 'gain');
+
+    // === 개인 기부 보상 ===
+    // 기부량의 1%를 보석으로, 또는 최소 1 보석 (작은 기부도 보람)
+    // 단, 보석 기부 시에는 보석 보상 X (남용 방지)
+    let bonusGem = 0;
+    if (res !== 'gem') {
+      bonusGem = Math.max(1, Math.floor(expGain / 100));  // 100 EXP당 1 보석
+      bonusGem = Math.min(bonusGem, 50);  // 한 번에 최대 50 보석
+      if (bonusGem > 0) addRes('gem', bonusGem);
+    }
+
+    // 시즌 패스 EXP도 추가 (기부도 시즌 활동)
+    if (typeof addSeasonExp === 'function') {
+      addSeasonExp(Math.max(1, Math.floor(expGain / 50)));
+    }
+
+    const msg = bonusGem > 0
+      ? `${({gold:'💰',food:'🍖',wood:'🪵',stone:'🪨',gem:'💎'})[res]} +${amt} 기부 → 부족 +${expGain} EXP / 나 +${bonusGem}💎`
+      : `${({gold:'💰',food:'🍖',wood:'🪵',stone:'🪨',gem:'💎'})[res]} +${amt} 기부 (+${expGain} EXP)`;
+    showToast(msg, 'gain');
     try { playSound('collect'); } catch (e) {}
     updateHUD();
     renderTribe();
@@ -18041,6 +18225,116 @@ async function tribeKick(tribeId, encNick, name) {
 }
 window.tribeKick = tribeKick;
 
+// ============================================================================
+// ⚒ 부족 업그레이드 시스템 — 부족 금고 자원으로 영구 보너스 강화
+// ============================================================================
+const TRIBE_UPGRADES = [
+  {
+    id: 'tu_combat', icon: '⚔', name: '전투 훈련소', color: '#e53935', maxLevel: 10,
+    desc: '모든 부족원의 전투력을 영구 강화합니다.',
+    effectDesc: (lv) => `전투력 +${lv * 3}%`,
+    bonus: (lv) => ({ powerPct: lv * 0.03 }),
+    costFn: (lv) => ({ gold: 5000 * (lv + 1), stone: 500 * (lv + 1), gem: 5 * (lv + 1) }),
+  },
+  {
+    id: 'tu_economy', icon: '💰', name: '경제 강화', color: '#f9a825', maxLevel: 10,
+    desc: '모든 부족원의 자원 획득량을 늘립니다.',
+    effectDesc: (lv) => `자원 획득 +${lv * 2}%`,
+    bonus: (lv) => ({ resPct: lv * 0.02 }),
+    costFn: (lv) => ({ gold: 8000 * (lv + 1), stone: 800 * (lv + 1), gem: 8 * (lv + 1) }),
+  },
+  {
+    id: 'tu_pet', icon: '🦁', name: '펫 훈련', color: '#1976d2', maxLevel: 10,
+    desc: '모든 부족원의 펫 전투력을 강화합니다.',
+    effectDesc: (lv) => `펫 전투력 +${lv * 4}%`,
+    bonus: (lv) => ({ petPct: lv * 0.04 }),
+    costFn: (lv) => ({ gold: 7000 * (lv + 1), gem: 10 * (lv + 1) }),
+  },
+  {
+    id: 'tu_speed', icon: '⚡', name: '신속한 건설', color: '#26a69a', maxLevel: 5,
+    desc: '건설 속도와 채집 효율이 빨라집니다.',
+    effectDesc: (lv) => `건설 +${lv * 10}% · 채집 +${lv * 5}%`,
+    bonus: (lv) => ({ buildPct: lv * 0.10, tapPct: lv * 0.05 }),
+    costFn: (lv) => ({ gold: 10000 * (lv + 1), stone: 1500 * (lv + 1), gem: 15 * (lv + 1) }),
+  },
+  {
+    id: 'tu_defense', icon: '🛡', name: '부족 수호', color: '#7b1fa2', maxLevel: 5,
+    desc: '침략 확률 감소 및 방어력 강화.',
+    effectDesc: (lv) => `침략 확률 -${lv * 5}%`,
+    bonus: (lv) => ({ defensePct: lv * 0.05 }),
+    costFn: (lv) => ({ gold: 12000 * (lv + 1), gem: 20 * (lv + 1) }),
+  },
+  {
+    id: 'tu_luck', icon: '🍀', name: '행운의 부적', color: '#43a047', maxLevel: 5,
+    desc: '희귀 자원/펫 등장률 증가.',
+    effectDesc: (lv) => `보석 +${lv * 2}% · 신비한 발견 +${lv * 5}%`,
+    bonus: (lv) => ({ luckPct: lv * 0.02 }),
+    costFn: (lv) => ({ gold: 15000 * (lv + 1), gem: 25 * (lv + 1) }),
+  },
+];
+
+// === 부족 업그레이드 구매 ===
+async function tribeBuyUpgrade(tribeId, upgradeId) {
+  const def = TRIBE_UPGRADES.find(u => u.id === upgradeId);
+  if (!def) return;
+  try {
+    // 최신 부족 정보 가져오기
+    const tSnap = await _firebaseDB.ref(`tribes/${tribeId}`).once('value');
+    const tribe = tSnap.val();
+    if (!tribe) { showToast('부족을 찾을 수 없어요', 'warn'); return; }
+    const myNick = encodeURIComponent(game.player.nickname);
+    const myRole = tribe.members?.[myNick]?.role || 'member';
+    if (myRole !== 'leader' && myRole !== 'officer') {
+      showToast('부족장/부방장만 구매 가능', 'warn');
+      return;
+    }
+    const upgrades = tribe.upgrades || {};
+    const curLv = upgrades[upgradeId] || 0;
+    if (curLv >= def.maxLevel) { showToast('최대 레벨!', 'warn'); return; }
+    const cost = def.costFn(curLv);
+    const vault = tribe.vault || {};
+    // 비용 체크
+    for (const [k, v] of Object.entries(cost)) {
+      if ((vault[k] || 0) < v) {
+        const ico = {gold:'💰',stone:'🪨',gem:'💎'}[k];
+        showToast(`🏛 금고 부족! ${ico} ${v}`, 'warn');
+        return;
+      }
+    }
+    // 확인 다이얼로그
+    const costStr = Object.entries(cost).filter(([k,v])=>v>0).map(([k,v]) => {
+      const ico = {gold:'💰',stone:'🪨',gem:'💎'}[k]; return `${ico} ${v.toLocaleString()}`;
+    }).join(' + ');
+    showConfirmDialog(
+      `${def.icon} ${def.name} 업그레이드`,
+      `Lv.${curLv} → Lv.${curLv + 1}\n\n현재: ${def.effectDesc(curLv)}\n다음: ${def.effectDesc(curLv + 1)}\n\n금고에서 차감: ${costStr}\n\n진행할까요?`,
+      async () => {
+        try {
+          // 금고 차감
+          const updates = {};
+          for (const [k, v] of Object.entries(cost)) {
+            updates[`tribes/${tribeId}/vault/${k}`] = (vault[k] || 0) - v;
+          }
+          updates[`tribes/${tribeId}/upgrades/${upgradeId}`] = curLv + 1;
+          await _firebaseDB.ref().update(updates);
+          showToast(`⚒ ${def.name} Lv.${curLv + 1}!`, 'gain');
+          try { playSound('levelUp'); } catch (e) {}
+          // 부족 캐시 갱신 (보너스 즉시 반영)
+          try { refreshMyTribeCache(); } catch (e) {}
+          // 모달 새로고침
+          renderTribe();
+        } catch (e) {
+          showToast('실패: ' + e.message, 'warn');
+        }
+      }
+    );
+  } catch (e) {
+    showToast('실패: ' + e.message, 'warn');
+    console.warn('tribeBuyUpgrade', e);
+  }
+}
+window.tribeBuyUpgrade = tribeBuyUpgrade;
+
 // === 부족 정보 자동 캐시 (로그인 시/주기적으로) ===
 async function refreshMyTribeCache() {
   try {
@@ -18060,6 +18354,16 @@ async function refreshMyTribeCache() {
       game._myTribeCache = null;
       return;
     }
+    // 부족 업그레이드 보너스 합산
+    const upgrades = tribe.upgrades || {};
+    let upgradeBonuses = { powerPct: 0, resPct: 0, petPct: 0, buildPct: 0, tapPct: 0, defensePct: 0, luckPct: 0 };
+    for (const def of TRIBE_UPGRADES) {
+      const lv = upgrades[def.id] || 0;
+      if (lv > 0) {
+        const b = def.bonus(lv);
+        for (const k in b) upgradeBonuses[k] = (upgradeBonuses[k] || 0) + b[k];
+      }
+    }
     game._myTribeCache = {
       id: tribeId,
       name: tribe.name,
@@ -18067,6 +18371,8 @@ async function refreshMyTribeCache() {
       level: tribe.level || 1,
       memberCount: Object.keys(tribe.members || {}).length,
       bonusPct: (tribe.level || 1) * 2,
+      upgrades: upgrades,
+      upgradeBonuses: upgradeBonuses,
     };
     // 전투력 재계산 (보너스 즉시 반영)
     try { recomputePower(); } catch (e) {}
@@ -18166,7 +18472,7 @@ function ensureSeasonPassData() {
       claimed: {},
       dailyMissions: {},
       dailyClaimed: {},
-      vipUnlocked: (game.vipLevel || 0) >= 1,
+      vipUnlocked: (game.vipLevel || 0) >= 3,
     };
     return;
   }
@@ -18177,8 +18483,8 @@ function ensureSeasonPassData() {
   if (!sp.claimed || typeof sp.claimed !== 'object') sp.claimed = {};
   if (!sp.dailyMissions || typeof sp.dailyMissions !== 'object') sp.dailyMissions = {};
   if (!sp.dailyClaimed || typeof sp.dailyClaimed !== 'object') sp.dailyClaimed = {};
-  // VIP 상태는 매번 새로 갱신 (구매하면 즉시 활성화) — VIP Lv.1 이상이면 트랙 활성화
-  sp.vipUnlocked = (game.vipLevel || 0) >= 1;
+  // VIP 상태는 매번 새로 갱신 (구매하면 즉시 활성화) — VIP Lv.3 이상이면 트랙 활성화
+  sp.vipUnlocked = (game.vipLevel || 0) >= 3;
 }
 
 // 시즌 패스 EXP 추가 + 레벨 계산
@@ -18317,7 +18623,8 @@ function renderSeasonPass() {
 
     ${!sp.vipUnlocked ? `
       <div style="background:linear-gradient(to bottom, #fff3e0, #ffd54f); border:2px solid #f57c00; border-radius:10px; padding:8px; margin-bottom:8px; text-align:center; font-size:11px;">
-        🔓 <b>VIP 트랙</b>은 VIP Lv.1 이상에서 자동 활성화됩니다.
+        🔓 <b>VIP 트랙</b>은 VIP Lv.3 이상에서 자동 활성화됩니다.<br>
+        <span style="color:#888;">현재 VIP: ${game.vipLevel || 0}</span>
       </div>
     ` : ''}
 
@@ -18334,30 +18641,68 @@ function renderSeasonPass() {
     const freeClaimed = !!sp.claimed[freeKey];
     const vipClaimed = !!sp.claimed[vipKey];
     const card = document.createElement('div');
-    card.style.cssText = `display:flex; gap:6px; align-items:center; padding:8px; margin-bottom:5px; background:${unlocked?'#fff':'#f5f5f5'}; border:2px solid ${unlocked?'#ab47bc':'#bdbdbd'}; border-radius:8px; ${unlocked?'':'opacity:0.6;'}`;
+    card.style.cssText = `display:flex; gap:6px; align-items:stretch; padding:8px; margin-bottom:6px; background:${unlocked?'linear-gradient(to bottom, #fff, #faf5ff)':'#f5f5f5'}; border:2px solid ${unlocked?'#ab47bc':'#bdbdbd'}; border-radius:10px; ${unlocked?'':'opacity:0.55;'}`;
     card.innerHTML = `
-      <div style="background:linear-gradient(135deg, #ab47bc, #6a1b9a); color:white; min-width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:6px; font-weight:bold; font-size:13px;">${r.lv}</div>
-      <div style="flex:1; display:flex; gap:4px;">
-        <div style="flex:1; padding:4px; background:#e1bee7; border-radius:4px; ${freeClaimed?'opacity:0.4;':''}">
-          <div style="font-size:9px; color:#6a1b9a; font-weight:bold;">🆓 무료</div>
-          <div style="font-size:10px; color:var(--wood-dark);">${formatReward(r.free)}</div>
-          ${unlocked && !freeClaimed ? `<button class="claim-free-btn" data-lv="${r.lv}" style="margin-top:2px; width:100%; background:#66bb6a; color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:2px; font-size:9px; cursor:pointer; font-family:inherit; font-weight:bold;">받기</button>` : freeClaimed ? '<div style="text-align:center; font-size:9px; color:#43a047; font-weight:bold;">✓ 수령</div>' : '<div style="text-align:center; font-size:9px; color:#999;">잠김</div>'}
+      <div style="background:linear-gradient(135deg, #ab47bc, #6a1b9a); color:white; min-width:38px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:8px; font-weight:bold; box-shadow:0 2px 0 #4a148c;">
+        <div style="font-size:9px; opacity:0.85;">LV</div>
+        <div style="font-size:16px;">${r.lv}</div>
+      </div>
+      <div style="flex:1; display:flex; gap:5px; align-items:stretch;">
+        <!-- 🆓 무료 트랙 -->
+        <div style="flex:1; padding:5px 6px; background:${freeClaimed ? '#e0e0e0' : 'linear-gradient(to bottom, #e1bee7, #ce93d8)'}; border-radius:6px; border:2px solid ${freeClaimed ? '#9e9e9e' : '#7b1fa2'}; display:flex; flex-direction:column; ${freeClaimed?'opacity:0.55;':''}">
+          <div style="font-size:9px; color:${freeClaimed?'#666':'#4a148c'}; font-weight:bold; margin-bottom:2px;">🆓 무료</div>
+          <div style="font-size:10px; color:var(--wood-dark); flex:1; line-height:1.3;">${formatReward(r.free)}</div>
+          ${unlocked && !freeClaimed ? `
+            <button class="claim-free-btn" data-lv="${r.lv}" style="margin-top:4px; width:100%; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:5px; padding:4px; font-size:11px; cursor:pointer; font-family:inherit; font-weight:bold; box-shadow:0 2px 0 var(--wood-dark); animation:pulse 1.5s infinite;">
+              🎁 받기
+            </button>
+          ` : freeClaimed ? `
+            <div style="margin-top:4px; text-align:center; padding:3px; background:#43a047; color:white; border-radius:5px; font-size:10px; font-weight:bold;">✓ 수령 완료</div>
+          ` : `
+            <div style="margin-top:4px; text-align:center; padding:3px; background:#bdbdbd; color:#fff; border-radius:5px; font-size:10px; font-weight:bold;">🔒 잠김</div>
+          `}
         </div>
+        <!-- 👑 VIP 트랙 -->
         ${sp.vipUnlocked ? `
-          <div style="flex:1; padding:4px; background:linear-gradient(to bottom, #fff8e1, #ffe082); border-radius:4px; ${vipClaimed?'opacity:0.4;':''}">
-            <div style="font-size:9px; color:#bf8b00; font-weight:bold;">👑 VIP</div>
-            <div style="font-size:10px; color:var(--wood-dark);">${formatReward(r.vip)}</div>
-            ${unlocked && !vipClaimed ? `<button class="claim-vip-btn" data-lv="${r.lv}" style="margin-top:2px; width:100%; background:linear-gradient(to bottom, #ffd700, #f57c00); color:#3e2723; border:1px solid var(--wood-dark); border-radius:4px; padding:2px; font-size:9px; cursor:pointer; font-family:inherit; font-weight:bold;">받기</button>` : vipClaimed ? '<div style="text-align:center; font-size:9px; color:#43a047; font-weight:bold;">✓ 수령</div>' : '<div style="text-align:center; font-size:9px; color:#999;">잠김</div>'}
+          <div style="flex:1; padding:5px 6px; background:${vipClaimed ? '#e0e0e0' : 'linear-gradient(to bottom, #fff8e1, #ffd54f)'}; border-radius:6px; border:2px solid ${vipClaimed ? '#9e9e9e' : '#f9a825'}; display:flex; flex-direction:column; ${vipClaimed?'opacity:0.55;':''}">
+            <div style="font-size:9px; color:${vipClaimed?'#666':'#bf8b00'}; font-weight:bold; margin-bottom:2px;">👑 VIP</div>
+            <div style="font-size:10px; color:var(--wood-dark); flex:1; line-height:1.3;">${formatReward(r.vip)}</div>
+            ${unlocked && !vipClaimed ? `
+              <button class="claim-vip-btn" data-lv="${r.lv}" style="margin-top:4px; width:100%; background:linear-gradient(to bottom, #ffd700, #f57c00); color:#3e2723; border:2px solid var(--wood-dark); border-radius:5px; padding:4px; font-size:11px; cursor:pointer; font-family:inherit; font-weight:bold; box-shadow:0 2px 0 var(--wood-dark); animation:pulse 1.5s infinite;">
+                👑 받기
+              </button>
+            ` : vipClaimed ? `
+              <div style="margin-top:4px; text-align:center; padding:3px; background:#43a047; color:white; border-radius:5px; font-size:10px; font-weight:bold;">✓ 수령 완료</div>
+            ` : `
+              <div style="margin-top:4px; text-align:center; padding:3px; background:#bdbdbd; color:#fff; border-radius:5px; font-size:10px; font-weight:bold;">🔒 잠김</div>
+            `}
           </div>
         ` : `
-          <div style="flex:1; padding:4px; background:#eee; border-radius:4px; opacity:0.4;">
-            <div style="font-size:9px; color:#999; text-align:center;">🔒 VIP 전용</div>
+          <div style="flex:1; padding:5px 6px; background:#eee; border-radius:6px; border:2px dashed #999; opacity:0.5; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <div style="font-size:9px; color:#666; font-weight:bold;">👑 VIP</div>
+            <div style="font-size:9px; color:#999; text-align:center; margin-top:2px;">🔒 VIP 3+ 전용</div>
           </div>
         `}
       </div>
     `;
     rewardList.appendChild(card);
   });
+
+  // === 일괄 보상 받기 버튼 추가 ===
+  const claimableCount = SEASON_PASS_REWARDS.filter(r => {
+    if (curLevel < r.lv) return false;
+    if (!sp.claimed[`${r.lv}_free`]) return true;
+    if (sp.vipUnlocked && !sp.claimed[`${r.lv}_vip`]) return true;
+    return false;
+  }).length;
+  if (claimableCount > 0) {
+    const allClaimBtn = document.createElement('button');
+    allClaimBtn.id = 'claim-all-rewards-btn';
+    allClaimBtn.style.cssText = 'margin-top:8px; width:100%; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:3px solid var(--wood-dark); border-radius:10px; padding:10px; font-family:inherit; font-weight:bold; font-size:13px; cursor:pointer; box-shadow:0 3px 0 var(--wood-dark); animation:pulse 1.5s infinite;';
+    allClaimBtn.innerHTML = `🎁 모든 보상 일괄 받기 (${claimableCount}개)`;
+    allClaimBtn.onclick = () => claimAllSeasonRewards();
+    rewardList.appendChild(allClaimBtn);
+  }
 
   // 핸들러
   const claimDaily = body.querySelector('#claim-daily-mission-btn');
@@ -18425,6 +18770,80 @@ function claimSeasonReward(lv, track) {
   updateSeasonBadge();
 }
 window.claimSeasonReward = claimSeasonReward;
+
+// === 시즌 패스 모든 보상 일괄 받기 ===
+function claimAllSeasonRewards() {
+  ensureSeasonPassData();
+  const sp = game.seasonPass;
+  const curLevel = sp.level || 0;
+
+  // 받을 수 있는 보상 모두 수집
+  const toClaim = [];
+  for (const r of SEASON_PASS_REWARDS) {
+    if (curLevel < r.lv) continue;
+    if (!sp.claimed[`${r.lv}_free`]) toClaim.push({ lv: r.lv, track: 'free', reward: r.free });
+    if (sp.vipUnlocked && !sp.claimed[`${r.lv}_vip`]) toClaim.push({ lv: r.lv, track: 'vip', reward: r.vip });
+  }
+
+  if (toClaim.length === 0) {
+    showToast('받을 보상이 없어요', 'warn');
+    return;
+  }
+
+  // 보상 합산
+  const total = { gold: 0, gem: 0, food: 0, wood: 0, stone: 0 };
+  const specials = [];
+  for (const item of toClaim) {
+    const r = item.reward;
+    if (!r) continue;
+    if (r.gold) total.gold += r.gold;
+    if (r.gem) total.gem += r.gem;
+    if (r.food) total.food += r.food;
+    if (r.wood) total.wood += r.wood;
+    if (r.stone) total.stone += r.stone;
+    if (r.special) specials.push(r.special);
+    sp.claimed[`${item.lv}_${item.track}`] = true;
+  }
+
+  // 일괄 지급
+  if (total.gold) addRes('gold', total.gold);
+  if (total.gem) addRes('gem', total.gem);
+  if (total.food) addRes('food', total.food);
+  if (total.wood) addRes('wood', total.wood);
+  if (total.stone) addRes('stone', total.stone);
+  for (const specialId of specials) {
+    const it = SHOP_ITEMS.find(s => s.id === specialId);
+    if (it && it.effect) {
+      try { it.effect(); } catch (e) {}
+    }
+  }
+
+  // 결과 표시
+  const parts = [];
+  if (total.gold) parts.push(`💰${total.gold.toLocaleString()}`);
+  if (total.gem) parts.push(`💎${total.gem.toLocaleString()}`);
+  if (total.food) parts.push(`🍖${total.food.toLocaleString()}`);
+  if (total.wood) parts.push(`🪵${total.wood.toLocaleString()}`);
+  if (total.stone) parts.push(`🪨${total.stone.toLocaleString()}`);
+  if (specials.length > 0) parts.push(`🎁${specials.length}개 특별`);
+
+  showToast(`✅ ${toClaim.length}개 보상 일괄 수령! ${parts.join(' · ')}`, 'gain');
+  try { playSound('levelUp'); } catch (e) {}
+
+  // 화면 효과
+  if (game.home) {
+    try {
+      emitConfetti(game.home.x, game.home.y - 20, 30);
+      emitLevelUpBurst(game.home.x, game.home.y);
+    } catch (e) {}
+  }
+
+  try { saveGame(); } catch (e) {}
+  try { uploadCloudSave(true); } catch (e) {}
+  renderSeasonPass();
+  updateSeasonBadge();
+}
+window.claimAllSeasonRewards = claimAllSeasonRewards;
 
 // ============================================================================
 // 📅 캘린더 시스템
@@ -23342,6 +23761,8 @@ function tick(now) {
     if (game._powerRecalcTimer >= 1) {
       game._powerRecalcTimer = 0;
       try { recomputePower(); } catch (e) {}
+      // HUD에 실시간 반영
+      try { updateHUD(); } catch (e) {}
     }
 
     // === 플레이어 정보 Firebase 실시간 동기화 (30초마다) ===

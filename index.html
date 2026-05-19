@@ -1104,7 +1104,7 @@
     <div class="resource gem"><div class="icon">💎</div><div class="val" id="res-gem">5</div></div>
   </div>
 
-  <div class="day-display">Day <b id="day-num">1</b></div>
+  <div class="day-display">Day <b id="day-num">1</b> <span id="time-of-day" style="margin-left:4px;">☀️</span> <span id="time-hour" style="font-size:9px; opacity:0.8;">06:00</span></div>
   <div class="power-display" id="power-display" style="display:none">⚔ <b id="total-power">0</b></div>
 
   <div class="cam-controls">
@@ -1131,6 +1131,7 @@
     <div class="icon-btn" id="btn-tribe" title="부족/길드">👥<div class="label">부족</div></div>
     <div class="icon-btn" id="btn-calendar" title="캘린더">📅<div class="label">달력</div></div>
     <div class="icon-btn" id="btn-vip" title="VIP 상점" style="background:linear-gradient(135deg, #ffd700, #f57c00); border-color:#3e2723;">👑<div class="label" style="color:#3e2723;">VIP</div></div>
+    <div class="icon-btn" id="btn-season-pass" title="시즌 패스" style="background:linear-gradient(135deg, #ab47bc, #6a1b9a); border-color:#3e2723;">🎁<div class="label" style="color:#fff;">시즌</div><div class="badge" id="season-badge" style="display:none">!</div></div>
     <div class="icon-btn" id="btn-sound" title="효과음 토글">🔊<div class="label">소리</div></div>
     <div class="icon-btn" id="btn-army">⚔️<div class="label">군대</div></div>
     <div class="icon-btn" id="btn-quests">📜<div class="label">퀘스트</div><div class="badge" id="quests-badge" style="display:none">!</div></div>
@@ -1325,6 +1326,13 @@
   <div class="modal">
     <div class="modal-header">👑 VIP 상점 <button class="modal-close" data-close>✕</button></div>
     <div class="modal-body" id="vip-body"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="m-season-pass">
+  <div class="modal">
+    <div class="modal-header">🎁 시즌 패스 <button class="modal-close" data-close>✕</button></div>
+    <div class="modal-body" id="season-pass-body"></div>
   </div>
 </div>
 
@@ -1547,13 +1555,14 @@ async function uploadCloudSave(force) {
       friends: game.friends || [],
       buildings: (game.buildings || []).map(b => ({
         type: b.type || '',
-        gx: b.gx || 0,
-        gy: b.gy || 0,
+        gx: (typeof b.gx === 'number') ? b.gx : 0,
+        gy: (typeof b.gy === 'number') ? b.gy : 0,
         state: b.state || 'idle',
         uniqueId: b.uniqueId || 0,
         buildProgress: b.buildProgress || 0,
         stored: b.stored || 0,
         productionTimer: b.productionTimer || 0,
+        yieldTimer: b.yieldTimer || 0,  // 진짜 사용되는 필드명
       })),
       buildingUpgrades: game.buildingUpgrades || {},
       research: game.research || {},
@@ -1583,6 +1592,9 @@ async function uploadCloudSave(force) {
       dungeonClearedToday: game.dungeonClearedToday || {},
       dungeonClearedDate: game.dungeonClearedDate || '',
       rouletteFreeDate: game.rouletteFreeDate || '',
+      rouletteSpinsToday: game.rouletteSpinsToday || 0,
+      rouletteSpinsDate: game.rouletteSpinsDate || '',
+      seasonPass: game.seasonPass || null,
       notifications: (game.notifications || []).slice(-30),
       titles: game.titles || {},
       equippedTitle: game.equippedTitle || null,
@@ -1679,6 +1691,9 @@ function applyCloudSave(saveData) {
     game.dungeonClearedToday = saveData.dungeonClearedToday || {};
     game.dungeonClearedDate = saveData.dungeonClearedDate || '';
     game.rouletteFreeDate = saveData.rouletteFreeDate || '';
+    game.rouletteSpinsToday = saveData.rouletteSpinsToday || 0;
+    game.rouletteSpinsDate = saveData.rouletteSpinsDate || '';
+    game.seasonPass = saveData.seasonPass || null;
     game.notifications = saveData.notifications || [];
     game.titles = saveData.titles || {};
     game.equippedTitle = saveData.equippedTitle || null;
@@ -1692,17 +1707,24 @@ function applyCloudSave(saveData) {
     game.defenseMult = saveData.defenseMult || 1;
     game.shopPurchased = saveData.shopPurchased || [];
 
-    // 건물 재구성
+    // 건물 재구성 — 좌표(gx, gy)와 모든 상태를 그대로 복원
     game.buildings = [];
     for (const bd of (saveData.buildings || [])) {
       try {
         if (BUILDING_TYPES[bd.type]) {
+          // 좌표 안전성: 숫자가 아니면 건너뜀
+          if (typeof bd.gx !== 'number' || typeof bd.gy !== 'number') {
+            console.warn('[applyCloudSave] 건물 좌표 없음, 건너뜀:', bd);
+            continue;
+          }
           const b = new Building(bd.type, bd.gx, bd.gy);
           b.state = bd.state || 'complete';
           b.uniqueId = bd.uniqueId || b.uniqueId;
           b.buildProgress = bd.buildProgress || (b.state === 'complete' ? b.def.buildTime : 0);
           b.stored = bd.stored || 0;
-          b.productionTimer = bd.productionTimer || 0;
+          // yieldTimer 호환성: 새 필드(yieldTimer) 또는 옛 필드(productionTimer) 둘 다 인식
+          b.yieldTimer = bd.yieldTimer || bd.productionTimer || 0;
+          b.productionTimer = bd.productionTimer || bd.yieldTimer || 0;
           game.buildings.push(b);
         }
       } catch (e) {
@@ -3114,6 +3136,20 @@ const BUILDING_TYPES = {
   },
 };
 
+// === 모든 건물 건설 비용 ×5 일괄 적용 ===
+(function applyBuildingCostMultiplier() {
+  const MULT = 5;
+  for (const key of Object.keys(BUILDING_TYPES)) {
+    const def = BUILDING_TYPES[key];
+    if (!def || !def.cost) continue;
+    for (const res of Object.keys(def.cost)) {
+      if (typeof def.cost[res] === 'number') {
+        def.cost[res] = Math.max(1, Math.ceil(def.cost[res] * MULT));
+      }
+    }
+  }
+})();
+
 class Building {
   constructor(type, gx, gy) {
     this.type = type;
@@ -3159,6 +3195,8 @@ class Building {
           checkQuestProgress('build', 1);
           checkQuestProgress(`build_${this.type}`, 1);
         }
+        // 시즌 패스 미션
+        if (typeof updateSeasonMission === 'function') updateSeasonMission('build', 1);
 
         // ----- COMPLETION FX -----
         const cx = (this.gx + this.def.size / 2) * TILE;
@@ -5966,6 +6004,170 @@ const PETS = {
   ymir:       { name: '서리거인 이미르', icon: '🧊', emoji: '🧊', power: 410, tier: 'mythic', desc: '얼음과 추위의 태초 거인.' },
   ifrit:      { name: '이프리트',     icon: '🔥', emoji: '🔥', power: 425, tier: 'mythic', desc: '불길의 화신, 사막의 정령왕.' },
   worldgod:   { name: '창조신',       icon: '🌌', emoji: '🌌', power: 500, tier: 'mythic', desc: '시간과 공간을 초월한 최강의 존재.' },
+
+  // ===========================================
+  // ===== 추가 펫 150종 (총 250종) =====
+  // ===========================================
+
+  // ===== 일반 추가 30종 (power 30~65) =====
+  mouse2:     { name: '생쥐',         icon: '🐭', emoji: '🐭', power: 30, tier: 'common', desc: '곳간의 작은 식객.' },
+  worm:       { name: '지렁이',       icon: '🪱', emoji: '🪱', power: 26, tier: 'common', desc: '땅을 비옥하게 한다.' },
+  caterpillar:{ name: '애벌레',       icon: '🐛', emoji: '🐛', power: 28, tier: 'common', desc: '언젠가 나비가 될 꿈.' },
+  bee:        { name: '꿀벌',         icon: '🐝', emoji: '🐝', power: 38, tier: 'common', desc: '꿀을 모으는 작은 일꾼.' },
+  goose:      { name: '거위',         icon: '🪿', emoji: '🪿', power: 44, tier: 'common', desc: '시끄러운 마을 파수꾼.' },
+  rooster:    { name: '수탉',         icon: '🐓', emoji: '🐓', power: 42, tier: 'common', desc: '새벽을 알리는 자.' },
+  shrimp:     { name: '민물새우',     icon: '🦐', emoji: '🦐', power: 34, tier: 'common', desc: '계곡의 작은 갑각류.' },
+  squid_baby: { name: '아기 오징어',  icon: '🦑', emoji: '🦑', power: 40, tier: 'common', desc: '먹물을 뿜는 어린 두족류.' },
+  lizard:     { name: '도마뱀',       icon: '🦎', emoji: '🦎', power: 36, tier: 'common', desc: '벽을 타는 작은 파충류.' },
+  blowfish:   { name: '복어',         icon: '🐡', emoji: '🐡', power: 48, tier: 'common', desc: '위협을 받으면 부풀어 오른다.' },
+  tropical:   { name: '열대어',       icon: '🐠', emoji: '🐠', power: 38, tier: 'common', desc: '산호초의 다채로운 친구.' },
+  dolphin_baby:{ name: '아기 돌고래', icon: '🐬', emoji: '🐬', power: 56, tier: 'common', desc: '영리하고 친근한 바다 친구.' },
+  poodle:     { name: '들개 새끼',    icon: '🐕', emoji: '🐕', power: 40, tier: 'common', desc: '갓 태어난 어린 들개.' },
+  kitten:     { name: '아기 고양이',  icon: '🐈', emoji: '🐈', power: 38, tier: 'common', desc: '호기심 가득한 새끼 고양이.' },
+  bunny:      { name: '솜토끼',       icon: '🐇', emoji: '🐇', power: 36, tier: 'common', desc: '복슬복슬한 토끼.' },
+  pigeon:     { name: '비둘기',       icon: '🕊️', emoji: '🕊️', power: 38, tier: 'common', desc: '평화를 전하는 새.' },
+  sparrow:    { name: '참새',         icon: '🐦', emoji: '🐦', power: 32, tier: 'common', desc: '재잘대는 작은 새.' },
+  starling:   { name: '찌르레기',     icon: '🐦', emoji: '🐦', power: 35, tier: 'common', desc: '무리지어 군무를 추는 새.' },
+  penguin_baby:{name: '아기 펭귄',    icon: '🐧', emoji: '🐧', power: 46, tier: 'common', desc: '아장아장 걷는 어린 펭귄.' },
+  seal:       { name: '바다표범',     icon: '🦭', emoji: '🦭', power: 58, tier: 'common', desc: '바위 위에서 햇볕을 쬔다.' },
+  otter:      { name: '수달',         icon: '🦦', emoji: '🦦', power: 54, tier: 'common', desc: '물에서 노는 사랑스러운 동물.' },
+  hedgehog:   { name: '고슴도치',     icon: '🦔', emoji: '🦔', power: 44, tier: 'common', desc: '가시로 무장한 작은 동물.' },
+  bat_small:  { name: '작은 박쥐',    icon: '🦇', emoji: '🦇', power: 42, tier: 'common', desc: '밤하늘을 가르는 작은 비행체.' },
+  donkey:     { name: '당나귀',       icon: '🫏', emoji: '🫏', power: 55, tier: 'common', desc: '온순한 짐꾼.' },
+  pony:       { name: '조랑말',       icon: '🐴', emoji: '🐴', power: 58, tier: 'common', desc: '아이들의 친구.' },
+  llama_baby: { name: '아기 라마',    icon: '🦙', emoji: '🦙', power: 52, tier: 'common', desc: '고원의 어린 라마.' },
+  oyster:     { name: '굴',           icon: '🦪', emoji: '🦪', power: 30, tier: 'common', desc: '진주를 품을 수도 있다.' },
+  jellyfish:  { name: '해파리',       icon: '🪼', emoji: '🪼', power: 36, tier: 'common', desc: '바다를 떠다니는 투명한 존재.' },
+  firefly:    { name: '반딧불이',     icon: '✨', emoji: '✨', power: 40, tier: 'common', desc: '여름밤을 밝히는 작은 빛.' },
+  mantis_baby:{ name: '아기 사마귀',  icon: '🦗', emoji: '🦗', power: 44, tier: 'common', desc: '풀잎을 가르는 어린 사냥꾼.' },
+
+  // ===== 희귀 추가 35종 (power 70~120) =====
+  panda:      { name: '판다',         icon: '🐼', emoji: '🐼', power: 95, tier: 'rare', desc: '대나무를 사랑하는 흑백 곰.' },
+  koala:      { name: '코알라',       icon: '🐨', emoji: '🐨', power: 78, tier: 'rare', desc: '유칼립투스 나무의 잠꾸러기.' },
+  kangaroo:   { name: '캥거루',       icon: '🦘', emoji: '🦘', power: 92, tier: 'rare', desc: '강력한 뒷다리로 도약한다.' },
+  zebra:      { name: '얼룩말',       icon: '🦓', emoji: '🦓', power: 88, tier: 'rare', desc: '초원의 줄무늬 질주자.' },
+  giraffe:    { name: '기린',         icon: '🦒', emoji: '🦒', power: 100, tier: 'rare', desc: '하늘을 닿을 듯한 긴 목.' },
+  hippo:      { name: '하마',         icon: '🦛', emoji: '🦛', power: 108, tier: 'rare', desc: '거대한 입의 강 지배자.' },
+  rhino:      { name: '코뿔소',       icon: '🦏', emoji: '🦏', power: 115, tier: 'rare', desc: '강철 같은 뿔의 돌격자.' },
+  flamingo:   { name: '플라밍고',     icon: '🦩', emoji: '🦩', power: 80, tier: 'rare', desc: '분홍빛 우아한 외다리 새.' },
+  peacock:    { name: '공작',         icon: '🦚', emoji: '🦚', power: 90, tier: 'rare', desc: '화려한 꼬리를 펼치는 자.' },
+  pelican:    { name: '펠리컨',       icon: '🐦', emoji: '🐦', power: 85, tier: 'rare', desc: '큰 부리에 물고기를 담는다.' },
+  ostrich:    { name: '타조',         icon: '🐦', emoji: '🐦', power: 105, tier: 'rare', desc: '땅 위 가장 빠른 새.' },
+  emu:        { name: '에뮤',         icon: '🐦', emoji: '🐦', power: 95, tier: 'rare', desc: '호주 평원의 거대한 새.' },
+  okapi:      { name: '오카피',       icon: '🦒', emoji: '🦒', power: 88, tier: 'rare', desc: '숲의 신비로운 동물.' },
+  tapir:      { name: '맥',           icon: '🐗', emoji: '🐗', power: 90, tier: 'rare', desc: '꿈을 먹는다는 전설의 동물.' },
+  porcupine:  { name: '호저',         icon: '🦔', emoji: '🦔', power: 85, tier: 'rare', desc: '길고 날카로운 가시.' },
+  armadillo:  { name: '아르마딜로',   icon: '🦔', emoji: '🦔', power: 82, tier: 'rare', desc: '갑옷을 두른 작은 짐승.' },
+  sloth:      { name: '나무늘보',     icon: '🦥', emoji: '🦥', power: 75, tier: 'rare', desc: '느림의 미학.' },
+  capybara:   { name: '카피바라',     icon: '🦫', emoji: '🦫', power: 88, tier: 'rare', desc: '온순한 거대 설치류.' },
+  meerkat:    { name: '미어캣',       icon: '🦦', emoji: '🦦', power: 78, tier: 'rare', desc: '사막의 영리한 보초.' },
+  weasel:     { name: '족제비',       icon: '🦦', emoji: '🦦', power: 82, tier: 'rare', desc: '날렵하고 사나운 사냥꾼.' },
+  ferret:     { name: '페럿',         icon: '🦦', emoji: '🦦', power: 80, tier: 'rare', desc: '굴을 누비는 사냥꾼.' },
+  mongoose:   { name: '몽구스',       icon: '🦔', emoji: '🦔', power: 95, tier: 'rare', desc: '독사를 사냥하는 자.' },
+  hyena:      { name: '하이에나',     icon: '🐺', emoji: '🐺', power: 100, tier: 'rare', desc: '잔혹한 웃음의 청소부.' },
+  jackal:     { name: '자칼',         icon: '🦊', emoji: '🦊', power: 92, tier: 'rare', desc: '사막의 교활한 사냥꾼.' },
+  coyote:     { name: '코요테',       icon: '🦊', emoji: '🦊', power: 95, tier: 'rare', desc: '황야의 떠돌이.' },
+  dingo:      { name: '딩고',         icon: '🐺', emoji: '🐺', power: 98, tier: 'rare', desc: '호주 야생의 들개.' },
+  lynx:       { name: '스라소니',     icon: '🐈', emoji: '🐈', power: 110, tier: 'rare', desc: '귀끝의 깃털과 날카로운 발톱.' },
+  bobcat:     { name: '밥캣',         icon: '🐈', emoji: '🐈', power: 105, tier: 'rare', desc: '북미 숲의 작은 사냥꾼.' },
+  cheetah_young:{ name: '치타 새끼',  icon: '🐆', emoji: '🐆', power: 100, tier: 'rare', desc: '가장 빠른 어린 사냥꾼.' },
+  jaguar_young:{ name: '재규어 새끼', icon: '🐆', emoji: '🐆', power: 108, tier: 'rare', desc: '정글의 점박이 어린 왕.' },
+  vulture:    { name: '독수리',       icon: '🦅', emoji: '🦅', power: 100, tier: 'rare', desc: '죽음을 향해 날아드는 새.' },
+  raven:      { name: '큰까마귀',     icon: '🐦‍⬛', emoji: '🐦‍⬛', power: 95, tier: 'rare', desc: '지혜의 검은 새.' },
+  crow:       { name: '까마귀',       icon: '🐦‍⬛', emoji: '🐦‍⬛', power: 90, tier: 'rare', desc: '영리하고 신비로운 자.' },
+  woodpecker: { name: '딱따구리',     icon: '🐦', emoji: '🐦', power: 88, tier: 'rare', desc: '나무를 두드리는 의사.' },
+  iguana:     { name: '이구아나',     icon: '🦎', emoji: '🦎', power: 90, tier: 'rare', desc: '햇살 좋아하는 큰 도마뱀.' },
+
+  // ===== 에픽 추가 40종 (power 130~220) =====
+  bear_grizzly:{ name: '회색곰',      icon: '🐻', emoji: '🐻', power: 180, tier: 'epic', desc: '북미 숲의 거대한 사냥꾼.' },
+  bear_polar: { name: '북극곰',       icon: '🐻‍❄️', emoji: '🐻‍❄️', power: 195, tier: 'epic', desc: '얼음 평원의 흰 제왕.' },
+  bear_black: { name: '흑곰',         icon: '🐻', emoji: '🐻', power: 165, tier: 'epic', desc: '숲을 거니는 거대한 검은 곰.' },
+  bear_panda_giant:{ name: '거대 판다',icon: '🐼', emoji: '🐼', power: 170, tier: 'epic', desc: '대나무 숲의 평화로운 거인.' },
+  tiger:      { name: '호랑이',       icon: '🐅', emoji: '🐅', power: 200, tier: 'epic', desc: '정글의 줄무늬 왕.' },
+  lion:       { name: '사자',         icon: '🦁', emoji: '🦁', power: 210, tier: 'epic', desc: '초원의 황금 갈기.' },
+  cheetah:    { name: '치타',         icon: '🐆', emoji: '🐆', power: 175, tier: 'epic', desc: '시속 110km의 질주.' },
+  jaguar:     { name: '재규어',       icon: '🐆', emoji: '🐆', power: 185, tier: 'epic', desc: '정글의 점박이 사냥꾼.' },
+  leopard:    { name: '표범',         icon: '🐆', emoji: '🐆', power: 180, tier: 'epic', desc: '나무 위의 그림자 같은 사냥꾼.' },
+  panther:    { name: '흑표범',       icon: '🐆', emoji: '🐆', power: 195, tier: 'epic', desc: '어둠 속을 미끄러지듯 다닌다.' },
+  wolf_alpha: { name: '늑대 우두머리',icon: '🐺', emoji: '🐺', power: 170, tier: 'epic', desc: '무리의 지배자.' },
+  wolf_dire:  { name: '거대늑대',     icon: '🐺', emoji: '🐺', power: 200, tier: 'epic', desc: '신화 속 거대한 늑대.' },
+  bear_kodiak:{ name: '코디악 곰',    icon: '🐻', emoji: '🐻', power: 215, tier: 'epic', desc: '대륙 최대의 곰.' },
+  elephant_war:{ name: '전투 코끼리', icon: '🐘', emoji: '🐘', power: 220, tier: 'epic', desc: '갑옷을 두른 전쟁 거수.' },
+  gorilla:    { name: '고릴라',       icon: '🦍', emoji: '🦍', power: 195, tier: 'epic', desc: '정글의 우두머리.' },
+  orangutan:  { name: '오랑우탄',     icon: '🦧', emoji: '🦧', power: 175, tier: 'epic', desc: '숲의 현명한 노인.' },
+  baboon:     { name: '비비',         icon: '🐒', emoji: '🐒', power: 165, tier: 'epic', desc: '사바나의 영리한 무리.' },
+  ape_silver: { name: '은빛 유인원',  icon: '🦍', emoji: '🦍', power: 180, tier: 'epic', desc: '은백색 등의 우두머리.' },
+  bull_giant: { name: '거대 황소',    icon: '🐃', emoji: '🐃', power: 185, tier: 'epic', desc: '들판의 분노한 거수.' },
+  buffalo:    { name: '들소왕',       icon: '🐃', emoji: '🐃', power: 195, tier: 'epic', desc: '대초원을 누비는 거대 들소.' },
+  yak:        { name: '야크',         icon: '🐂', emoji: '🐂', power: 175, tier: 'epic', desc: '히말라야의 털복숭이 거수.' },
+  bison:      { name: '바이슨',       icon: '🦬', emoji: '🦬', power: 200, tier: 'epic', desc: '북미 대평원의 왕.' },
+  moose:      { name: '무스',         icon: '🫎', emoji: '🫎', power: 190, tier: 'epic', desc: '거대한 뿔의 숲의 거인.' },
+  caribou:    { name: '카리부',       icon: '🦌', emoji: '🦌', power: 165, tier: 'epic', desc: '북극 툰드라의 순록.' },
+  elk:        { name: '엘크',         icon: '🦌', emoji: '🦌', power: 175, tier: 'epic', desc: '거대한 가지뿔의 사슴.' },
+  walrus:     { name: '바다코끼리',   icon: '🦭', emoji: '🦭', power: 195, tier: 'epic', desc: '두 개의 거대한 송곳니.' },
+  orca:       { name: '범고래',       icon: '🐋', emoji: '🐋', power: 215, tier: 'epic', desc: '바다의 검은 사냥꾼.' },
+  shark_great:{ name: '백상아리',     icon: '🦈', emoji: '🦈', power: 220, tier: 'epic', desc: '바다의 톱니 이빨.' },
+  shark_hammer:{ name: '귀상어',      icon: '🦈', emoji: '🦈', power: 180, tier: 'epic', desc: '망치 모양의 머리.' },
+  swordfish:  { name: '황새치',       icon: '🐟', emoji: '🐟', power: 165, tier: 'epic', desc: '검과 같은 부리.' },
+  marlin:     { name: '청새치',       icon: '🐟', emoji: '🐟', power: 175, tier: 'epic', desc: '바다의 가장 빠른 검투사.' },
+  manta_ray:  { name: '쥐가오리',     icon: '🐠', emoji: '🐠', power: 170, tier: 'epic', desc: '바다 위를 비행하듯 헤엄친다.' },
+  electric_eel:{ name: '전기뱀장어',  icon: '⚡', emoji: '⚡', power: 160, tier: 'epic', desc: '600볼트의 충격.' },
+  giant_squid:{ name: '대왕오징어',   icon: '🦑', emoji: '🦑', power: 200, tier: 'epic', desc: '심해의 거대한 두족류.' },
+  kraken_baby:{ name: '아기 크라켄',  icon: '🐙', emoji: '🐙', power: 195, tier: 'epic', desc: '어린 심해의 공포.' },
+  griffin_baby:{ name: '새끼 그리핀', icon: '🦅', emoji: '🦅', power: 185, tier: 'epic', desc: '독수리와 사자의 어린 잡종.' },
+  hippogriff_y:{ name: '새끼 히포그리프',icon:'🦄', emoji: '🦄', power: 180, tier: 'epic', desc: '독수리-말의 어린 마수.' },
+  manticore:  { name: '맨티코어',     icon: '🦁', emoji: '🦁', power: 215, tier: 'epic', desc: '사자 몸에 인간 얼굴, 전갈 꼬리.' },
+  basilisk_b: { name: '아기 바실리스크',icon: '🐍', emoji: '🐍', power: 200, tier: 'epic', desc: '눈빛으로 돌이 되게 한다.' },
+  wyrm:       { name: '윔',           icon: '🐍', emoji: '🐍', power: 210, tier: 'epic', desc: '대지를 휘감는 거대 뱀.' },
+
+  // ===== 전설 추가 30종 (power 240~350) =====
+  phoenix_dawn:{ name: '여명의 불사조',icon: '🦅', emoji: '🦅', power: 320, tier: 'legendary', desc: '새벽의 첫 빛에서 태어난다.' },
+  phoenix_night:{ name: '심야의 불사조',icon: '🦅', emoji: '🦅', power: 330, tier: 'legendary', desc: '밤하늘의 보랏빛 불꽃.' },
+  dragon_red: { name: '붉은 용',      icon: '🐉', emoji: '🐉', power: 340, tier: 'legendary', desc: '화염을 토하는 분노의 용.' },
+  dragon_blue:{ name: '푸른 용',      icon: '🐉', emoji: '🐉', power: 335, tier: 'legendary', desc: '얼음 숨결의 차가운 용.' },
+  dragon_green:{ name: '녹색 용',     icon: '🐉', emoji: '🐉', power: 325, tier: 'legendary', desc: '독안개를 뿜는 늪지의 용.' },
+  dragon_white:{ name: '백룡',        icon: '🐉', emoji: '🐉', power: 345, tier: 'legendary', desc: '신성한 빛의 용.' },
+  dragon_gold:{ name: '황금룡',       icon: '🐲', emoji: '🐲', power: 348, tier: 'legendary', desc: '왕족 중의 왕족, 황금 비늘.' },
+  hydra:      { name: '히드라',       icon: '🐍', emoji: '🐍', power: 320, tier: 'legendary', desc: '잘려도 다시 자라는 9개의 머리.' },
+  chimera:    { name: '키메라',       icon: '🦁', emoji: '🦁', power: 310, tier: 'legendary', desc: '사자/염소/뱀의 합성수.' },
+  cerberus_3h:{ name: '삼두 케르베로스',icon: '🐺', emoji: '🐺', power: 315, tier: 'legendary', desc: '저승문을 지키는 세 머리 개.' },
+  pegasus_w:  { name: '하늘 페가수스',icon: '🦄', emoji: '🦄', power: 295, tier: 'legendary', desc: '구름을 차는 흰 천마.' },
+  qilin:      { name: '기린(전설)',   icon: '🦌', emoji: '🦌', power: 305, tier: 'legendary', desc: '동방의 길조, 신성한 짐승.' },
+  fenghuang:  { name: '봉황',         icon: '🦚', emoji: '🦚', power: 320, tier: 'legendary', desc: '동방의 불사조, 오색찬란.' },
+  baihu:      { name: '백호',         icon: '🐅', emoji: '🐅', power: 310, tier: 'legendary', desc: '서쪽을 다스리는 흰 호랑이.' },
+  zhuque:     { name: '주작',         icon: '🦅', emoji: '🦅', power: 315, tier: 'legendary', desc: '남쪽을 다스리는 붉은 새.' },
+  qinglong:   { name: '청룡',         icon: '🐉', emoji: '🐉', power: 330, tier: 'legendary', desc: '동쪽을 다스리는 푸른 용.' },
+  xuanwu:     { name: '현무',         icon: '🐢', emoji: '🐢', power: 305, tier: 'legendary', desc: '북쪽을 다스리는 거북-뱀.' },
+  thunderbird:{ name: '천둥새',       icon: '🦅', emoji: '🦅', power: 310, tier: 'legendary', desc: '날갯짓 한 번에 천둥을 부른다.' },
+  roc:        { name: '록',           icon: '🦅', emoji: '🦅', power: 320, tier: 'legendary', desc: '코끼리를 채가는 거대 새.' },
+  garuda:     { name: '가루다',       icon: '🦅', emoji: '🦅', power: 325, tier: 'legendary', desc: '신들의 탈것, 새들의 왕.' },
+  nine_tail:  { name: '구미호',       icon: '🦊', emoji: '🦊', power: 315, tier: 'legendary', desc: '아홉 꼬리의 신비한 여우.' },
+  yamato:     { name: '야마타노 오로치',icon:'🐍', emoji: '🐍', power: 335, tier: 'legendary', desc: '여덟 개의 머리와 꼬리.' },
+  golem_iron: { name: '강철 골렘',    icon: '🤖', emoji: '🤖', power: 290, tier: 'legendary', desc: '강철로 빚은 거인.' },
+  golem_stone:{ name: '돌 골렘',      icon: '🗿', emoji: '🗿', power: 280, tier: 'legendary', desc: '바위로 깎아낸 수호자.' },
+  golem_crystal:{ name: '수정 골렘',  icon: '💎', emoji: '💎', power: 320, tier: 'legendary', desc: '수정으로 빛나는 마법 거인.' },
+  treant:     { name: '엔트',         icon: '🌳', emoji: '🌳', power: 285, tier: 'legendary', desc: '깨어난 고대 나무 거인.' },
+  yeti:       { name: '예티',         icon: '🧊', emoji: '🧊', power: 305, tier: 'legendary', desc: '히말라야의 흰 거인.' },
+  minotaur:   { name: '미노타우로스', icon: '🐂', emoji: '🐂', power: 295, tier: 'legendary', desc: '미궁의 황소 인간.' },
+  centaur:    { name: '켄타우로스',   icon: '🐴', emoji: '🐴', power: 290, tier: 'legendary', desc: '말의 몸에 인간의 상체.' },
+  banshee:    { name: '밴시',         icon: '👻', emoji: '👻', power: 285, tier: 'legendary', desc: '죽음을 예언하는 비명.' },
+
+  // ===== 신화 추가 15종 (power 380~600) =====
+  leviathan:  { name: '리바이어던',   icon: '🐋', emoji: '🐋', power: 470, tier: 'mythic', desc: '바다 그 자체인 태초의 거수.' },
+  behemoth:   { name: '베헤모스',     icon: '🐘', emoji: '🐘', power: 480, tier: 'mythic', desc: '땅을 흔드는 태초의 거수.' },
+  ziz:        { name: '지즈',         icon: '🦅', emoji: '🦅', power: 460, tier: 'mythic', desc: '하늘을 가리는 태초의 거조.' },
+  tiamat:     { name: '티아마트',     icon: '🐲', emoji: '🐲', power: 510, tier: 'mythic', desc: '다섯 머리의 혼돈 여신용.' },
+  shenlong:   { name: '신룡',         icon: '🐉', emoji: '🐉', power: 500, tier: 'mythic', desc: '소원을 들어주는 천룡.' },
+  ouroboros:  { name: '우로보로스',   icon: '🐍', emoji: '🐍', power: 490, tier: 'mythic', desc: '자기 꼬리를 무는 영원의 뱀.' },
+  garuda_king:{ name: '가루다 왕',    icon: '🦅', emoji: '🦅', power: 475, tier: 'mythic', desc: '신들의 왕이 타는 새의 왕.' },
+  amaterasu:  { name: '아마테라스',   icon: '☀️', emoji: '☀️', power: 520, tier: 'mythic', desc: '태양 그 자체, 빛의 여신.' },
+  susanoo:    { name: '스사노오',     icon: '⚡', emoji: '⚡', power: 510, tier: 'mythic', desc: '폭풍과 바다를 다스리는 신.' },
+  anubis:     { name: '아누비스',     icon: '🐺', emoji: '🐺', power: 485, tier: 'mythic', desc: '저승을 다스리는 자칼의 신.' },
+  ra:         { name: '라',           icon: '☀️', emoji: '☀️', power: 530, tier: 'mythic', desc: '이집트의 태양신.' },
+  odin_raven: { name: '오딘의 까마귀',icon: '🐦‍⬛', emoji: '🐦‍⬛', power: 455, tier: 'mythic', desc: '모든 것을 보고 듣는 후긴/무닌.' },
+  sleipnir:   { name: '슬레이프니르', icon: '🐴', emoji: '🐴', power: 495, tier: 'mythic', desc: '오딘의 여덟 다리 말.' },
+  void_dragon:{ name: '공허의 용',    icon: '🌑', emoji: '🌑', power: 580, tier: 'mythic', desc: '존재 너머에서 온 절멸의 용.' },
+  cosmic_god: { name: '우주의 신',    icon: '🌠', emoji: '🌠', power: 600, tier: 'mythic', desc: '별과 은하를 지배하는 절대자.' },
 };
 
 // === 펫 아트 팔레트: 각 펫의 형태와 색상 데이터 ===
@@ -6080,6 +6282,167 @@ const PET_ART = {
   ymir:       { type: 'yeti',     body: '#e1f5fe', accent: '#fff', dark: '#1976d2', eye: '#0d47a1' },
   ifrit:      { type: 'demon',    body: '#ff5722', accent: '#ffeb3b', dark: '#bf360c', eye: '#fff' },
   worldgod:   { type: 'demon',    body: '#311b92', accent: '#fff', dark: '#000', eye: '#ffd700' },
+
+  // === 추가 펫 150종 아트 ===
+  // 일반 추가 30종
+  mouse2:     { type: 'rodent',   body: '#bdbdbd', accent: '#fff',    dark: '#424242', eye: '#000' },
+  worm:       { type: 'reptile',  body: '#a1887f', accent: '#d7ccc8', dark: '#3e2723', eye: '#000' },
+  caterpillar:{ type: 'reptile',  body: '#7cb342', accent: '#aed581', dark: '#33691e', eye: '#000' },
+  bee:        { type: 'bird',     body: '#ffeb3b', accent: '#000',    dark: '#5d4037', eye: '#000' },
+  goose:      { type: 'bird',     body: '#fafafa', accent: '#ff9800', dark: '#9e9e9e', eye: '#000' },
+  rooster:    { type: 'bird',     body: '#d32f2f', accent: '#ffeb3b', dark: '#5d4037', eye: '#000' },
+  shrimp:     { type: 'scorpion', body: '#ff8a65', accent: '#ffccbc', dark: '#bf360c', eye: '#000' },
+  squid_baby: { type: 'octopus',  body: '#9c27b0', accent: '#ce93d8', dark: '#4a148c', eye: '#fff' },
+  lizard:     { type: 'reptile',  body: '#43a047', accent: '#a5d6a7', dark: '#1b5e20', eye: '#ffeb3b' },
+  blowfish:   { type: 'reptile',  body: '#ffb74d', accent: '#fff3e0', dark: '#e65100', eye: '#000' },
+  tropical:   { type: 'reptile',  body: '#26c6da', accent: '#ffeb3b', dark: '#006064', eye: '#000' },
+  dolphin_baby:{type: 'reptile',  body: '#90caf9', accent: '#fff',    dark: '#1565c0', eye: '#000' },
+  poodle:     { type: 'wolf',     body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  kitten:     { type: 'feline',   body: '#fff8e1', accent: '#ffe082', dark: '#bf8b54', eye: '#43a047' },
+  bunny:      { type: 'rodent',   body: '#fff',    accent: '#ffcdd2', dark: '#9e9e9e', eye: '#e91e63' },
+  pigeon:     { type: 'bird',     body: '#90a4ae', accent: '#fff',    dark: '#37474f', eye: '#000' },
+  sparrow:    { type: 'bird',     body: '#8d6e63', accent: '#fff',    dark: '#3e2723', eye: '#000' },
+  starling:   { type: 'bird',     body: '#311b92', accent: '#9575cd', dark: '#000',    eye: '#ffeb3b' },
+  penguin_baby:{type: 'bird',     body: '#fafafa', accent: '#212121', dark: '#000',    eye: '#000' },
+  seal:       { type: 'mammoth',  body: '#90a4ae', accent: '#fff',    dark: '#37474f', eye: '#000' },
+  otter:      { type: 'wolf',     body: '#8d6e63', accent: '#fff',    dark: '#3e2723', eye: '#000' },
+  hedgehog:   { type: 'rodent',   body: '#a1887f', accent: '#5d4037', dark: '#3e2723', eye: '#000' },
+  bat_small:  { type: 'bird',     body: '#424242', accent: '#212121', dark: '#000',    eye: '#f44336' },
+  donkey:     { type: 'wolf',     body: '#9e9e9e', accent: '#fff',    dark: '#424242', eye: '#000' },
+  pony:       { type: 'wolf',     body: '#bf8b54', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  llama_baby: { type: 'mammoth',  body: '#fff8e1', accent: '#ffe0b2', dark: '#6d4c41', eye: '#000' },
+  oyster:     { type: 'reptile',  body: '#cfd8dc', accent: '#fff',    dark: '#37474f', eye: '#000' },
+  jellyfish:  { type: 'octopus',  body: '#b39ddb', accent: '#fff',    dark: '#6a1b9a', eye: '#fff' },
+  firefly:    { type: 'bird',     body: '#ffd54f', accent: '#fff176', dark: '#5d4037', eye: '#000' },
+  mantis_baby:{ type: 'scorpion', body: '#aed581', accent: '#dcedc8', dark: '#33691e', eye: '#000' },
+
+  // 희귀 추가 35종
+  panda:      { type: 'mammoth',  body: '#fff',    accent: '#212121', dark: '#000',    eye: '#000' },
+  koala:      { type: 'mammoth',  body: '#9e9e9e', accent: '#fff',    dark: '#424242', eye: '#000' },
+  kangaroo:   { type: 'mammoth',  body: '#bf8b54', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  zebra:      { type: 'wolf',     body: '#fff',    accent: '#212121', dark: '#000',    eye: '#000' },
+  giraffe:    { type: 'mammoth',  body: '#fff59d', accent: '#bf8b54', dark: '#6d4c41', eye: '#000' },
+  hippo:      { type: 'mammoth',  body: '#7e57c2', accent: '#d1c4e9', dark: '#311b92', eye: '#000' },
+  rhino:      { type: 'mammoth',  body: '#757575', accent: '#fff',    dark: '#212121', eye: '#000' },
+  flamingo:   { type: 'bird',     body: '#f48fb1', accent: '#fce4ec', dark: '#ad1457', eye: '#000' },
+  peacock:    { type: 'bird',     body: '#00897b', accent: '#26c6da', dark: '#004d40', eye: '#ffd700' },
+  pelican:    { type: 'bird',     body: '#fff',    accent: '#ff9800', dark: '#9e9e9e', eye: '#000' },
+  ostrich:    { type: 'bird',     body: '#5d4037', accent: '#fff',    dark: '#3e2723', eye: '#000' },
+  emu:        { type: 'bird',     body: '#6d4c41', accent: '#bcaaa4', dark: '#3e2723', eye: '#000' },
+  okapi:      { type: 'wolf',     body: '#6d4c41', accent: '#fff',    dark: '#3e2723', eye: '#000' },
+  tapir:      { type: 'mammoth',  body: '#fff',    accent: '#212121', dark: '#424242', eye: '#000' },
+  porcupine:  { type: 'rodent',   body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
+  armadillo:  { type: 'rodent',   body: '#a1887f', accent: '#d7ccc8', dark: '#3e2723', eye: '#000' },
+  sloth:      { type: 'wolf',     body: '#a1887f', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  capybara:   { type: 'rodent',   body: '#bf8b54', accent: '#a1887f', dark: '#5d4037', eye: '#000' },
+  meerkat:    { type: 'rodent',   body: '#bcaaa4', accent: '#5d4037', dark: '#3e2723', eye: '#000' },
+  weasel:     { type: 'wolf',     body: '#a1887f', accent: '#fff',    dark: '#3e2723', eye: '#000' },
+  ferret:     { type: 'wolf',     body: '#fff',    accent: '#5d4037', dark: '#3e2723', eye: '#f44336' },
+  mongoose:   { type: 'wolf',     body: '#a1887f', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  hyena:      { type: 'wolf',     body: '#a1887f', accent: '#5d4037', dark: '#3e2723', eye: '#ffeb3b' },
+  jackal:     { type: 'wolf',     body: '#bf8b54', accent: '#fff',    dark: '#5d4037', eye: '#ffd700' },
+  coyote:     { type: 'wolf',     body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#ffeb3b' },
+  dingo:      { type: 'wolf',     body: '#d7a05e', accent: '#fff',    dark: '#5d4037', eye: '#ff9800' },
+  lynx:       { type: 'feline',   body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#ffd700' },
+  bobcat:     { type: 'feline',   body: '#bf8b54', accent: '#fff',    dark: '#3e2723', eye: '#ffd700' },
+  cheetah_young:{ type: 'feline', body: '#ffb74d', accent: '#000',    dark: '#5d4037', eye: '#ffd700' },
+  jaguar_young:{ type: 'feline',  body: '#ffd54f', accent: '#5d4037', dark: '#3e2723', eye: '#ff5722' },
+  vulture:    { type: 'hawk',     body: '#424242', accent: '#bcaaa4', dark: '#000',    eye: '#f44336' },
+  raven:      { type: 'bird',     body: '#212121', accent: '#424242', dark: '#000',    eye: '#f44336' },
+  crow:       { type: 'bird',     body: '#212121', accent: '#37474f', dark: '#000',    eye: '#ffeb3b' },
+  woodpecker: { type: 'bird',     body: '#d32f2f', accent: '#fff',    dark: '#212121', eye: '#000' },
+  iguana:     { type: 'reptile',  body: '#558b2f', accent: '#aed581', dark: '#1b5e20', eye: '#f44336' },
+
+  // 에픽 추가 40종
+  bear_grizzly:{ type: 'mammoth', body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
+  bear_polar: { type: 'mammoth',  body: '#fff',    accent: '#e3f2fd', dark: '#90caf9', eye: '#000' },
+  bear_black: { type: 'mammoth',  body: '#212121', accent: '#424242', dark: '#000',    eye: '#ff9800' },
+  bear_panda_giant:{type:'mammoth',body: '#fff',   accent: '#212121', dark: '#000',    eye: '#000' },
+  tiger:      { type: 'feline',   body: '#ff9800', accent: '#000',    dark: '#bf360c', eye: '#ffd700' },
+  lion:       { type: 'lion',     body: '#ffb74d', accent: '#bf8b54', dark: '#5d4037', eye: '#ffd700' },
+  cheetah:    { type: 'feline',   body: '#ff9800', accent: '#000',    dark: '#bf360c', eye: '#ffd700' },
+  jaguar:     { type: 'feline',   body: '#ffd54f', accent: '#000',    dark: '#bf360c', eye: '#ff5722' },
+  leopard:    { type: 'feline',   body: '#ffca28', accent: '#5d4037', dark: '#3e2723', eye: '#ffd700' },
+  panther:    { type: 'feline',   body: '#212121', accent: '#37474f', dark: '#000',    eye: '#ffeb3b' },
+  wolf_alpha: { type: 'wolf',     body: '#37474f', accent: '#fff',    dark: '#000',    eye: '#1976d2' },
+  wolf_dire:  { type: 'wolf',     body: '#212121', accent: '#37474f', dark: '#000',    eye: '#f44336' },
+  bear_kodiak:{ type: 'mammoth',  body: '#6d4c41', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
+  elephant_war:{ type: 'mammoth', body: '#757575', accent: '#bdbdbd', dark: '#212121', eye: '#f44336' },
+  gorilla:    { type: 'mammoth',  body: '#212121', accent: '#424242', dark: '#000',    eye: '#ffd700' },
+  orangutan:  { type: 'mammoth',  body: '#bf360c', accent: '#ff8a65', dark: '#5d4037', eye: '#000' },
+  baboon:     { type: 'mammoth',  body: '#8d6e63', accent: '#bf8b54', dark: '#3e2723', eye: '#ff5722' },
+  ape_silver: { type: 'mammoth',  body: '#9e9e9e', accent: '#fff',    dark: '#212121', eye: '#ffd700' },
+  bull_giant: { type: 'mammoth',  body: '#212121', accent: '#fff',    dark: '#000',    eye: '#f44336' },
+  buffalo:    { type: 'mammoth',  body: '#3e2723', accent: '#bf8b54', dark: '#000',    eye: '#ffd700' },
+  yak:        { type: 'mammoth',  body: '#5d4037', accent: '#fff',    dark: '#212121', eye: '#000' },
+  bison:      { type: 'mammoth',  body: '#3e2723', accent: '#6d4c41', dark: '#000',    eye: '#ffd700' },
+  moose:      { type: 'mammoth',  body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
+  caribou:    { type: 'mammoth',  body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  elk:        { type: 'mammoth',  body: '#8d6e63', accent: '#fff',    dark: '#3e2723', eye: '#000' },
+  walrus:     { type: 'mammoth',  body: '#8d6e63', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  orca:       { type: 'reptile',  body: '#212121', accent: '#fff',    dark: '#000',    eye: '#000' },
+  shark_great:{ type: 'reptile',  body: '#90a4ae', accent: '#fff',    dark: '#37474f', eye: '#000' },
+  shark_hammer:{type: 'reptile',  body: '#78909c', accent: '#fff',    dark: '#37474f', eye: '#ffeb3b' },
+  swordfish:  { type: 'reptile',  body: '#1976d2', accent: '#fff',    dark: '#0d47a1', eye: '#000' },
+  marlin:     { type: 'reptile',  body: '#283593', accent: '#fff',    dark: '#1a237e', eye: '#ffeb3b' },
+  manta_ray:  { type: 'reptile',  body: '#37474f', accent: '#fff',    dark: '#000',    eye: '#ffeb3b' },
+  electric_eel:{type: 'reptile',  body: '#ffeb3b', accent: '#fff59d', dark: '#bf8b54', eye: '#000' },
+  giant_squid:{ type: 'octopus',  body: '#d32f2f', accent: '#ffcdd2', dark: '#b71c1c', eye: '#ffeb3b' },
+  kraken_baby:{ type: 'octopus',  body: '#4a148c', accent: '#7e57c2', dark: '#311b92', eye: '#fff' },
+  griffin_baby:{type: 'hawk',     body: '#ffb74d', accent: '#fff',    dark: '#bf8b54', eye: '#ffd700' },
+  hippogriff_y:{type: 'pegasus',  body: '#ffe082', accent: '#fff',    dark: '#bf8b54', eye: '#ffd700' },
+  manticore:  { type: 'lion',     body: '#bf360c', accent: '#ffeb3b', dark: '#5d4037', eye: '#f44336' },
+  basilisk_b: { type: 'hydra',    body: '#558b2f', accent: '#aed581', dark: '#1b5e20', eye: '#ffd700' },
+  wyrm:       { type: 'hydra',    body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#f44336' },
+
+  // 전설 추가 30종
+  phoenix_dawn:{type: 'hawk',     body: '#ff9800', accent: '#ffeb3b', dark: '#bf360c', eye: '#fff' },
+  phoenix_night:{type:'hawk',     body: '#311b92', accent: '#9c27b0', dark: '#000',    eye: '#ffeb3b' },
+  dragon_red: { type: 'dragon',   body: '#d32f2f', accent: '#ffeb3b', dark: '#b71c1c', eye: '#ffd700' },
+  dragon_blue:{ type: 'dragon',   body: '#1976d2', accent: '#bbdefb', dark: '#0d47a1', eye: '#ffeb3b' },
+  dragon_green:{type: 'dragon',   body: '#2e7d32', accent: '#aed581', dark: '#1b5e20', eye: '#ffd700' },
+  dragon_white:{type: 'dragon',   body: '#fff',    accent: '#e3f2fd', dark: '#90caf9', eye: '#ffd700' },
+  dragon_gold:{ type: 'dragon',   body: '#ffd700', accent: '#fff59d', dark: '#bf8b54', eye: '#f44336' },
+  hydra:      { type: 'hydra',    body: '#1b5e20', accent: '#76ff03', dark: '#0d3311', eye: '#ffeb3b' },
+  chimera:    { type: 'lion',     body: '#bf360c', accent: '#ffeb3b', dark: '#5d4037', eye: '#f44336' },
+  cerberus_3h:{ type: 'wolf',     body: '#212121', accent: '#37474f', dark: '#000',    eye: '#f44336' },
+  pegasus_w:  { type: 'pegasus',  body: '#fff',    accent: '#bbdefb', dark: '#90caf9', eye: '#ffd700' },
+  qilin:      { type: 'pegasus',  body: '#ffd700', accent: '#fff',    dark: '#bf8b54', eye: '#f44336' },
+  fenghuang:  { type: 'bird',     body: '#bf360c', accent: '#ffd700', dark: '#5d4037', eye: '#fff' },
+  baihu:      { type: 'feline',   body: '#fff',    accent: '#212121', dark: '#000',    eye: '#ffd700' },
+  zhuque:     { type: 'hawk',     body: '#d32f2f', accent: '#ffeb3b', dark: '#b71c1c', eye: '#fff' },
+  qinglong:   { type: 'dragon',   body: '#1565c0', accent: '#fff',    dark: '#0d47a1', eye: '#ffd700' },
+  xuanwu:     { type: 'reptile',  body: '#212121', accent: '#43a047', dark: '#000',    eye: '#ffd700' },
+  thunderbird:{ type: 'hawk',     body: '#1976d2', accent: '#ffeb3b', dark: '#0d47a1', eye: '#fff' },
+  roc:        { type: 'hawk',     body: '#5d4037', accent: '#bf8b54', dark: '#3e2723', eye: '#ffd700' },
+  garuda:     { type: 'hawk',     body: '#ffd700', accent: '#d32f2f', dark: '#5d4037', eye: '#fff' },
+  nine_tail:  { type: 'wolf',     body: '#ffd700', accent: '#fff',    dark: '#bf8b54', eye: '#f44336' },
+  yamato:     { type: 'hydra',    body: '#d32f2f', accent: '#ffd700', dark: '#b71c1c', eye: '#fff' },
+  golem_iron: { type: 'mammoth',  body: '#90a4ae', accent: '#bdbdbd', dark: '#37474f', eye: '#f44336' },
+  golem_stone:{ type: 'mammoth',  body: '#9e9e9e', accent: '#bcaaa4', dark: '#424242', eye: '#ffd700' },
+  golem_crystal:{type:'mammoth',  body: '#b388ff', accent: '#fff',    dark: '#6a1b9a', eye: '#fff' },
+  treant:     { type: 'mammoth',  body: '#33691e', accent: '#558b2f', dark: '#1b5e20', eye: '#ffd700' },
+  yeti:       { type: 'yeti',     body: '#e3f2fd', accent: '#fff',    dark: '#90caf9', eye: '#1976d2' },
+  minotaur:   { type: 'mammoth',  body: '#5d4037', accent: '#fff',    dark: '#3e2723', eye: '#f44336' },
+  centaur:    { type: 'pegasus',  body: '#bf8b54', accent: '#fff',    dark: '#5d4037', eye: '#000' },
+  banshee:    { type: 'demon',    body: '#b39ddb', accent: '#fff',    dark: '#4a148c', eye: '#fff' },
+
+  // 신화 추가 15종
+  leviathan:  { type: 'hydra',    body: '#01579b', accent: '#0288d1', dark: '#002171', eye: '#ffeb3b' },
+  behemoth:   { type: 'mammoth',  body: '#3e2723', accent: '#5d4037', dark: '#000',    eye: '#f44336' },
+  ziz:        { type: 'hawk',     body: '#ffd700', accent: '#fff',    dark: '#bf8b54', eye: '#fff' },
+  tiamat:     { type: 'hydra',    body: '#d32f2f', accent: '#ffd700', dark: '#b71c1c', eye: '#fff' },
+  shenlong:   { type: 'dragon',   body: '#1565c0', accent: '#ffd700', dark: '#0d47a1', eye: '#fff' },
+  ouroboros:  { type: 'hydra',    body: '#ffd700', accent: '#fff',    dark: '#bf8b54', eye: '#f44336' },
+  garuda_king:{ type: 'hawk',     body: '#ffd700', accent: '#d32f2f', dark: '#3e2723', eye: '#fff' },
+  amaterasu:  { type: 'demon',    body: '#fff',    accent: '#ffd700', dark: '#ff9800', eye: '#ffd700' },
+  susanoo:    { type: 'demon',    body: '#1565c0', accent: '#ffeb3b', dark: '#0d47a1', eye: '#fff' },
+  anubis:     { type: 'wolf',     body: '#000',    accent: '#ffd700', dark: '#212121', eye: '#ffd700' },
+  ra:         { type: 'demon',    body: '#ffd700', accent: '#ff9800', dark: '#bf360c', eye: '#fff' },
+  odin_raven: { type: 'bird',     body: '#000',    accent: '#37474f', dark: '#212121', eye: '#ffeb3b' },
+  sleipnir:   { type: 'pegasus',  body: '#37474f', accent: '#fff',    dark: '#000',    eye: '#ffd700' },
+  void_dragon:{ type: 'dragon',   body: '#000',    accent: '#311b92', dark: '#000',    eye: '#9c27b0' },
+  cosmic_god: { type: 'demon',    body: '#311b92', accent: '#ffd700', dark: '#000',    eye: '#fff' },
 };
 
 // === 펫을 SVG 문자열로 그리기 (카드/UI용) ===
@@ -6088,12 +6451,47 @@ function petSVG(def, size) {
   const art = PET_ART[key] || PET_ART.boar;
   const s = size;
   const tier = def.tier;
-  const glow = (tier === 'mythic' || tier === 'legendary') ?
-    `<circle cx="${s/2}" cy="${s*0.55}" r="${s*0.45}" fill="${PET_TIER_COLORS[tier]}" opacity="0.25"/>` : '';
+  // === 💫 고품질 효과 ===
+  // 유니크 ID (defs 충돌 방지)
+  const uid = `p${(Math.random() * 1e9) | 0}_${s}`;
+  const tierColor = PET_TIER_COLORS[tier] || '#999';
+  let glow = '';
+  if (tier === 'mythic') {
+    glow = `
+      <defs>
+        <radialGradient id="g_${uid}" cx="50%" cy="55%" r="50%">
+          <stop offset="0%" stop-color="${tierColor}" stop-opacity="0.5"/>
+          <stop offset="60%" stop-color="${tierColor}" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="${tierColor}" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.55}" fill="url(#g_${uid})"/>
+      <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.48}" fill="none" stroke="${tierColor}" stroke-width="${s*0.015}" opacity="0.6"/>`;
+  } else if (tier === 'legendary') {
+    glow = `
+      <defs>
+        <radialGradient id="g_${uid}" cx="50%" cy="55%" r="45%">
+          <stop offset="0%" stop-color="${tierColor}" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="${tierColor}" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.5}" fill="url(#g_${uid})"/>`;
+  } else if (tier === 'epic') {
+    glow = `<circle cx="${s/2}" cy="${s*0.55}" r="${s*0.45}" fill="${tierColor}" opacity="0.12"/>`;
+  }
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;">
+    <defs>
+      <filter id="sh_${uid}" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="${s*0.02}"/>
+        <feOffset dx="0" dy="${s*0.025}" result="offsetblur"/>
+        <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+        <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
     ${glow}
-    <ellipse cx="${s/2}" cy="${s*0.92}" rx="${s*0.32}" ry="${s*0.06}" fill="rgba(0,0,0,0.25)"/>
-    ${petShapeSVG(art, s)}
+    <ellipse cx="${s/2}" cy="${s*0.94}" rx="${s*0.32}" ry="${s*0.05}" fill="rgba(0,0,0,0.30)"/>
+    <g filter="url(#sh_${uid})">${petShapeSVG(art, s)}</g>
+    <ellipse cx="${s*0.42}" cy="${s*0.4}" rx="${s*0.08}" ry="${s*0.04}" fill="rgba(255,255,255,0.25)"/>
   </svg>`;
 }
 
@@ -6462,6 +6860,20 @@ const SOLDIER_TYPES = {
   },
 };
 
+// === 모든 군대 모집 비용 ×5 일괄 적용 ===
+(function applySoldierCostMultiplier() {
+  const MULT = 5;
+  for (const key of Object.keys(SOLDIER_TYPES)) {
+    const def = SOLDIER_TYPES[key];
+    if (!def || !def.cost) continue;
+    for (const res of Object.keys(def.cost)) {
+      if (typeof def.cost[res] === 'number') {
+        def.cost[res] = Math.max(1, Math.ceil(def.cost[res] * MULT));
+      }
+    }
+  }
+})();
+
 // 병사 한 명의 실제 전투력 (강화 레벨 반영)
 function getSoldierPower(type) {
   const def = SOLDIER_TYPES[type];
@@ -6544,8 +6956,8 @@ function upgradeArmy(type) {
     return;
   }
   const cost = {
-    gold: 200 * Math.pow(2, cur),
-    gem: 2 * (cur + 1),
+    gold: 1000 * Math.pow(2, cur),
+    gem: 10 * (cur + 1),
   };
   if (!canAfford(cost)) {
     const need = Object.entries(cost).map(([k,v]) => {
@@ -6612,8 +7024,8 @@ function renderArmyTab() {
     }).join(' ');
     const hasLab = game.buildings.some(b => b.type === 'lab' && b.state === 'complete');
     const upgradeCost = upgradeLevel < 5 ? {
-      gold: 200 * Math.pow(2, upgradeLevel),
-      gem: 2 * (upgradeLevel + 1),
+      gold: 1000 * Math.pow(2, upgradeLevel),
+      gem: 10 * (upgradeLevel + 1),
     } : null;
     html += `
       <div style="background:linear-gradient(to bottom, #fff, ${def.accent}22); border:3px solid ${def.accent}; border-radius:12px; padding:10px; margin-bottom:10px; ${locked?'opacity:0.5;':''}">
@@ -7629,6 +8041,62 @@ const PET_TIER_WEIGHTS = {
   common: 60, rare: 25, epic: 12, legendary: 3, mythic: 0.5,
 };
 
+// ============================================================================
+// ⚔ 펫 스킬 시스템 — 등급별 스킬 풀
+// ============================================================================
+// 각 펫은 등급에 따라 자동으로 스킬 1개를 갖게 됨.
+// 투기장 전투에서 발동 (선공/추가 데미지/회복 등)
+const PET_SKILLS = {
+  // 일반 펫 스킬 (약함)
+  common: [
+    { id: 'sk_fire_breath',   icon: '🔥', name: '화염숨결',   desc: '추가 데미지 +10%', power: 1.10, type: 'attack' },
+    { id: 'sk_quick_strike',  icon: '⚡', name: '연속공격',   desc: '추가 데미지 +12%', power: 1.12, type: 'attack' },
+    { id: 'sk_tough_hide',    icon: '🛡', name: '단단한가죽', desc: '받는 피해 -10%',  power: 0.90, type: 'defense' },
+    { id: 'sk_battle_cry',    icon: '📣', name: '전투함성',   desc: '전투력 +8%',       power: 1.08, type: 'attack' },
+  ],
+  rare: [
+    { id: 'sk_pierce',        icon: '🎯', name: '꿰뚫기',     desc: '추가 데미지 +18%', power: 1.18, type: 'attack' },
+    { id: 'sk_dodge',         icon: '💨', name: '회피',       desc: '받는 피해 -18%',  power: 0.82, type: 'defense' },
+    { id: 'sk_rage',          icon: '😡', name: '분노',       desc: '전투력 +15%',      power: 1.15, type: 'attack' },
+    { id: 'sk_regen',         icon: '🌿', name: '재생',       desc: '받는 피해 -15%',  power: 0.85, type: 'defense' },
+    { id: 'sk_critical',      icon: '💥', name: '급소공격',   desc: '치명타 +20%',     power: 1.20, type: 'attack' },
+  ],
+  epic: [
+    { id: 'sk_inferno',       icon: '🔥', name: '지옥불',     desc: '추가 데미지 +30%', power: 1.30, type: 'attack' },
+    { id: 'sk_frost_armor',   icon: '❄️', name: '얼음갑옷',   desc: '받는 피해 -28%',  power: 0.72, type: 'defense' },
+    { id: 'sk_thunder',       icon: '⚡', name: '천둥일격',   desc: '추가 데미지 +28%', power: 1.28, type: 'attack' },
+    { id: 'sk_poison',        icon: '☠️', name: '맹독',       desc: '추가 데미지 +25% · 회복불가', power: 1.25, type: 'attack' },
+    { id: 'sk_holy_light',    icon: '✨', name: '신성한빛',   desc: '받는 피해 -30%',  power: 0.70, type: 'defense' },
+    { id: 'sk_berserk',       icon: '🪓', name: '광기',       desc: '전투력 +35%',      power: 1.35, type: 'attack' },
+  ],
+  legendary: [
+    { id: 'sk_meteor',        icon: '☄️', name: '운석충돌',   desc: '추가 데미지 +50%', power: 1.50, type: 'attack' },
+    { id: 'sk_dragon_roar',   icon: '🐉', name: '용의포효',   desc: '전투력 +45%',      power: 1.45, type: 'attack' },
+    { id: 'sk_phoenix_revive',icon: '🦅', name: '불사조의가호',desc:'받는 피해 -45%',  power: 0.55, type: 'defense' },
+    { id: 'sk_void_strike',   icon: '🌑', name: '공허일격',   desc: '추가 데미지 +55%', power: 1.55, type: 'attack' },
+    { id: 'sk_godly_blessing',icon: '👑', name: '신의축복',   desc: '전투력 +40% · 피해 -20%', power: 1.40, type: 'hybrid', defense: 0.80 },
+  ],
+  mythic: [
+    { id: 'sk_apocalypse',    icon: '🌌', name: '종말',       desc: '추가 데미지 +80%', power: 1.80, type: 'attack' },
+    { id: 'sk_genesis',       icon: '✨', name: '창조',       desc: '받는 피해 -65%',  power: 0.35, type: 'defense' },
+    { id: 'sk_omnipotent',    icon: '☀️', name: '전능',       desc: '전투력 +70% · 피해 -40%', power: 1.70, type: 'hybrid', defense: 0.60 },
+    { id: 'sk_cosmic',        icon: '🌠', name: '우주의힘',   desc: '추가 데미지 +100%', power: 2.00, type: 'attack' },
+  ],
+};
+
+// === 펫 키로부터 스킬 결정 (펫키 해시 기반, 일관성 유지) ===
+function getPetSkill(petKey) {
+  const def = PETS[petKey];
+  if (!def) return null;
+  const pool = PET_SKILLS[def.tier] || PET_SKILLS.common;
+  // petKey 해시로 결정 (같은 펫은 항상 같은 스킬)
+  let hash = 0;
+  for (let i = 0; i < petKey.length; i++) hash = ((hash << 5) - hash) + petKey.charCodeAt(i);
+  const idx = Math.abs(hash) % pool.length;
+  return pool[idx];
+}
+window.getPetSkill = getPetSkill;
+
 function rollPet(excludeOwned) {
   // First, pick tier weighted
   const total = Object.values(PET_TIER_WEIGHTS).reduce((a,b) => a+b, 0);
@@ -7685,7 +8153,7 @@ const SHOP_ITEMS = [
   }, category: 'consumable' },
   { id: 'gold_chest',name: '금화 상자',    icon: '💰', desc: '금화 +1000', cost: { gem: 5 }, consumable: true, effect: () => addRes('gold', 1000), category: 'consumable' },
   { id: 'exp_potion',name: '경험의 약',    icon: '🧪', desc: '경험치 +200', cost: { gold: 400, gem: 2 }, consumable: true, effect: () => { game.exp += 200; checkLevelUp(); }, category: 'consumable' },
-  { id: 'pet_ticket',name: '소환 티켓',    icon: '🎟️', desc: '제단 1회 소환', cost: { gold: 500 }, consumable: true, effect: () => { addRes('gem', 5); showToast('보석 +5로 소환 준비!', 'gain'); }, category: 'consumable' },
+  { id: 'pet_ticket',name: '소환 티켓',    icon: '🎟️', desc: '제단 1회 소환', cost: { gold: 500 }, consumable: true, effect: () => { addRes('gem', 200); showToast('보석 +200로 소환 준비!', 'gain'); }, category: 'consumable' },
   { id: 'time_skip', name: '시간 가속',     icon: '⏩', desc: '하루 즉시 진행', cost: { gold: 300, gem: 1 }, consumable: true, effect: () => {
     game.day += 1;
     if (typeof onNewDay === 'function') onNewDay();
@@ -7841,7 +8309,152 @@ const SHOP_ITEMS = [
   { id: 'lantern_set',   name: '등불 세트',    icon: '🏮', desc: '밤이 환해져요', cost: { gold: 2500 }, effect: () => showToast('🏮 등불!', 'gain'), category: 'cosmetic' },
   { id: 'cherry_tree',   name: '벚꽃 나무',    icon: '🌸', desc: '봄의 풍경', cost: { gold: 4000 }, effect: () => showToast('🌸 만개!', 'gain'), category: 'cosmetic' },
   { id: 'gold_statue',   name: '황금 동상',    icon: '🗿', desc: '부족장의 영광', cost: { gold: 50000, gem: 100 }, effect: () => showToast('🗿 황금 동상!', 'gain'), category: 'cosmetic' },
+
+  // ============================================
+  // ========== 추가 110종 아이템 ==========
+  // ============================================
+
+  // === 💰 재화 상점 30종 (category: 'currency') ===
+  // 금화 패키지 8종
+  { id: 'cur_gold_tiny',   name: '한 줌 금화',     icon: '💰', desc: '💰 +100',     cost: { gem: 1 },   consumable: true, effect: () => addRes('gold', 100), category: 'currency' },
+  { id: 'cur_gold_small',  name: '금화 작은상자', icon: '💰', desc: '💰 +1000',    cost: { gem: 5 },   consumable: true, effect: () => addRes('gold', 1000), category: 'currency' },
+  { id: 'cur_gold_medium', name: '금화 중간상자', icon: '💰', desc: '💰 +5000',    cost: { gem: 20 },  consumable: true, effect: () => addRes('gold', 5000), category: 'currency' },
+  { id: 'cur_gold_large',  name: '금화 큰상자',   icon: '💰', desc: '💰 +20000',   cost: { gem: 70 },  consumable: true, effect: () => addRes('gold', 20000), category: 'currency' },
+  { id: 'cur_gold_huge',   name: '금화 거대상자', icon: '💰', desc: '💰 +100000',  cost: { gem: 300 }, consumable: true, effect: () => addRes('gold', 100000), category: 'currency' },
+  { id: 'cur_gold_mega',   name: '금화 산',       icon: '💰', desc: '💰 +500000',  cost: { gem: 1200 }, consumable: true, effect: () => addRes('gold', 500000), category: 'currency' },
+  { id: 'cur_gold_chest_dy',name:'일일 금화',     icon: '💰', desc: '💰 +2000',    cost: { gold: 1 },  consumable: true, effect: () => addRes('gold', 2000), category: 'currency' },
+  { id: 'cur_gold_trade',  name: '교역 보따리',   icon: '💰', desc: '🪵100+🪨100→💰3000', cost: { wood: 100, stone: 100 }, consumable: true, effect: () => addRes('gold', 3000), category: 'currency' },
+  // 식량 패키지 5종
+  { id: 'cur_food_small',  name: '식량 보따리',   icon: '🍖', desc: '🍖 +500',     cost: { gold: 500 },  consumable: true, effect: () => addRes('food', 500), category: 'currency' },
+  { id: 'cur_food_medium', name: '식량 자루',     icon: '🍖', desc: '🍖 +2000',    cost: { gold: 1500 }, consumable: true, effect: () => addRes('food', 2000), category: 'currency' },
+  { id: 'cur_food_large',  name: '식량 창고',     icon: '🍖', desc: '🍖 +10000',   cost: { gold: 6000 }, consumable: true, effect: () => addRes('food', 10000), category: 'currency' },
+  { id: 'cur_food_premium',name: '특제 식량',     icon: '🍱', desc: '🍖 +5000',    cost: { gem: 15 },  consumable: true, effect: () => addRes('food', 5000), category: 'currency' },
+  { id: 'cur_food_feast',  name: '대축제 잔치',   icon: '🍱', desc: '🍖 +25000',   cost: { gem: 60 },  consumable: true, effect: () => addRes('food', 25000), category: 'currency' },
+  // 목재 패키지 4종
+  { id: 'cur_wood_small',  name: '목재 묶음',     icon: '🪵', desc: '🪵 +500',     cost: { gold: 500 },  consumable: true, effect: () => addRes('wood', 500), category: 'currency' },
+  { id: 'cur_wood_medium', name: '목재 수레',     icon: '🪵', desc: '🪵 +2000',    cost: { gold: 1500 }, consumable: true, effect: () => addRes('wood', 2000), category: 'currency' },
+  { id: 'cur_wood_large',  name: '목재 창고',     icon: '🪵', desc: '🪵 +10000',   cost: { gold: 6000 }, consumable: true, effect: () => addRes('wood', 10000), category: 'currency' },
+  { id: 'cur_wood_premium',name: '엘프의 목재',   icon: '🌳', desc: '🪵 +5000',    cost: { gem: 15 },  consumable: true, effect: () => addRes('wood', 5000), category: 'currency' },
+  // 석재 패키지 4종
+  { id: 'cur_stone_small', name: '석재 더미',     icon: '🪨', desc: '🪨 +400',     cost: { gold: 500 },  consumable: true, effect: () => addRes('stone', 400), category: 'currency' },
+  { id: 'cur_stone_medium',name: '석재 산',       icon: '🪨', desc: '🪨 +1500',    cost: { gold: 1500 }, consumable: true, effect: () => addRes('stone', 1500), category: 'currency' },
+  { id: 'cur_stone_large', name: '석재 거대더미', icon: '🪨', desc: '🪨 +8000',    cost: { gold: 6000 }, consumable: true, effect: () => addRes('stone', 8000), category: 'currency' },
+  { id: 'cur_stone_premium',name:'대리석 블록',   icon: '⬜', desc: '🪨 +4000',    cost: { gem: 15 },  consumable: true, effect: () => addRes('stone', 4000), category: 'currency' },
+  // 보석 패키지 5종
+  { id: 'cur_gem_tiny',    name: '보석 알맹이',   icon: '💎', desc: '💎 +3',       cost: { gold: 3000 },  consumable: true, effect: () => addRes('gem', 3), category: 'currency' },
+  { id: 'cur_gem_small',   name: '보석 작은상자', icon: '💎', desc: '💎 +10',      cost: { gold: 9000 },  consumable: true, effect: () => addRes('gem', 10), category: 'currency' },
+  { id: 'cur_gem_medium',  name: '보석 중간상자', icon: '💎', desc: '💎 +50',      cost: { gold: 40000 }, consumable: true, effect: () => addRes('gem', 50), category: 'currency' },
+  { id: 'cur_gem_large',   name: '보석 큰상자',   icon: '💎', desc: '💎 +200',     cost: { gold: 150000 },consumable: true, effect: () => addRes('gem', 200), category: 'currency' },
+  { id: 'cur_gem_huge',    name: '보석 보물상자', icon: '💎', desc: '💎 +1000',    cost: { gold: 700000 },consumable: true, effect: () => addRes('gem', 1000), category: 'currency' },
+  // 종합 패키지 4종
+  { id: 'cur_resource_kit',name: '자원 종합세트', icon: '📦', desc: '🍖+🪵+🪨 각 1000', cost: { gold: 3000 }, consumable: true, effect: () => { addRes('food', 1000); addRes('wood', 1000); addRes('stone', 1000); }, category: 'currency' },
+  { id: 'cur_great_pack',  name: '대보따리',      icon: '🎁', desc: '모든 자원 ×5', cost: { gem: 50 }, consumable: true, effect: () => { addRes('gold', 5000); addRes('food', 5000); addRes('wood', 5000); addRes('stone', 5000); }, category: 'currency' },
+  { id: 'cur_royal_pack',  name: '왕실 보물',     icon: '👑', desc: '모든 자원 ×20', cost: { gem: 200 }, consumable: true, effect: () => { addRes('gold', 20000); addRes('food', 20000); addRes('wood', 20000); addRes('stone', 20000); addRes('gem', 30); }, category: 'currency' },
+  { id: 'cur_divine_pack', name: '신의 선물',     icon: '✨', desc: '모든 자원 ×100', cost: { gem: 1000 }, consumable: true, effect: () => { addRes('gold', 100000); addRes('food', 100000); addRes('wood', 100000); addRes('stone', 100000); addRes('gem', 200); }, category: 'currency' },
+
+  // === 🌟 버프 상점 30종 (category: 'buff') ===
+  // 시간제 부스터 (game.XXXUntil 시스템 사용) 15종
+  { id: 'buf_haste_s',     name: '신속 부적 S',   icon: '💨', desc: '생산 +30% (3분)',     cost: { gem: 5 },  consumable: true, effect: () => { game.hasteUntil = Math.max(game.hasteUntil||0, Date.now()) + 3*60*1000; showToast('💨 신속!', 'gain'); }, category: 'buff' },
+  { id: 'buf_haste_m',     name: '신속 부적 M',   icon: '💨', desc: '생산 +50% (10분)',    cost: { gem: 12 }, consumable: true, effect: () => { game.hasteUntil = Math.max(game.hasteUntil||0, Date.now()) + 10*60*1000; showToast('💨💨 신속!', 'gain'); }, category: 'buff' },
+  { id: 'buf_haste_l',     name: '신속 부적 L',   icon: '💨', desc: '생산 +80% (30분)',    cost: { gem: 30 }, consumable: true, effect: () => { game.hasteUntil = Math.max(game.hasteUntil||0, Date.now()) + 30*60*1000; showToast('💨💨💨 신속!', 'gain'); }, category: 'buff' },
+  { id: 'buf_lucky_s',     name: '행운 부적 S',   icon: '🍀', desc: '획득 +20% (5분)',     cost: { gem: 6 },  consumable: true, effect: () => { game.luckyUntil = Math.max(game.luckyUntil||0, Date.now()) + 5*60*1000; showToast('🍀 행운!', 'gain'); }, category: 'buff' },
+  { id: 'buf_lucky_m',     name: '행운 부적 M',   icon: '🍀', desc: '획득 +40% (15분)',    cost: { gem: 15 }, consumable: true, effect: () => { game.luckyUntil = Math.max(game.luckyUntil||0, Date.now()) + 15*60*1000; showToast('🍀🍀 행운!', 'gain'); }, category: 'buff' },
+  { id: 'buf_lucky_l',     name: '행운 부적 L',   icon: '🍀', desc: '획득 +70% (60분)',    cost: { gem: 40 }, consumable: true, effect: () => { game.luckyUntil = Math.max(game.luckyUntil||0, Date.now()) + 60*60*1000; showToast('🍀🍀🍀 대행운!', 'gain'); }, category: 'buff' },
+  { id: 'buf_tap_s',       name: '강타 부적 S',   icon: '👊', desc: '탭 ×2 (3분)',         cost: { gem: 5 },  consumable: true, effect: () => { game.tapBoostUntil = Math.max(game.tapBoostUntil||0, Date.now()) + 3*60*1000; showToast('👊 강타!', 'gain'); }, category: 'buff' },
+  { id: 'buf_tap_m',       name: '강타 부적 M',   icon: '👊', desc: '탭 ×3 (10분)',        cost: { gem: 12 }, consumable: true, effect: () => { game.tapBoostUntil = Math.max(game.tapBoostUntil||0, Date.now()) + 10*60*1000; showToast('👊👊 강타!', 'gain'); }, category: 'buff' },
+  { id: 'buf_tap_l',       name: '강타 부적 L',   icon: '👊', desc: '탭 ×5 (30분)',        cost: { gem: 25 }, consumable: true, effect: () => { game.tapBoostUntil = Math.max(game.tapBoostUntil||0, Date.now()) + 30*60*1000; showToast('👊👊👊 강타!', 'gain'); }, category: 'buff' },
+  { id: 'buf_goldrush_s',  name: '황금광풍 S',    icon: '🌟', desc: '💰 +40% (5분)',      cost: { gem: 8 },  consumable: true, effect: () => { game.goldRushUntil = Math.max(game.goldRushUntil||0, Date.now()) + 5*60*1000; showToast('🌟 황금광풍!', 'gain'); }, category: 'buff' },
+  { id: 'buf_goldrush_m',  name: '황금광풍 M',    icon: '🌟', desc: '💰 +70% (15분)',     cost: { gem: 18 }, consumable: true, effect: () => { game.goldRushUntil = Math.max(game.goldRushUntil||0, Date.now()) + 15*60*1000; showToast('🌟🌟 황금광풍!', 'gain'); }, category: 'buff' },
+  { id: 'buf_goldrush_l',  name: '황금광풍 L',    icon: '🌟', desc: '💰 +100% (60분)',    cost: { gem: 50 }, consumable: true, effect: () => { game.goldRushUntil = Math.max(game.goldRushUntil||0, Date.now()) + 60*60*1000; showToast('🌟🌟🌟 황금광풍!', 'gain'); }, category: 'buff' },
+  { id: 'buf_shield_m',    name: '수호 부적 M',   icon: '🛡', desc: '침략 면역 (15분)',    cost: { gem: 15 }, consumable: true, effect: () => { game.shieldUntil = Math.max(game.shieldUntil||0, Date.now()) + 15*60*1000; showToast('🛡 수호!', 'gain'); }, category: 'buff' },
+  { id: 'buf_shield_l',    name: '수호 부적 L',   icon: '🛡', desc: '침략 면역 (60분)',    cost: { gem: 35 }, consumable: true, effect: () => { game.shieldUntil = Math.max(game.shieldUntil||0, Date.now()) + 60*60*1000; showToast('🛡🛡 수호!', 'gain'); }, category: 'buff' },
+  { id: 'buf_shield_xl',   name: '수호 부적 XL',  icon: '🛡', desc: '침략 면역 (4시간)',   cost: { gem: 100 }, consumable: true, effect: () => { game.shieldUntil = Math.max(game.shieldUntil||0, Date.now()) + 240*60*1000; showToast('🛡🛡🛡 절대수호!', 'gain'); }, category: 'buff' },
+  // 영구 강화 버프 15종
+  { id: 'buf_pet_perm_s',  name: '펫 사료 S',     icon: '🍪', desc: '펫 전투력 +5% (영구)', cost: { gem: 10 }, consumable: true, effect: () => { game.petPowerBonus = (game.petPowerBonus||0) + 0.05; recomputePower(); showToast('🍪 펫 +5%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_pet_perm_m',  name: '펫 간식 M',     icon: '🍪', desc: '펫 전투력 +15% (영구)', cost: { gem: 30 }, consumable: true, effect: () => { game.petPowerBonus = (game.petPowerBonus||0) + 0.15; recomputePower(); showToast('🍪🍪 펫 +15%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_pet_perm_l',  name: '펫 보양식 L',   icon: '🍪', desc: '펫 전투력 +30% (영구)', cost: { gem: 80 }, consumable: true, effect: () => { game.petPowerBonus = (game.petPowerBonus||0) + 0.3; recomputePower(); showToast('🍪🍪🍪 펫 +30%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_army_perm_s', name: '훈련 교본 S',   icon: '📖', desc: '군대 전투력 +5% (영구)', cost: { gem: 10 }, consumable: true, effect: () => { game.armyPowerBonus = (game.armyPowerBonus||0) + 0.05; showToast('📖 군대 +5%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_army_perm_m', name: '훈련 교본 M',   icon: '📖', desc: '군대 전투력 +15% (영구)', cost: { gem: 30 }, consumable: true, effect: () => { game.armyPowerBonus = (game.armyPowerBonus||0) + 0.15; showToast('📖📖 군대 +15%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_army_perm_l', name: '훈련 교본 L',   icon: '📖', desc: '군대 전투력 +30% (영구)', cost: { gem: 80 }, consumable: true, effect: () => { game.armyPowerBonus = (game.armyPowerBonus||0) + 0.3; showToast('📖📖📖 군대 +30%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_power_s',     name: '전투 도색',     icon: '🎨', desc: '전투력 +30 (영구)',    cost: { gold: 1000, gem: 3 }, consumable: true, effect: () => { game.bonusPower = (game.bonusPower||0) + 30; recomputePower(); showToast('🎨 +30!', 'gain'); }, category: 'buff' },
+  { id: 'buf_power_m',     name: '전사의 의식',   icon: '⚔️', desc: '전투력 +100 (영구)',   cost: { gem: 15 }, consumable: true, effect: () => { game.bonusPower = (game.bonusPower||0) + 100; recomputePower(); showToast('⚔️ +100!', 'gain'); }, category: 'buff' },
+  { id: 'buf_power_l',     name: '용사의 인장',   icon: '🗡', desc: '전투력 +300 (영구)',   cost: { gem: 40 }, consumable: true, effect: () => { game.bonusPower = (game.bonusPower||0) + 300; recomputePower(); showToast('🗡 +300!', 'gain'); }, category: 'buff' },
+  { id: 'buf_power_xl',    name: '영웅의 표지',   icon: '⚜️', desc: '전투력 +1000 (영구)',  cost: { gem: 120 }, consumable: true, effect: () => { game.bonusPower = (game.bonusPower||0) + 1000; recomputePower(); showToast('⚜️ +1000!', 'gain'); }, category: 'buff' },
+  { id: 'buf_prod_perm_s', name: '풍요의 깃털',   icon: '🪶', desc: '건물 생산 +10% (영구)', cost: { gem: 20 }, consumable: true, effect: () => { game.productionMult = (game.productionMult||1) + 0.1; showToast('🪶 +10%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_prod_perm_m', name: '풍요의 부적',   icon: '🪶', desc: '건물 생산 +25% (영구)', cost: { gem: 50 }, consumable: true, effect: () => { game.productionMult = (game.productionMult||1) + 0.25; showToast('🪶🪶 +25%!', 'gain'); }, category: 'buff' },
+  { id: 'buf_tap_perm_s',  name: '연마된 곡괭이', icon: '⛏', desc: '탭 보상 +1 (영구)',     cost: { gem: 10 }, consumable: true, effect: () => { game.tapPower = (game.tapPower||1) + 1; showToast('⛏ 탭 +1!', 'gain'); }, category: 'buff' },
+  { id: 'buf_tap_perm_m',  name: '강철 곡괭이',   icon: '⚒', desc: '탭 보상 +3 (영구)',     cost: { gem: 30 }, consumable: true, effect: () => { game.tapPower = (game.tapPower||1) + 3; showToast('⚒ 탭 +3!', 'gain'); }, category: 'buff' },
+  { id: 'buf_build_perm',  name: '장인의 망치',   icon: '🔨', desc: '건설속도 +50% (영구)', cost: { gem: 25 }, consumable: true, effect: () => { game.buildSpeed = (game.buildSpeed||1) + 0.5; showToast('🔨 건설속도 +50%!', 'gain'); }, category: 'buff' },
+
+  // === 🛒 일반 상점 50종 ===
+  // 전투 강화 12종
+  { id: 'sh_warpaint_p',   name: '전사 도색',     icon: '🎨', desc: '전투력 +80', cost: { gold: 1500, gem: 4 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 80; recomputePower(); }, category: 'combat' },
+  { id: 'sh_chief_paint',  name: '족장의 문양',   icon: '🟥', desc: '전투력 +150', cost: { gold: 3500, gem: 8 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 150; recomputePower(); }, category: 'combat' },
+  { id: 'sh_blood_paint',  name: '혈맹의 문양',   icon: '🔴', desc: '전투력 +250', cost: { gold: 7000, gem: 15 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 250; recomputePower(); }, category: 'combat' },
+  { id: 'sh_axe_iron',     name: '강철 도끼',     icon: '🪓', desc: '전투력 +120', cost: { gold: 3000, stone: 80 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 120; recomputePower(); }, category: 'combat' },
+  { id: 'sh_bow_hunter',   name: '사냥꾼 활',     icon: '🏹', desc: '전투력 +180', cost: { gold: 4500, wood: 100, gem: 5 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 180; recomputePower(); }, category: 'combat' },
+  { id: 'sh_shield_bone',  name: '뼈 방패 강화',  icon: '🛡', desc: '전투력 +100 · 패배 손실 -30%', cost: { gold: 4000, stone: 120 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 100; game.defenseMult = Math.min(game.defenseMult||1, 0.7); recomputePower(); }, category: 'combat' },
+  { id: 'sh_shield_iron',  name: '강철 방패',     icon: '🛡', desc: '전투력 +250 · 패배 손실 -50%', cost: { gold: 10000, stone: 250, gem: 12 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 250; game.defenseMult = Math.min(game.defenseMult||1, 0.5); recomputePower(); }, category: 'combat' },
+  { id: 'sh_helm_warrior', name: '전사 투구',     icon: '⛑', desc: '전투력 +130', cost: { gold: 3500, stone: 100, gem: 6 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 130; recomputePower(); }, category: 'combat' },
+  { id: 'sh_helm_king',    name: '왕의 투구',     icon: '👑', desc: '전투력 +400', cost: { gold: 15000, gem: 40 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 400; recomputePower(); }, category: 'combat' },
+  { id: 'sh_amulet_battle',name: '전투 부적',     icon: '📿', desc: '전투력 +200 · 펫 +10%', cost: { gold: 6000, gem: 18 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 200; game.petPowerBonus = (game.petPowerBonus||0) + 0.1; recomputePower(); }, category: 'combat' },
+  { id: 'sh_battle_robe',  name: '전투 망토',     icon: '🧥', desc: '전투력 +350', cost: { gold: 12000, gem: 30 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 350; recomputePower(); }, category: 'combat' },
+  { id: 'sh_dragon_scale', name: '용 비늘 갑옷',  icon: '🐉', desc: '전투력 +800', cost: { gem: 80 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 800; recomputePower(); }, category: 'combat' },
+  // 영구 강화 13종
+  { id: 'sh_tap_iron',     name: '단단한 곡괭이', icon: '⛏', desc: '탭 보상 +3', cost: { gold: 5000, stone: 100 }, effect: () => game.tapPower = (game.tapPower||1) + 3, category: 'upgrade' },
+  { id: 'sh_tap_mithril',  name: '미스릴 곡괭이', icon: '⛏', desc: '탭 보상 +8', cost: { gold: 15000, gem: 25 }, effect: () => game.tapPower = (game.tapPower||1) + 8, category: 'upgrade' },
+  { id: 'sh_tap_legend',   name: '전설의 곡괭이', icon: '⚒', desc: '탭 보상 +20', cost: { gem: 100 }, effect: () => game.tapPower = (game.tapPower||1) + 20, category: 'upgrade' },
+  { id: 'sh_prod_blessing',name: '풍요의 기도',   icon: '🙏', desc: '생산 +35%', cost: { gold: 4000, gem: 8 }, effect: () => game.productionMult = (game.productionMult||1) + 0.35, category: 'upgrade' },
+  { id: 'sh_prod_ritual',  name: '의식의 향',     icon: '🕯', desc: '생산 +70%', cost: { gold: 12000, gem: 25 }, effect: () => game.productionMult = (game.productionMult||1) + 0.7, category: 'upgrade' },
+  { id: 'sh_build_master', name: '대장 인부',     icon: '🛠', desc: '건설속도 +80%', cost: { gold: 6000, wood: 300 }, effect: () => game.buildSpeed = (game.buildSpeed||1) + 0.8, category: 'upgrade' },
+  { id: 'sh_storage_mega', name: '거대 저장고',   icon: '🏚', desc: '건물 저장 +100%', cost: { gold: 8000, wood: 400, stone: 400 }, effect: () => { game.storageMult = (game.storageMult||1) + 1.0; for (const b of game.buildings) { if (b.def.capacity) b.maxCapacity = Math.floor(b.def.capacity * game.storageMult); } }, category: 'upgrade' },
+  { id: 'sh_exp_book_p',   name: '학자의 책',     icon: '📚', desc: '경험치 +5%', cost: { gold: 3000, gem: 8 }, effect: () => game.expBonus = (game.expBonus||0) + 0.05, category: 'upgrade' },
+  { id: 'sh_exp_book_m',   name: '현자의 책',     icon: '📕', desc: '경험치 +15%', cost: { gold: 9000, gem: 25 }, effect: () => game.expBonus = (game.expBonus||0) + 0.15, category: 'upgrade' },
+  { id: 'sh_friend_blessing',name:'우정의 깃털',  icon: '🪶', desc: '친구 선물 보상 ×3', cost: { gold: 4000, gem: 12 }, effect: () => game.giftMult = (game.giftMult||1) * 1.5, category: 'upgrade' },
+  { id: 'sh_truce_strong', name: '평화의 약속',   icon: '🕊', desc: '침략 확률 -70%', cost: { gold: 8000, gem: 25 }, effect: () => game.invasionResist = 0.3, category: 'upgrade' },
+  { id: 'sh_loot_master',  name: '약탈 마스터',   icon: '💰', desc: '침략 보상 +50%', cost: { gold: 12000, gem: 30 }, effect: () => game.lootBonus = (game.lootBonus||0) + 0.5, category: 'upgrade' },
+  { id: 'sh_autosave_lv2', name: '기억의 룬',     icon: '📜', desc: '자동저장 3배', cost: { gold: 3000, gem: 5 }, effect: () => game.autoSaveSpeed = 3, category: 'upgrade' },
+  // 펫 관련 10종
+  { id: 'sh_pet_food_p',   name: '특제 펫 사료',  icon: '🦴', desc: '펫 전투력 +20% (영구)', cost: { gold: 5000, gem: 12 }, effect: () => { game.petPowerBonus = (game.petPowerBonus||0) + 0.2; recomputePower(); }, category: 'combat' },
+  { id: 'sh_pet_armor',    name: '펫 갑옷',       icon: '🛡', desc: '펫 전투력 +35% (영구)', cost: { gem: 35 }, effect: () => { game.petPowerBonus = (game.petPowerBonus||0) + 0.35; recomputePower(); }, category: 'combat' },
+  { id: 'sh_pet_aura',     name: '펫 오라',       icon: '✨', desc: '펫 전투력 +60% (영구)', cost: { gem: 90 }, effect: () => { game.petPowerBonus = (game.petPowerBonus||0) + 0.6; recomputePower(); }, category: 'combat' },
+  { id: 'sh_pet_egg_basic',name: '평범한 알',     icon: '🥚', desc: '랜덤 일반/희귀 펫', cost: { gem: 20 }, consumable: true, effect: () => { try { const pool = Object.keys(PETS).filter(k => ['common','rare'].includes(PETS[k].tier) && !game.pets[k]); if (pool.length) { const k = pool[Math.floor(Math.random()*pool.length)]; game.pets[k] = 1; if (!game.petAcquiredAt) game.petAcquiredAt = {}; game.petAcquiredAt[k] = Date.now(); recomputePower(); showToast(`🥚 ${PETS[k].emoji} ${PETS[k].name}!`, 'gain'); } } catch (e) {} }, category: 'consumable' },
+  { id: 'sh_pet_egg_rare', name: '희귀한 알',     icon: '🥚', desc: '랜덤 희귀/에픽 펫', cost: { gem: 60 }, consumable: true, effect: () => { try { const pool = Object.keys(PETS).filter(k => ['rare','epic'].includes(PETS[k].tier) && !game.pets[k]); if (pool.length) { const k = pool[Math.floor(Math.random()*pool.length)]; game.pets[k] = 1; if (!game.petAcquiredAt) game.petAcquiredAt = {}; game.petAcquiredAt[k] = Date.now(); recomputePower(); showToast(`🥚 ${PETS[k].emoji} ${PETS[k].name}!`, 'gain'); } } catch (e) {} }, category: 'consumable' },
+  { id: 'sh_pet_egg_epic', name: '에픽 알',       icon: '🥚', desc: '랜덤 에픽/전설 펫', cost: { gem: 150 }, consumable: true, effect: () => { try { const pool = Object.keys(PETS).filter(k => ['epic','legendary'].includes(PETS[k].tier) && !game.pets[k]); if (pool.length) { const k = pool[Math.floor(Math.random()*pool.length)]; game.pets[k] = 1; if (!game.petAcquiredAt) game.petAcquiredAt = {}; game.petAcquiredAt[k] = Date.now(); recomputePower(); showToast(`🥚 ${PETS[k].emoji} ${PETS[k].name}!`, 'gain'); } } catch (e) {} }, category: 'consumable' },
+  { id: 'sh_pet_egg_myth', name: '신화의 알',     icon: '🥚', desc: '랜덤 전설/신화 펫', cost: { gem: 400 }, consumable: true, effect: () => { try { const pool = Object.keys(PETS).filter(k => ['legendary','mythic'].includes(PETS[k].tier) && !game.pets[k]); if (pool.length) { const k = pool[Math.floor(Math.random()*pool.length)]; game.pets[k] = 1; if (!game.petAcquiredAt) game.petAcquiredAt = {}; game.petAcquiredAt[k] = Date.now(); recomputePower(); showToast(`🥚 ${PETS[k].emoji} ${PETS[k].name}!`, 'gain'); } } catch (e) {} }, category: 'consumable' },
+  { id: 'sh_pet_summon_pack',name:'소환 보조 세트',icon: '🪤', desc: '제단 소환 5회분', cost: { gold: 4000, gem: 10 }, consumable: true, effect: () => { game.summonFreeCount = (game.summonFreeCount||0) + 5; showToast('🪤 무료 소환 5회!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_pet_double',   name: '쌍둥이 부적',   icon: '👯', desc: '제단 소환 2배 (5회)', cost: { gem: 30 }, consumable: true, effect: () => { game.summonDoubleCount = (game.summonDoubleCount||0) + 5; showToast('👯 다음 5회 소환 2배!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_pet_release_x3',name:'금빛 방생 부적',icon: '🎫', desc: '방생 보상 ×3 (1회)', cost: { gem: 15 }, consumable: true, effect: () => { game.releaseBonus = (game.releaseBonus||0) + 2; showToast('🎫 다음 방생 ×3!', 'gain'); }, category: 'consumable' },
+  // 즉시 효과 15종
+  { id: 'sh_exp_potion_s', name: '경험 영약',     icon: '🧪', desc: '경험치 +1000',  cost: { gold: 2000, gem: 4 }, consumable: true, effect: () => { game.exp += 1000; checkLevelUp(); }, category: 'consumable' },
+  { id: 'sh_exp_potion_m', name: '대형 경험 영약',icon: '🧴', desc: '경험치 +5000',  cost: { gold: 8000, gem: 15 }, consumable: true, effect: () => { game.exp += 5000; checkLevelUp(); }, category: 'consumable' },
+  { id: 'sh_exp_potion_l', name: '거대 경험 영약',icon: '🧴', desc: '경험치 +20000', cost: { gem: 50 }, consumable: true, effect: () => { game.exp += 20000; checkLevelUp(); }, category: 'consumable' },
+  { id: 'sh_exp_potion_x', name: '왕의 경험 영약',icon: '🧴', desc: '경험치 +100000',cost: { gem: 200 }, consumable: true, effect: () => { game.exp += 100000; checkLevelUp(); }, category: 'consumable' },
+  { id: 'sh_levelup_token',name: '레벨업 토큰',   icon: '⭐', desc: '즉시 1레벨업', cost: { gem: 100 }, consumable: true, effect: () => { game.exp = game.expReq; checkLevelUp(); }, category: 'consumable' },
+  { id: 'sh_time_skip_d',  name: '하루 가속',     icon: '⏩', desc: '하루 즉시 진행', cost: { gem: 8 }, consumable: true, effect: () => { game.day += 1; if (typeof onNewDay === 'function') onNewDay(); showToast('⏩ 다음 날!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_time_skip_w',  name: '주간 가속',     icon: '⏩', desc: '7일 즉시 진행', cost: { gem: 40 }, consumable: true, effect: () => { for (let i = 0; i < 7; i++) { game.day += 1; if (typeof onNewDay === 'function') try { onNewDay(); } catch(e) {} } showToast('⏩⏩ 7일 진행!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_instant_build',name: '건설 마법서',   icon: '✨', desc: '모든 건설 즉시 완료', cost: { gem: 25 }, consumable: true, effect: () => { for (const b of game.buildings) if (b.state === 'under_construction') b.buildProgress = b.def.buildTime; showToast('✨ 즉시 완료!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_instant_harvest',name:'수확 마법석',  icon: '⚡', desc: '모든 건물 즉시 수확', cost: { gem: 20 }, consumable: true, effect: () => { let cnt = 0; for (const b of game.buildings) if (b.state === 'ready_to_harvest') { try { b.harvest(); cnt++; } catch (e) {} } showToast(`⚡ ${cnt}개 즉시 수확!`, 'gain'); }, category: 'consumable' },
+  { id: 'sh_quest_reroll', name: '퀘스트 리롤',   icon: '🎲', desc: '일일 퀘스트 새로고침', cost: { gem: 15 }, consumable: true, effect: () => { game.dailyQuests = []; game.dailyQuestsDate = ''; if (typeof generateDailyQuests === 'function') generateDailyQuests(); showToast('🎲 퀘스트 새로!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_roulette_token',name:'룰렛 토큰',     icon: '🎰', desc: '룰렛 1회 무료 + 횟수 회복', cost: { gem: 8 }, consumable: true, effect: () => { game.rouletteFreeDate = ''; if (game.rouletteSpinsToday > 0) game.rouletteSpinsToday -= 1; showToast('🎰 룰렛 무료 회전 + 횟수 +1!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_dungeon_reset',name: '던전 재진입',   icon: '🗝', desc: '오늘의 던전 리셋', cost: { gem: 30 }, consumable: true, effect: () => { game.dungeonClearedToday = {}; game.dungeonClearedDate = ''; showToast('🗝 던전 리셋!', 'gain'); }, category: 'consumable' },
+  { id: 'sh_battle_horn_p',name: '전쟁 나팔(상점)',icon: '📯', desc: '전투력 +200', cost: { gold: 7000, gem: 18 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 200; recomputePower(); }, category: 'combat' },
+  { id: 'sh_war_drum_p',   name: '대북',          icon: '🥁', desc: '전투력 +180 · 약탈 +25%', cost: { gold: 6500, gem: 15 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 180; game.lootBonus = (game.lootBonus||0) + 0.25; recomputePower(); }, category: 'combat' },
+  { id: 'sh_battle_axe',   name: '대전투 도끼',   icon: '🪓', desc: '전투력 +500', cost: { gem: 60 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 500; recomputePower(); }, category: 'combat' },
 ];
+
+// === 상점 모든 아이템 가격 ×5 일괄 적용 ===
+(function applyShopPriceMultiplier() {
+  const MULT = 5;
+  for (const item of SHOP_ITEMS) {
+    if (!item.cost) continue;
+    for (const key of Object.keys(item.cost)) {
+      if (typeof item.cost[key] === 'number') {
+        item.cost[key] = Math.max(1, Math.ceil(item.cost[key] * MULT));
+      }
+    }
+  }
+})();
 
 const ATTENDANCE_REWARDS = [
   { day: 1,  icon: '💰', amt: 100,  res: 'gold' },
@@ -8137,6 +8750,11 @@ const game = {
   level: 1, exp: 0, expReq: 100,
   day: 1, dayTimer: 0, dayLength: 90, // 90s = 1 day
 
+  // === 🌅 시간대 시스템 (gameHour: 0~24 실시간 시뮬레이션) ===
+  // dayLength(90초)를 24시간으로 매핑 → 1초당 약 0.267시간
+  gameHour: 6,  // 새벽 6시 시작
+  timeOfDay: 'dawn',  // 'dawn'(5-7), 'day'(7-17), 'sunset'(17-19), 'night'(19-5)
+
   // entities
   tilemap: null,
   worldSeed: null,  // 영구 월드 시드 (생성 시 한 번만 결정)
@@ -8263,12 +8881,30 @@ function addRes(key, amount) {
   if (amount > 0 && game.vipLevel) {
     amount = Math.floor(amount * (1 + game.vipLevel * 0.02));
   }
+  // === 시간제 버프 적용 ===
+  if (amount > 0) {
+    const now = Date.now();
+    // 🍀 행운 부적: 모든 자원 획득 +40~70%
+    if (game.luckyUntil && now < game.luckyUntil) {
+      amount = Math.floor(amount * 1.4);
+    }
+    // 🌟 황금광풍: 금화 추가 +50~100%
+    if (key === 'gold' && game.goldRushUntil && now < game.goldRushUntil) {
+      amount = Math.floor(amount * 1.7);
+    }
+    // 👥 부족 보너스: 부족 레벨당 +1% 자원
+    if (game._myTribeCache && game._myTribeCache.level) {
+      amount = Math.floor(amount * (1 + game._myTribeCache.level * 0.01));
+    }
+  }
   game.res[key] = (game.res[key] || 0) + amount;
   if (game.res[key] < 0) game.res[key] = 0;
   // 통계 누적
   if (amount > 0 && key === 'gold') {
     if (!game.stats) game.stats = {};
     game.stats.goldEarned = (game.stats.goldEarned || 0) + amount;
+    // 시즌 미션
+    if (typeof updateSeasonMission === 'function') updateSeasonMission('gold', amount);
   }
   try { spawnFloatNum(key, amount); } catch (e) {}
 }
@@ -8330,6 +8966,9 @@ function saveGame() {
     dungeonClearedToday: game.dungeonClearedToday || {},
     dungeonClearedDate: game.dungeonClearedDate || '',
     rouletteFreeDate: game.rouletteFreeDate || '',
+    rouletteSpinsToday: game.rouletteSpinsToday || 0,
+    rouletteSpinsDate: game.rouletteSpinsDate || '',
+    seasonPass: game.seasonPass || null,
     worldSeed: game.worldSeed,
     bossRaid: game.bossRaid || null,
     petEvolutions: game.petEvolutions || {},
@@ -8405,6 +9044,9 @@ function loadGame() {
     game.dungeonClearedToday = d.dungeonClearedToday || {};
     game.dungeonClearedDate = d.dungeonClearedDate || '';
     game.rouletteFreeDate = d.rouletteFreeDate || '';
+    game.rouletteSpinsToday = d.rouletteSpinsToday || 0;
+    game.rouletteSpinsDate = d.rouletteSpinsDate || '';
+    game.seasonPass = d.seasonPass || null;
     game.worldSeed = (d.worldSeed !== undefined && d.worldSeed !== null) ? d.worldSeed : null;
     game.bossRaid = d.bossRaid || null;
     game.petEvolutions = d.petEvolutions || {};
@@ -8579,6 +9221,18 @@ function updateHUD() {
     }
   } catch (e) {}
   document.getElementById('day-num').textContent = game.day;
+  // 🌅 시간대 아이콘 + 시:분 표시
+  try {
+    const todIcon = { dawn: '🌅', day: '☀️', sunset: '🌇', night: '🌙' }[game.timeOfDay] || '☀️';
+    const todEl = document.getElementById('time-of-day');
+    if (todEl) todEl.textContent = todIcon;
+    const hourEl = document.getElementById('time-hour');
+    if (hourEl) {
+      const h = Math.floor(game.gameHour || 0);
+      const m = Math.floor(((game.gameHour || 0) - h) * 60);
+      hourEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    }
+  } catch (e) {}
   // 전투력은 펫을 한 마리라도 가지면 표시
   const powerEl = document.getElementById('power-display');
   if (game.totalPower > 0) {
@@ -8596,7 +9250,7 @@ function updateHUD() {
   if (typeof checkAllTitles === 'function') checkAllTitles();
   if (typeof updateTitlesBadge === 'function') updateTitlesBadge();
 }
-const MAX_LEVEL = 60;
+const MAX_LEVEL = 250;
 
 // 레벨 N에서 N+1로 가는데 필요한 경험치 = N * 2000
 // Lv1→2: 2000, Lv2→3: 4000, Lv30→31: 60000, Lv59→60: 118000
@@ -8621,8 +9275,8 @@ function checkLevelUp() {
       game.exp = 0;
       game.expReq = 0;
       showToast(`🏆 만렙 Lv.${MAX_LEVEL} 달성!`, 'gain');
-      addRes('gem', 100);
-      addRes('gold', 50000);
+      addRes('gem', 1000);
+      addRes('gold', 5000000);
       if (game.home) {
         for (let i = 0; i < 80; i++) {
           const ang = Math.random() * Math.PI * 2;
@@ -8657,6 +9311,10 @@ function checkLevelUp() {
   if (game.level >= MAX_LEVEL) {
     game.exp = 0;
   }
+  // === 레벨업/전투력 변경을 즉시 Firebase에 반영 ===
+  try { recomputePower(); } catch (e) {}
+  // 다음 tick 30초 안 기다리고 즉시 업로드
+  if (game._profileUploadTimer !== undefined) game._profileUploadTimer = 30;
 }
 
 // ============================================================================
@@ -8776,6 +9434,8 @@ function openShop() {
     <div style="display:flex; gap:4px; margin-bottom:12px; border-bottom:2px dashed var(--wood-dark); padding-bottom:8px; overflow-x:auto;">
       <button class="friends-tab active" data-shop-tab="upgrade" type="button">⚡ 강화</button>
       <button class="friends-tab" data-shop-tab="combat" type="button">⚔ 전투</button>
+      <button class="friends-tab" data-shop-tab="buff" type="button">🌟 버프</button>
+      <button class="friends-tab" data-shop-tab="currency" type="button">💰 재화</button>
       <button class="friends-tab" data-shop-tab="capture" type="button">🪤 포획</button>
       <button class="friends-tab" data-shop-tab="social" type="button">🤝 외교</button>
       <button class="friends-tab" data-shop-tab="consumable" type="button">📦 소비</button>
@@ -8796,13 +9456,89 @@ function openShop() {
 
 function renderShopTab(category) {
   const c = document.getElementById('shop-content');
-  c.innerHTML = '<div class="grid-list"></div>';
-  const grid = c.firstElementChild;
-  const filtered = SHOP_ITEMS.filter(item => (item.category || 'upgrade') === category);
+
+  // 정렬 모드
+  if (!game._shopSortMode) game._shopSortMode = 'default';
+  const sortMode = game._shopSortMode;
+
+  // 정렬 버튼 바
+  c.innerHTML = `
+    <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap; align-items:center;">
+      <span style="font-size:11px; color:var(--wood-dark); font-weight:bold;">정렬:</span>
+      <button class="shop-sort-btn" data-sort="default" type="button" style="
+        background: ${sortMode === 'default' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
+        color: ${sortMode === 'default' ? 'white' : 'var(--wood-dark)'};
+        border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+      ">📋 기본</button>
+      <button class="shop-sort-btn" data-sort="price_asc" type="button" style="
+        background: ${sortMode === 'price_asc' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
+        color: ${sortMode === 'price_asc' ? 'white' : 'var(--wood-dark)'};
+        border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+      ">💰 싼순</button>
+      <button class="shop-sort-btn" data-sort="price_desc" type="button" style="
+        background: ${sortMode === 'price_desc' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
+        color: ${sortMode === 'price_desc' ? 'white' : 'var(--wood-dark)'};
+        border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+      ">💰 비싼순</button>
+      <button class="shop-sort-btn" data-sort="name" type="button" style="
+        background: ${sortMode === 'name' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
+        color: ${sortMode === 'name' ? 'white' : 'var(--wood-dark)'};
+        border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+      ">🔤 이름</button>
+      <button class="shop-sort-btn" data-sort="affordable" type="button" style="
+        background: ${sortMode === 'affordable' ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
+        color: ${sortMode === 'affordable' ? 'white' : 'var(--wood-dark)'};
+        border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+      ">✅ 구매가능</button>
+    </div>
+    <div class="grid-list" id="shop-grid"></div>
+  `;
+  c.querySelectorAll('.shop-sort-btn').forEach(btn => {
+    btn.onclick = () => {
+      game._shopSortMode = btn.dataset.sort;
+      renderShopTab(category);
+    };
+  });
+
+  const grid = c.querySelector('#shop-grid');
+  let filtered = SHOP_ITEMS.filter(item => (item.category || 'upgrade') === category);
   if (filtered.length === 0) {
-    c.innerHTML = `<div style="text-align:center; padding:24px; color:var(--wood-dark);">아이템이 없어요</div>`;
+    c.innerHTML += `<div style="text-align:center; padding:24px; color:var(--wood-dark);">아이템이 없어요</div>`;
     return;
   }
+
+  // === 정렬 적용 ===
+  // 가격 환산: gem 1개 = gold 500으로 추산 (대략적인 환산)
+  const costScore = (item) => {
+    if (!item.cost) return 0;
+    let s = 0;
+    s += (item.cost.gold || 0);
+    s += (item.cost.food || 0);
+    s += (item.cost.wood || 0);
+    s += (item.cost.stone || 0);
+    s += (item.cost.gem || 0) * 500;
+    return s;
+  };
+  if (sortMode === 'price_asc') {
+    filtered.sort((a, b) => costScore(a) - costScore(b));
+  } else if (sortMode === 'price_desc') {
+    filtered.sort((a, b) => costScore(b) - costScore(a));
+  } else if (sortMode === 'name') {
+    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  } else if (sortMode === 'affordable') {
+    // 구매 가능한 아이템부터, 같은 그룹 안에선 싼 순
+    filtered.sort((a, b) => {
+      const ca = canAfford(a.cost), cb = canAfford(b.cost);
+      if (ca !== cb) return ca ? -1 : 1;
+      return costScore(a) - costScore(b);
+    });
+  }
+
   filtered.forEach(item => {
     const owned = !item.consumable && game.ownedItems[item.id];
     const locked = item.req && !game.ownedItems[item.req];
@@ -10678,7 +11414,11 @@ const ACHIEVEMENTS = [
   { id: 'lv10',  icon: '🌿', title: '성장하는 부족', desc: '레벨 10 달성', check: () => game.level >= 10, reward: { gold: 1500, gem: 8 } },
   { id: 'lv20',  icon: '🌳', title: '번영하는 부족', desc: '레벨 20 달성', check: () => game.level >= 20, reward: { gold: 5000, gem: 20 } },
   { id: 'lv30',  icon: '⭐', title: '강대한 부족', desc: '레벨 30 달성', check: () => game.level >= 30, reward: { gold: 15000, gem: 50 } },
-  { id: 'lv60',  icon: '👑', title: '전설의 부족장', desc: '레벨 60 (만렙) 달성', check: () => game.level >= 60, reward: { gold: 100000, gem: 200 } },
+  { id: 'lv60',  icon: '👑', title: '전설의 부족장', desc: '레벨 60 달성', check: () => game.level >= 60, reward: { gold: 100000, gem: 200 } },
+  { id: 'lv100', icon: '💎', title: '제국의 시조',    desc: '레벨 100 달성', check: () => game.level >= 100, reward: { gold: 500000, gem: 500 } },
+  { id: 'lv150', icon: '🌟', title: '신화 속 부족장', desc: '레벨 150 달성', check: () => game.level >= 150, reward: { gold: 1500000, gem: 1000 } },
+  { id: 'lv200', icon: '🌌', title: '하늘의 지배자',  desc: '레벨 200 달성', check: () => game.level >= 200, reward: { gold: 3000000, gem: 2000 } },
+  { id: 'lv250', icon: '✨', title: '와일드 에이지의 신', desc: '레벨 250 (만렙)', check: () => game.level >= 250, reward: { gold: 10000000, gem: 5000 } },
   // 펫 업적
   { id: 'pet5',  icon: '🐾', title: '동물 친구', desc: '펫 5종 수집', check: () => Object.keys(game.pets || {}).length >= 5, reward: { gold: 500, gem: 5 } },
   { id: 'pet20', icon: '🦁', title: '동물원 주인', desc: '펫 20종 수집', check: () => Object.keys(game.pets || {}).length >= 20, reward: { gold: 3000, gem: 15 } },
@@ -10744,7 +11484,11 @@ const TITLES = [
   { id: 'lv10_title',   icon: '🌳', name: '번성하는 부족',    desc: '레벨 10 달성',        condition: () => game.level >= 10, color: '#43a047', effect: { goldBonus: 0.10 },   effectDesc: '금화 획득 +10%' },
   { id: 'lv20_title',   icon: '⭐', name: '뛰어난 부족장',    desc: '레벨 20 달성',        condition: () => game.level >= 20, color: '#1976d2', effect: { allRes: 0.10 },      effectDesc: '모든 자원 +10%' },
   { id: 'lv30_title',   icon: '🌟', name: '강대한 군주',      desc: '레벨 30 달성',        condition: () => game.level >= 30, color: '#7b1fa2', effect: { allRes: 0.15 },      effectDesc: '모든 자원 +15%' },
-  { id: 'lv60_title',   icon: '👑', name: '전설의 부족장',    desc: '레벨 60 (만렙)',      condition: () => game.level >= 60, color: '#ffd700', effect: { allRes: 0.25, power: 0.20 }, effectDesc: '모든 자원 +25%, 전투력 +20%' },
+  { id: 'lv60_title',   icon: '👑', name: '전설의 부족장',    desc: '레벨 60 달성',        condition: () => game.level >= 60, color: '#ffd700', effect: { allRes: 0.25, power: 0.20 }, effectDesc: '모든 자원 +25%, 전투력 +20%' },
+  { id: 'lv100_title',  icon: '💎', name: '제국의 시조',      desc: '레벨 100 달성',       condition: () => game.level >= 100, color: '#00bcd4', effect: { allRes: 0.30, power: 0.25 }, effectDesc: '모든 자원 +30%, 전투력 +25%' },
+  { id: 'lv150_title',  icon: '🌟', name: '신화 속 부족장',   desc: '레벨 150 달성',       condition: () => game.level >= 150, color: '#e91e63', effect: { allRes: 0.40, power: 0.35 }, effectDesc: '모든 자원 +40%, 전투력 +35%' },
+  { id: 'lv200_title',  icon: '🌌', name: '하늘의 지배자',    desc: '레벨 200 달성',       condition: () => game.level >= 200, color: '#9c27b0', effect: { allRes: 0.50, power: 0.50 }, effectDesc: '모든 자원 +50%, 전투력 +50%' },
+  { id: 'lv250_title',  icon: '✨', name: '와일드의 신',      desc: '레벨 250 (만렙)',     condition: () => game.level >= 250, color: '#311b92', effect: { allRes: 0.75, power: 0.75 }, effectDesc: '모든 자원 +75%, 전투력 +75%' },
   // 펫 칭호 — 펫 전투력 보너스
   { id: 'pet_collector',icon: '🐾', name: '동물 친구',        desc: '펫 10종 보유',        condition: () => Object.keys(game.pets || {}).length >= 10, color: '#ff9800', effect: { petPower: 0.05 },  effectDesc: '펫 전투력 +5%' },
   { id: 'pet_master',   icon: '🦁', name: '동물원 주인',      desc: '펫 30종 보유',        condition: () => Object.keys(game.pets || {}).length >= 30, color: '#ef6c00', effect: { petPower: 0.10 },  effectDesc: '펫 전투력 +10%' },
@@ -11121,6 +11865,7 @@ function openRankings() {
           <button class="rk-tab" data-rk-tab="power" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">⚔ 전투력</button>
           <button class="rk-tab" data-rk-tab="pet" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🦁 펫</button>
           <button class="rk-tab" data-rk-tab="arena" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏟 투기장</button>
+          <button class="rk-tab" data-rk-tab="tribe" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">👥 부족</button>
         </div>
         <div id="rankings-body" style="overflow-y:auto; max-height:calc(85vh - 130px); padding:0 4px;"></div>
       </div>
@@ -11295,11 +12040,157 @@ const RANK_TITLES = {
   10: { name: '도전하는 자',     short: '도전자', color: '#9e9e9e' },
 };
 
+// === 부족 랭킹 렌더 ===
+async function renderTribeRanking(c) {
+  c.innerHTML = '<div style="text-align:center; padding:30px; color:var(--wood-dark);"><div style="font-size:32px;">⏳</div><div style="margin-top:8px; font-size:12px;">전체 부족 데이터 로딩 중...</div></div>';
+
+  const online = (typeof isOnlineMode === 'function') && isOnlineMode();
+  if (!online) {
+    c.innerHTML = `
+      <div style="text-align:center; padding:40px 20px; color:var(--wood-dark);">
+        <div style="font-size:48px; margin-bottom:8px;">📴</div>
+        <div style="font-size:13px;">오프라인 모드에서는<br>부족 랭킹을 볼 수 없어요.</div>
+      </div>
+    `;
+    return;
+  }
+
+  let tribes = [];
+  try {
+    const snap = await _firebaseDB.ref('tribes').once('value');
+    const data = snap.val() || {};
+    // 각 부족의 정보 + 멤버들 전투력 합산
+    const tribeEntries = Object.entries(data);
+    for (const [tid, t] of tribeEntries) {
+      const members = t.members || {};
+      const memberCount = Object.keys(members).length;
+      // 멤버 전투력 합산 (Firebase players에서 가져오기)
+      let totalPower = 0;
+      let totalLevel = 0;
+      const memberPromises = Object.keys(members).map(async (encNick) => {
+        try {
+          const pSnap = await _firebaseDB.ref(`players/${encNick}`).once('value');
+          const p = pSnap.val();
+          if (p) {
+            totalPower += (p.power || 0);
+            totalLevel += (p.level || 0);
+          }
+        } catch (e) {}
+      });
+      await Promise.all(memberPromises);
+
+      const avgLevel = memberCount > 0 ? Math.floor(totalLevel / memberCount) : 0;
+      const isMine = (game._myTribeCache && game._myTribeCache.id === tid);
+      tribes.push({
+        id: tid,
+        name: t.name || '(이름없음)',
+        icon: t.icon || '🏕',
+        desc: t.desc || '',
+        level: t.level || 1,
+        exp: t.exp || 0,
+        memberCount,
+        totalPower,
+        avgLevel,
+        leader: decodeURIComponent(t.leader || ''),
+        totalDonated: t.totalDonated || 0,
+        // 점수 = 부족레벨 × 1000 + 합산 전투력 + 멤버수 × 100 + 평균레벨 × 50
+        score: (t.level || 1) * 1000 + totalPower + memberCount * 100 + avgLevel * 50,
+        isMine,
+      });
+    }
+  } catch (e) {
+    console.warn('renderTribeRanking failed', e);
+    c.innerHTML = `<div style="text-align:center; padding:30px; color:var(--red);">❌ 부족 정보 로드 실패: ${e.message}</div>`;
+    return;
+  }
+
+  // 정렬 모드
+  if (!game._tribeRankSort) game._tribeRankSort = 'score';
+  const sm = game._tribeRankSort;
+  if (sm === 'level') tribes.sort((a,b) => b.level - a.level);
+  else if (sm === 'power') tribes.sort((a,b) => b.totalPower - a.totalPower);
+  else if (sm === 'members') tribes.sort((a,b) => b.memberCount - a.memberCount);
+  else if (sm === 'donated') tribes.sort((a,b) => b.totalDonated - a.totalDonated);
+  else tribes.sort((a,b) => b.score - a.score);  // default: score
+
+  const myTribe = tribes.find(t => t.isMine);
+  const myRank = myTribe ? (tribes.indexOf(myTribe) + 1) : 0;
+
+  let html = `
+    <div style="background:linear-gradient(to bottom, #f3e5f5, #ce93d8); border:3px solid #6a1b9a; border-radius:12px; padding:10px; margin-bottom:10px; text-align:center;">
+      <div style="font-size:11px; color:var(--wood-dark);">👥 부족 랭킹 — 내 부족</div>
+      ${myTribe ? `
+        <div style="font-size:18px; font-weight:bold; color:#4a148c;">
+          ${myRank === 1 ? '🥇' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : ''} ${myRank}등 / ${tribes.length}개 부족
+        </div>
+        <div style="font-size:12px; margin-top:4px;">${myTribe.icon} <b>${myTribe.name}</b> Lv.${myTribe.level}</div>
+      ` : `
+        <div style="font-size:13px; color:var(--wood-dark); margin-top:6px;">아직 부족이 없어요. <b>부족 메뉴</b>에서 부족을 만들거나 가입해보세요!</div>
+      `}
+    </div>
+
+    <div style="display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap; align-items:center;">
+      <span style="font-size:10px; color:var(--wood-dark); font-weight:bold;">정렬:</span>
+      ${[
+        ['score','🏆 점수'],['level','⭐ 레벨'],['power','⚔ 전투력'],['members','👥 멤버수'],['donated','💎 기부']
+      ].map(([s,label]) => `
+        <button class="tribe-rank-sort" data-sort="${s}" style="
+          background: ${sm === s ? 'linear-gradient(to bottom, #ab47bc, #6a1b9a)' : '#fff'};
+          color: ${sm === s ? 'white' : 'var(--wood-dark)'};
+          border: 2px solid var(--wood-dark); border-radius: 6px;
+          padding: 3px 7px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+        ">${label}</button>
+      `).join('')}
+    </div>
+
+    <div style="max-height:50vh; overflow-y:auto;">
+  `;
+
+  tribes.forEach((t, i) => {
+    const rank = i + 1;
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
+    const tt = RANK_TITLES[rank];
+    const bgGrad = t.isMine ? 'linear-gradient(to right, #e1bee7, #ce93d8)' :
+      (rank <= 3 ? `linear-gradient(to right, #fff, ${(tt && tt.color) || '#ddd'}33)` :
+       'linear-gradient(to right, #fff, #f5e9d4)');
+    const border = t.isMine ? '#6a1b9a' : (tt ? tt.color : 'var(--wood)');
+    html += `
+      <div style="display:flex; align-items:center; gap:8px; padding:10px; margin-bottom:6px; background:${bgGrad}; border:2px solid ${border}; border-radius:10px; ${t.isMine ? 'box-shadow: 0 0 10px #6a1b9a55;' : ''}">
+        <div style="font-size:18px; font-weight:bold; color:${rank<=3?'#bf8b00':'var(--wood-dark)'}; min-width:36px; text-align:center;">${medal}</div>
+        <div style="font-size:32px;">${t.icon}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:bold; font-size:13px;">
+            ${t.name}
+            ${t.isMine ? ' <span style="color:#6a1b9a; font-size:10px;">(내 부족)</span>' : ''}
+            <span style="background:#ffd54f; color:#bf8b00; padding:1px 5px; border-radius:4px; font-size:9px; margin-left:4px;">Lv.${t.level}</span>
+          </div>
+          <div style="font-size:10px; color:#666; margin-top:2px;">👑 ${t.leader} · 👥 ${t.memberCount}/20 · ⚔ ${t.totalPower.toLocaleString()}</div>
+          <div style="font-size:9px; color:#888; margin-top:1px;">💎 기부 ${t.totalDonated.toLocaleString()} · 평균 Lv.${t.avgLevel}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  c.innerHTML = html;
+
+  // 정렬 핸들러
+  c.querySelectorAll('.tribe-rank-sort').forEach(btn => {
+    btn.onclick = () => { game._tribeRankSort = btn.dataset.sort; renderTribeRanking(c); };
+  });
+}
+window.renderTribeRanking = renderTribeRanking;
+
 async function renderRankingByType(type) {
   const c = document.getElementById('rankings-body');
   if (!c) return;
   // 로딩 표시
   c.innerHTML = '<div style="text-align:center; padding:30px; color:var(--wood-dark);"><div style="font-size:32px;">⏳</div><div style="margin-top:8px; font-size:12px;">전체 유저 데이터 로딩 중...</div></div>';
+
+  // === 부족 랭킹 (별도 처리) ===
+  if (type === 'tribe') {
+    return renderTribeRanking(c);
+  }
 
   const players = await gatherAllPlayers();
 
@@ -11752,7 +12643,36 @@ function openFriends() {
   renderFriendsTab('list');
   document.getElementById('m-friends').classList.add('show');
   // 친구 요청 리스너 시작
-  try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {}
+  try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {}
+
+  // === 친구 정보 자동 새로고침 (모달 열 때마다) ===
+  const online = (typeof isOnlineMode === 'function') && isOnlineMode();
+  if (online && game.friends && game.friends.length > 0) {
+    (async () => {
+      try {
+        let updated = 0;
+        for (const f of game.friends) {
+          try {
+            const profile = await searchPlayer(f.nickname);
+            if (profile) {
+              f.level = profile.level || f.level;
+              f.power = profile.power || f.power;
+              f.avatar = profile.avatar || f.avatar;
+              f.petCount = profile.petCount || f.petCount;
+              updated++;
+            }
+          } catch (e) {}
+        }
+        // 업데이트 결과를 현재 list 탭에만 다시 그리기 (다른 탭은 건드리지 않음)
+        const active = body.querySelector('.friends-tab.active');
+        if (active && active.dataset.tab === 'list' && updated > 0) {
+          renderFriendsTab('list');
+        }
+      } catch (e) {
+        console.warn('friends auto refresh failed', e);
+      }
+    })();
+  }
 }
 
 function renderFriendsTab(tab) {
@@ -12428,14 +13348,14 @@ function sendAidToFriend(nickname) {
   }
   showConfirmDialog(
     '🤝 원조',
-    `${nickname}님에게 자원을 보내시겠어요?\n비용: 💰 100 + 🍖 50\n보상: 💎 1 + 우정 +1`,
+    `${nickname}님에게 자원을 보내시겠어요?\n비용: 💰 500 + 🍖 250\n보상: 💎 1 + 우정 +1`,
     () => {
-      if ((game.res.gold || 0) < 100 || (game.res.food || 0) < 50) {
+      if ((game.res.gold || 0) < 500 || (game.res.food || 0) < 250) {
         showToast('자원이 부족해요', 'warn');
         return;
       }
-      game.res.gold -= 100;
-      game.res.food -= 50;
+      game.res.gold -= 500;
+      game.res.food -= 250;
       addRes('gem', 1);
       f.lastAidDate = today;
       f.friendship = (f.friendship || 0) + 1;
@@ -14163,10 +15083,10 @@ function openPetSummon() {
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       <button class="event-choice" id="summon-1" style="text-align:center; font-size:14px;">
-        🔮 1회 소환<br><span class="effect">💎 5 보석</span>
+        🔮 1회 소환<br><span class="effect">💎 1000 보석</span>
       </button>
       <button class="event-choice" id="summon-10" style="text-align:center; font-size:14px;">
-        ✨ 10회 소환 (전설+ 1회 확정)<br><span class="effect">💎 45 보석 (10% 할인)</span>
+        ✨ 10회 소환 (전설+ 1회 확정)<br><span class="effect">💎 20000 보석</span>
       </button>
     </div>
   `;
@@ -14177,7 +15097,7 @@ function openPetSummon() {
 
 function doSummon(count) {
   // 무료 소환 효과 (📦 소환 10연)
-  let cost = count === 10 ? 45 : 5;
+  let cost = count === 10 ? 20000 : 1000;
   if (game.summonFreeCount > 0) {
     const useFree = Math.min(count, game.summonFreeCount);
     if (useFree === count) cost = 0;
@@ -14274,6 +15194,9 @@ function doSummon(count) {
     game.res.gem += refund;
     showToast(`중복 ${duplicates}마리 → 💎+${refund} 환급`, 'gain');
   }
+
+  // 시즌 패스 미션 (펫 소환)
+  if (typeof updateSeasonMission === 'function') updateSeasonMission('pet', count);
 
   // FX based on the highest NEW tier obtained
   const newOnly = results.filter(r => !r.duplicate);
@@ -14383,11 +15306,23 @@ function recomputePower() {
     }
   }
   let combined = total + (game.bonusPower || 0) + buildingPower;
+  // === 레벨당 전투력 보너스 ===
+  // 공식: level × 50 + level² × 0.5
+  // Lv1=50, Lv10=550, Lv60=4800, Lv100=10000, Lv250=43750
+  const lv = game.level || 1;
+  const levelPower = Math.floor(lv * 50 + lv * lv * 0.5);
+  combined += levelPower;
+  game._levelPowerBonus = levelPower;  // UI 표시용 캐시
   // 칭호/테두리 power 효과
   try {
     const eff = getEquippedEffects();
     if (eff.power) combined = Math.floor(combined * (1 + eff.power));
   } catch (e) {}
+  // === 부족 보너스: 부족 레벨당 +2% 전투력 ===
+  if (game._myTribeCache && game._myTribeCache.level) {
+    const tribeBonus = game._myTribeCache.level * 0.02;
+    combined = Math.floor(combined * (1 + tribeBonus));
+  }
   game.totalPower = combined;
 
   // === 장식품 생산 보너스 계산 (다른 곳에서 활용) ===
@@ -15527,7 +16462,7 @@ async function renderBossRaid() {
         ${(game.bossRaid.attackCount || 0) >= 10 ? '⏰ 오늘 공격 횟수 소진' : '⚔ 보스 공격! (오늘 ' + (10 - (game.bossRaid.attackCount || 0)) + '회 남음)'}
       </button>
       <div style="text-align:center; font-size:11px; color:var(--wood-dark); margin-top:6px;">
-        공격 비용: 💰500 · 데미지: 전투력 × 100
+        공격 비용: 💰2500 · 데미지: 전투력 × 100
       </div>
     ` : `
       <div style="background:linear-gradient(to bottom, #c8e6c9, #66bb6a); border:3px solid #2e7d32; border-radius:12px; padding:12px; text-align:center;">
@@ -15580,12 +16515,12 @@ async function attackBoss(boss) {
     showToast('⏰ 오늘 공격 횟수 소진', 'warn');
     return;
   }
-  if ((game.res.gold || 0) < 500) {
-    showToast('💰 500이 필요해요', 'warn');
+  if ((game.res.gold || 0) < 2500) {
+    showToast('💰 2500이 필요해요', 'warn');
     return;
   }
 
-  addRes('gold', -500);
+  addRes('gold', -2500);
   const damage = (game.totalPower || 100) * 100 + Math.floor(Math.random() * 1000);
   game.bossRaid.myDamage += damage;
   game.bossRaid.attackCount = (game.bossRaid.attackCount || 0) + 1;
@@ -15687,7 +16622,7 @@ async function renderTribeBrowser() {
         color: white; border: 3px solid var(--wood-dark); border-radius: 10px;
         padding: 12px; font-family: inherit; font-weight: bold; font-size: 13px;
         cursor: pointer; box-shadow: 0 3px 0 var(--wood-dark);
-      ">➕ 부족 만들기 (💰 5000)</button>
+      ">➕ 부족 만들기 (💰 25000)</button>
       <button id="refresh-tribes-btn" style="
         background: linear-gradient(to bottom, #42a5f5, #1565c0);
         color: white; border: 2px solid var(--wood-dark); border-radius: 10px;
@@ -15753,8 +16688,8 @@ async function renderTribeBrowser() {
 window.renderTribeBrowser = renderTribeBrowser;
 
 function promptCreateTribe() {
-  if ((game.res.gold || 0) < 5000) {
-    showToast('💰 5000이 필요해요', 'warn');
+  if ((game.res.gold || 0) < 25000) {
+    showToast('💰 25000이 필요해요', 'warn');
     return;
   }
   const name = prompt('부족 이름 (2~20자):');
@@ -15781,7 +16716,7 @@ async function createTribe(name, desc, icon) {
       members: { [encodeURIComponent(myNick)]: { joinedAt: Date.now(), role: 'leader' } },
     });
     await _firebaseDB.ref(`player_tribes/${encodeURIComponent(myNick)}`).set(tribeId);
-    addRes('gold', -5000);
+    addRes('gold', -25000);
     showToast(`🎉 부족 "${name}" 생성!`, 'gain');
     try { playSound('victory'); } catch (e) {}
     renderTribe();
@@ -15824,58 +16759,474 @@ async function renderMyTribe(tribe) {
   const myNick = game.player.nickname;
   const myRole = tribe.members[encodeURIComponent(myNick)]?.role || 'member';
   const isLeader = myRole === 'leader';
+  const isOfficer = myRole === 'officer';
+  const exp = tribe.exp || 0;
+  const lvExpNeed = (tribe.level || 1) * 5000;  // 레벨당 필요 경험치
+  const expPct = Math.min(100, (exp / lvExpNeed) * 100);
 
-  // 멤버 정보 가져오기
-  const memberList = [];
-  for (const [encNick, m] of Object.entries(tribe.members || {})) {
-    const nick = decodeURIComponent(encNick);
-    let level = 1, power = 100, avatar = '⛺';
-    try {
-      const pSnap = await _firebaseDB.ref(`players/${encNick}`).once('value');
-      const p = pSnap.val();
-      if (p) { level = p.level || 1; power = p.power || 100; avatar = p.avatar || '⛺'; }
-    } catch (e) {}
-    memberList.push({ nickname: nick, level, power, avatar, role: m.role, joinedAt: m.joinedAt });
-  }
-  memberList.sort((a, b) => b.level - a.level);
+  // 부족 정보를 game 객체에 캐시 (실시간 보너스 적용용)
+  game._myTribeCache = {
+    id: tribe.id,
+    name: tribe.name,
+    icon: tribe.icon,
+    level: tribe.level || 1,
+    memberCount,
+    bonusPct: tribeBonus,
+  };
 
   body.innerHTML = `
-    <div style="background:linear-gradient(135deg, #6a1b9a, #4a148c); border:3px solid #ffd54f; border-radius:14px; padding:14px; margin-bottom:12px; color:white; text-align:center;">
+    <div style="background:linear-gradient(135deg, #6a1b9a, #4a148c); border:3px solid #ffd54f; border-radius:14px; padding:14px; margin-bottom:10px; color:white; text-align:center;">
       <div style="font-size:48px;">${tribe.icon || '🏕'}</div>
       <div style="font-size:20px; font-weight:bold; color:#ffd54f;">${tribe.name}</div>
       <div style="font-size:11px; color:#e1bee7; margin-top:4px;">${tribe.desc || ''}</div>
-      <div style="margin-top:8px; padding:6px; background:rgba(0,0,0,0.3); border-radius:6px; display:inline-block;">
-        <span style="font-size:11px;">Lv.${tribe.level || 1} · 👥 ${memberCount}/20명 · 💪 부족 보너스 +${tribeBonus}%</span>
+      <div style="margin-top:8px; padding:6px 10px; background:rgba(0,0,0,0.3); border-radius:6px; display:inline-block;">
+        <span style="font-size:11px;">Lv.${tribe.level || 1} · 👥 ${memberCount}/20명 · 💪 +${tribeBonus}%</span>
       </div>
+      <div style="margin-top:8px; background:rgba(0,0,0,0.4); border-radius:6px; overflow:hidden; height:8px;">
+        <div style="background:linear-gradient(to right, #ffd700, #ff9800); height:100%; width:${expPct}%; transition: width 0.3s;"></div>
+      </div>
+      <div style="font-size:10px; color:#e1bee7; margin-top:3px;">📈 EXP ${exp.toLocaleString()} / ${lvExpNeed.toLocaleString()}</div>
     </div>
 
-    <div style="background:rgba(255,255,255,0.7); border:2px solid var(--wood); border-radius:10px; padding:10px; margin-bottom:12px;">
-      <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:8px;">👥 부족원 (${memberCount})</div>
-      ${memberList.map(m => `
-        <div style="display:flex; align-items:center; gap:8px; padding:6px; margin-bottom:4px; background:#fff; border:1px solid #ddd; border-radius:6px;">
-          <div style="font-size:24px;">${m.avatar}</div>
-          <div style="flex:1;">
-            <div style="font-weight:bold; font-size:12px;">
-              ${m.role === 'leader' ? '👑' : ''} ${m.nickname}
-              ${m.nickname === myNick ? ' <span style="color:#fb8c00; font-size:10px;">(나)</span>' : ''}
-            </div>
-            <div style="font-size:10px; color:#666;">Lv.${m.level} · ⚔ ${m.power.toLocaleString()}</div>
-          </div>
-        </div>
-      `).join('')}
+    <div style="display:flex; gap:3px; margin-bottom:10px; border-bottom:2px dashed var(--wood-dark); padding-bottom:6px; flex-wrap:wrap;">
+      <button class="tribe-tab active" data-tab="overview" style="flex:1; background:linear-gradient(to bottom, #ab47bc, #6a1b9a); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏠 개요</button>
+      <button class="tribe-tab" data-tab="members" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">👥 멤버</button>
+      <button class="tribe-tab" data-tab="vault" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">🏛 금고</button>
+      <button class="tribe-tab" data-tab="chat" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">💬 채팅</button>
+      <button class="tribe-tab" data-tab="notice" style="flex:1; background:#fff; color:var(--wood-dark); border:2px solid var(--wood-dark); border-radius:6px; padding:6px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer; min-width:0;">📢 공지</button>
     </div>
 
-    <button id="leave-tribe-btn" style="
-      width:100%;
-      background: linear-gradient(to bottom, #ef5350, #c62828);
-      color: white; border: 2px solid var(--wood-dark); border-radius: 10px;
-      padding: 10px; font-family: inherit; font-weight: bold;
-      cursor: pointer;
-    ">${isLeader ? '🚪 부족 해체' : '🚪 부족 탈퇴'}</button>
+    <div id="tribe-tab-content"></div>
+
+    <div style="margin-top:12px; display:flex; gap:6px;">
+      <button id="leave-tribe-btn" style="
+        flex:1;
+        background: linear-gradient(to bottom, #ef5350, #c62828);
+        color: white; border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 8px; font-family: inherit; font-weight: bold; font-size: 12px;
+        cursor: pointer;
+      ">${isLeader ? '🚪 부족 해체' : '🚪 부족 탈퇴'}</button>
+      <button id="tribe-refresh-btn" style="
+        background: linear-gradient(to bottom, #42a5f5, #1565c0);
+        color: white; border: 2px solid var(--wood-dark); border-radius: 8px;
+        padding: 8px 14px; font-family: inherit; font-weight: bold; font-size: 12px;
+        cursor: pointer;
+      ">🔄</button>
+    </div>
   `;
 
+  // 탭 핸들러
+  body.querySelectorAll('.tribe-tab').forEach(btn => {
+    btn.onclick = () => {
+      body.querySelectorAll('.tribe-tab').forEach(x => {
+        x.classList.remove('active');
+        x.style.background = '#fff';
+        x.style.color = 'var(--wood-dark)';
+      });
+      btn.classList.add('active');
+      btn.style.background = 'linear-gradient(to bottom, #ab47bc, #6a1b9a)';
+      btn.style.color = 'white';
+      renderTribeTab(tribe, btn.dataset.tab, { isLeader, isOfficer, myNick });
+    };
+  });
+
   document.getElementById('leave-tribe-btn').onclick = () => leaveTribe(tribe, isLeader);
+  document.getElementById('tribe-refresh-btn').onclick = () => renderTribe();
+
+  // 기본 탭: 개요
+  renderTribeTab(tribe, 'overview', { isLeader, isOfficer, myNick });
 }
+
+// === 부족 탭 컨텐츠 렌더 ===
+async function renderTribeTab(tribe, tab, ctx) {
+  const c = document.getElementById('tribe-tab-content');
+  if (!c) return;
+
+  if (tab === 'overview') {
+    const memberCount = Object.keys(tribe.members || {}).length;
+    const vault = tribe.vault || { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
+    const totalDonated = (tribe.totalDonated || 0);
+    c.innerHTML = `
+      <div style="background:rgba(255,255,255,0.7); border:2px solid var(--wood); border-radius:10px; padding:10px;">
+        <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:6px;">📊 부족 정보</div>
+        <div style="font-size:12px; line-height:1.7; color:var(--wood-dark);">
+          🏛 부족 ID: <b>${tribe.id}</b><br>
+          👑 부족장: <b>${decodeURIComponent(tribe.leader || '')}</b><br>
+          📅 창설일: <b>${tribe.createdAt ? new Date(tribe.createdAt).toLocaleDateString('ko-KR') : '-'}</b><br>
+          ⭐ 레벨: <b style="color:#bf8b00;">Lv.${tribe.level || 1}</b><br>
+          👥 부족원: <b>${memberCount}/20명</b><br>
+          💰 총 기부량: <b>${totalDonated.toLocaleString()}</b><br>
+        </div>
+      </div>
+      <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-top:8px;">
+        <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:4px; text-align:center;">🎁 부족 보너스 (활성)</div>
+        <div style="font-size:12px; line-height:1.7;">
+          ⚔ 전투력 <b style="color:var(--red);">+${(tribe.level || 1) * 2}%</b><br>
+          💰 자원 획득 <b style="color:var(--green-ok);">+${(tribe.level || 1) * 1}%</b><br>
+          🦁 펫 전투력 <b style="color:#1976d2;">+${Math.floor((tribe.level || 1) * 1.5)}%</b><br>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.5); border:2px dashed var(--wood-dark); border-radius:10px; padding:10px; margin-top:8px;">
+        <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:4px;">💡 레벨업 방법</div>
+        <div style="font-size:11px; color:var(--wood-dark); line-height:1.5;">
+          🏛 금고에 자원을 기부하면 부족 경험치가 누적됩니다.<br>
+          💰 금화 1개 = 1 EXP, 보석 1개 = 100 EXP<br>
+          📈 다음 레벨까지: <b>${((tribe.level || 1) * 5000 - (tribe.exp || 0)).toLocaleString()} EXP</b>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (tab === 'members') {
+    c.innerHTML = '<div style="text-align:center; padding:20px; color:var(--wood-dark);">🔄 멤버 정보 로딩 중...</div>';
+    const memberList = [];
+    for (const [encNick, m] of Object.entries(tribe.members || {})) {
+      const nick = decodeURIComponent(encNick);
+      let level = 1, power = 100, avatar = '⛺';
+      try {
+        const pSnap = await _firebaseDB.ref(`players/${encNick}`).once('value');
+        const p = pSnap.val();
+        if (p) { level = p.level || 1; power = p.power || 100; avatar = p.avatar || '⛺'; }
+      } catch (e) {}
+      memberList.push({ nickname: nick, encNick, level, power, avatar, role: m.role || 'member', joinedAt: m.joinedAt || 0, donated: m.donated || 0 });
+    }
+    // 정렬 모드
+    if (!game._tribeMemberSort) game._tribeMemberSort = 'power';
+    const sm = game._tribeMemberSort;
+    if (sm === 'level') memberList.sort((a,b) => b.level - a.level);
+    else if (sm === 'power') memberList.sort((a,b) => b.power - a.power);
+    else if (sm === 'donated') memberList.sort((a,b) => b.donated - a.donated);
+    else if (sm === 'recent') memberList.sort((a,b) => b.joinedAt - a.joinedAt);
+    // role 우선: leader→officer→member 항상 상단
+    const roleRank = { leader: 3, officer: 2, member: 1 };
+    memberList.sort((a,b) => (roleRank[b.role] || 0) - (roleRank[a.role] || 0) || 0);
+
+    c.innerHTML = `
+      <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:10px; color:var(--wood-dark); font-weight:bold;">정렬:</span>
+        ${['power','level','donated','recent'].map(s => `
+          <button class="tribe-mem-sort" data-sort="${s}" style="
+            background: ${sm === s ? 'linear-gradient(to bottom, #ab47bc, #6a1b9a)' : '#fff'};
+            color: ${sm === s ? 'white' : 'var(--wood-dark)'};
+            border: 2px solid var(--wood-dark); border-radius: 6px;
+            padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold; cursor: pointer;
+          ">${s === 'power' ? '⚔ 전투력' : s === 'level' ? '⭐ 레벨' : s === 'donated' ? '💎 기부' : '🆕 최근가입'}</button>
+        `).join('')}
+      </div>
+      <div style="background:rgba(255,255,255,0.7); border:2px solid var(--wood); border-radius:10px; padding:8px;">
+        ${memberList.map(m => `
+          <div style="display:flex; align-items:center; gap:8px; padding:6px; margin-bottom:4px; background:#fff; border:1px solid #ddd; border-radius:6px;">
+            <div style="font-size:24px;">${m.avatar}</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:bold; font-size:12px;">
+                ${m.role === 'leader' ? '👑' : m.role === 'officer' ? '🛡' : ''} ${m.nickname}
+                ${m.nickname === ctx.myNick ? ' <span style="color:#fb8c00; font-size:10px;">(나)</span>' : ''}
+              </div>
+              <div style="font-size:10px; color:#666;">Lv.${m.level} · ⚔ ${(m.power||0).toLocaleString()} · 💎 ${(m.donated||0).toLocaleString()}</div>
+            </div>
+            ${ctx.isLeader && m.nickname !== ctx.myNick ? `
+              <div style="display:flex; gap:3px; flex-direction:column;">
+                ${m.role !== 'officer' ? `<button class="promote-btn" data-nick="${m.encNick}" style="background:#42a5f5; color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:2px 6px; font-size:9px; cursor:pointer; font-family:inherit;">🛡 임명</button>` : `<button class="demote-btn" data-nick="${m.encNick}" style="background:#ff9800; color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:2px 6px; font-size:9px; cursor:pointer; font-family:inherit;">↓ 해임</button>`}
+                <button class="kick-btn" data-nick="${m.encNick}" data-name="${m.nickname}" style="background:#ef5350; color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:2px 6px; font-size:9px; cursor:pointer; font-family:inherit;">🦶 추방</button>
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    // 정렬 핸들러
+    c.querySelectorAll('.tribe-mem-sort').forEach(btn => {
+      btn.onclick = () => { game._tribeMemberSort = btn.dataset.sort; renderTribeTab(tribe, 'members', ctx); };
+    });
+    // 임명/해임/추방 핸들러
+    c.querySelectorAll('.promote-btn').forEach(btn => {
+      btn.onclick = () => tribePromote(tribe.id, btn.dataset.nick, 'officer');
+    });
+    c.querySelectorAll('.demote-btn').forEach(btn => {
+      btn.onclick = () => tribePromote(tribe.id, btn.dataset.nick, 'member');
+    });
+    c.querySelectorAll('.kick-btn').forEach(btn => {
+      btn.onclick = () => tribeKick(tribe.id, btn.dataset.nick, btn.dataset.name);
+    });
+    return;
+  }
+
+  if (tab === 'vault') {
+    const vault = tribe.vault || { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
+    const resInfo = {
+      gold:  { ico: '💰', name: '금화', exp: 1 },
+      food:  { ico: '🍖', name: '식량', exp: 1 },
+      wood:  { ico: '🪵', name: '목재', exp: 1 },
+      stone: { ico: '🪨', name: '석재', exp: 2 },
+      gem:   { ico: '💎', name: '보석', exp: 100 },
+    };
+    c.innerHTML = `
+      <div style="background:linear-gradient(to bottom, #fff8e1, #ffe082); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:8px; text-align:center;">
+        <div style="font-weight:bold; color:var(--wood-dark);">🏛 부족 금고</div>
+        <div style="font-size:10px; color:var(--wood-dark); margin-top:2px;">기부 시 부족 EXP 누적 → 자동 레벨업</div>
+      </div>
+      ${Object.entries(resInfo).map(([k, info]) => {
+        const owned = game.res[k] || 0;
+        const stored = vault[k] || 0;
+        return `
+          <div style="background:#fff; border:2px solid var(--wood); border-radius:8px; padding:8px; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="font-size:22px;">${info.ico}</div>
+              <div style="flex:1;">
+                <div style="font-size:12px; font-weight:bold;">${info.name} <span style="font-size:9px; color:var(--wood-dark);">(1개당 ${info.exp} EXP)</span></div>
+                <div style="font-size:10px; color:var(--wood-dark);">보유 <b>${owned.toLocaleString()}</b> · 금고 <b style="color:var(--gold);">${stored.toLocaleString()}</b></div>
+              </div>
+            </div>
+            <div style="display:flex; gap:3px; margin-top:6px;">
+              <button class="donate-btn" data-res="${k}" data-amt="10" style="flex:1; font-size:10px; padding:4px; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:5px; font-family:inherit; font-weight:bold; cursor:pointer;">+10</button>
+              <button class="donate-btn" data-res="${k}" data-amt="100" style="flex:1; font-size:10px; padding:4px; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:5px; font-family:inherit; font-weight:bold; cursor:pointer;">+100</button>
+              <button class="donate-btn" data-res="${k}" data-amt="1000" style="flex:1; font-size:10px; padding:4px; background:linear-gradient(to bottom, #81c784, #1b5e20); color:white; border:2px solid var(--wood-dark); border-radius:5px; font-family:inherit; font-weight:bold; cursor:pointer;">+1000</button>
+              <button class="donate-btn" data-res="${k}" data-amt="all" style="flex:1; font-size:10px; padding:4px; background:linear-gradient(to bottom, #ff9800, #e65100); color:white; border:2px solid var(--wood-dark); border-radius:5px; font-family:inherit; font-weight:bold; cursor:pointer;">전부</button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    `;
+    c.querySelectorAll('.donate-btn').forEach(btn => {
+      btn.onclick = () => tribeDonate(tribe.id, btn.dataset.res, btn.dataset.amt);
+    });
+    return;
+  }
+
+  if (tab === 'chat') {
+    c.innerHTML = `
+      <div style="background:rgba(0,0,0,0.05); border:2px solid var(--wood); border-radius:8px; padding:8px; height:50vh; max-height:300px; overflow-y:auto; margin-bottom:8px;" id="tribe-chat-log">
+        <div style="text-align:center; color:var(--wood-dark); font-size:11px;">🔄 메시지 로딩 중...</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="tribe-chat-input" maxlength="100" placeholder="부족원들과 채팅..." style="flex:1; padding:8px; border:2px solid var(--wood-dark); border-radius:8px; font-family:inherit; font-size:12px;">
+        <button id="tribe-chat-send" style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:8px 14px; font-family:inherit; font-weight:bold; cursor:pointer;">📤</button>
+      </div>
+    `;
+    // 채팅 로드
+    try {
+      const snap = await _firebaseDB.ref(`tribe_chat/${tribe.id}`).limitToLast(50).once('value');
+      const msgs = snap.val() || {};
+      const log = c.querySelector('#tribe-chat-log');
+      const sortedMsgs = Object.entries(msgs).sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
+      if (sortedMsgs.length === 0) {
+        log.innerHTML = '<div style="text-align:center; color:var(--wood-dark); font-size:11px; padding:20px;">💬 아직 메시지가 없어요. 첫 메시지를 남겨보세요!</div>';
+      } else {
+        log.innerHTML = sortedMsgs.map(([id, m]) => {
+          const isMe = decodeURIComponent(m.from || '') === ctx.myNick;
+          const time = new Date(m.ts || 0).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+          return `
+            <div style="display:flex; ${isMe ? 'justify-content:flex-end;' : ''} margin-bottom:6px;">
+              <div style="${isMe ? 'background:#e3f2fd; border:1px solid #42a5f5;' : 'background:#fff; border:1px solid #ddd;'} border-radius:8px; padding:6px 10px; max-width:80%;">
+                <div style="font-size:9px; color:var(--wood-dark); margin-bottom:2px;">
+                  <b>${decodeURIComponent(m.from || '')}</b> <span style="opacity:0.6;">${time}</span>
+                </div>
+                <div style="font-size:12px; word-break:break-word;">${escapeHtml(m.text || '')}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        log.scrollTop = log.scrollHeight;
+      }
+    } catch (e) {
+      c.querySelector('#tribe-chat-log').innerHTML = '<div style="text-align:center; color:var(--red); font-size:11px; padding:20px;">❌ 채팅 로드 실패</div>';
+    }
+    // 전송 핸들러
+    const sendChat = () => {
+      const inp = c.querySelector('#tribe-chat-input');
+      const text = (inp.value || '').trim();
+      if (!text) return;
+      tribeSendChat(tribe.id, text).then(() => {
+        inp.value = '';
+        renderTribeTab(tribe, 'chat', ctx);
+      });
+    };
+    c.querySelector('#tribe-chat-send').onclick = sendChat;
+    c.querySelector('#tribe-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+    return;
+  }
+
+  if (tab === 'notice') {
+    const notice = tribe.notice || '';
+    const canEdit = ctx.isLeader || ctx.isOfficer;
+    c.innerHTML = `
+      <div style="background:linear-gradient(to bottom, #fff3e0, #ffe0b2); border:3px solid #f57c00; border-radius:10px; padding:12px; min-height:120px;">
+        <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:6px;">📢 부족 공지사항</div>
+        <div style="font-size:12px; color:var(--wood-dark); line-height:1.6; white-space:pre-wrap; word-break:break-word;">${escapeHtml(notice) || '<span style="opacity:0.5;">아직 공지가 없어요.</span>'}</div>
+      </div>
+      ${canEdit ? `
+        <div style="margin-top:10px;">
+          <div style="font-size:11px; color:var(--wood-dark); margin-bottom:4px;">✏️ 공지 작성 ${ctx.isLeader ? '(부족장)' : '(부방장)'}</div>
+          <textarea id="tribe-notice-edit" maxlength="500" rows="4" placeholder="부족 공지를 작성하세요..." style="width:100%; padding:8px; border:2px solid var(--wood-dark); border-radius:8px; font-family:inherit; font-size:12px; box-sizing:border-box; resize:vertical;">${notice}</textarea>
+          <button id="tribe-notice-save" style="margin-top:6px; width:100%; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:8px; font-family:inherit; font-weight:bold; cursor:pointer;">📢 공지 저장</button>
+        </div>
+      ` : `
+        <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.05); border-radius:8px; text-align:center; font-size:11px; color:var(--wood-dark);">
+          ℹ️ 공지는 부족장/부방장만 작성할 수 있어요.
+        </div>
+      `}
+    `;
+    if (canEdit) {
+      c.querySelector('#tribe-notice-save').onclick = () => {
+        const text = c.querySelector('#tribe-notice-edit').value;
+        tribeSaveNotice(tribe.id, text);
+      };
+    }
+    return;
+  }
+}
+
+// === 길드 헬퍼: HTML 이스케이프 ===
+function escapeHtml(s) {
+  if (typeof s !== 'string') return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+window.escapeHtml = escapeHtml;
+
+// === 길드 기부 ===
+async function tribeDonate(tribeId, res, amount) {
+  try {
+    const owned = game.res[res] || 0;
+    if (owned <= 0) { showToast('자원이 없어요', 'warn'); return; }
+    let amt = amount === 'all' ? owned : Math.min(parseInt(amount), owned);
+    if (amt <= 0) return;
+
+    const expPer = { gold:1, food:1, wood:1, stone:2, gem:100 }[res] || 1;
+    const expGain = amt * expPer;
+
+    const myNick = game.player.nickname;
+    const encNick = encodeURIComponent(myNick);
+
+    // Firebase 트랜잭션: 금고 / EXP / 멤버 기부량 누적
+    await _firebaseDB.ref(`tribes/${tribeId}/vault/${res}`).transaction(v => (v || 0) + amt);
+    await _firebaseDB.ref(`tribes/${tribeId}/exp`).transaction(v => (v || 0) + expGain);
+    await _firebaseDB.ref(`tribes/${tribeId}/totalDonated`).transaction(v => (v || 0) + expGain);
+    await _firebaseDB.ref(`tribes/${tribeId}/members/${encNick}/donated`).transaction(v => (v || 0) + expGain);
+
+    // 자동 레벨업 체크
+    const tSnap = await _firebaseDB.ref(`tribes/${tribeId}`).once('value');
+    const tribe = tSnap.val();
+    if (tribe) {
+      let curLv = tribe.level || 1;
+      let curExp = tribe.exp || 0;
+      let leveledUp = false;
+      while (curExp >= curLv * 5000) {
+        curExp -= curLv * 5000;
+        curLv += 1;
+        leveledUp = true;
+      }
+      if (leveledUp) {
+        await _firebaseDB.ref(`tribes/${tribeId}/level`).set(curLv);
+        await _firebaseDB.ref(`tribes/${tribeId}/exp`).set(curExp);
+        showToast(`🎉 부족 Lv.${curLv} 달성!`, 'gain');
+        try { playSound('levelUp'); } catch (e) {}
+      }
+    }
+
+    // 내 자원 차감
+    game.res[res] -= amt;
+    if (game.res[res] < 0) game.res[res] = 0;
+    showToast(`${({gold:'💰',food:'🍖',wood:'🪵',stone:'🪨',gem:'💎'})[res]} +${amt} 기부 (+${expGain} EXP)`, 'gain');
+    try { playSound('collect'); } catch (e) {}
+    updateHUD();
+    renderTribe();
+  } catch (e) {
+    showToast('기부 실패: ' + e.message, 'warn');
+    console.warn('tribeDonate error', e);
+  }
+}
+window.tribeDonate = tribeDonate;
+
+// === 길드 채팅 전송 ===
+async function tribeSendChat(tribeId, text) {
+  try {
+    const msgId = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    await _firebaseDB.ref(`tribe_chat/${tribeId}/${msgId}`).set({
+      from: encodeURIComponent(game.player.nickname),
+      text: text.slice(0, 100),
+      ts: Date.now(),
+    });
+    try { playSound('click'); } catch (e) {}
+  } catch (e) {
+    showToast('전송 실패: ' + e.message, 'warn');
+  }
+}
+window.tribeSendChat = tribeSendChat;
+
+// === 길드 공지 저장 ===
+async function tribeSaveNotice(tribeId, text) {
+  try {
+    await _firebaseDB.ref(`tribes/${tribeId}/notice`).set((text || '').slice(0, 500));
+    showToast('📢 공지 저장 완료!', 'gain');
+    renderTribe();
+  } catch (e) {
+    showToast('저장 실패: ' + e.message, 'warn');
+  }
+}
+window.tribeSaveNotice = tribeSaveNotice;
+
+// === 길드 멤버 임명/해임 ===
+async function tribePromote(tribeId, encNick, role) {
+  try {
+    await _firebaseDB.ref(`tribes/${tribeId}/members/${encNick}/role`).set(role);
+    showToast(role === 'officer' ? '🛡 부방장 임명!' : '↓ 일반 멤버로 변경', 'gain');
+    renderTribe();
+  } catch (e) {
+    showToast('실패: ' + e.message, 'warn');
+  }
+}
+window.tribePromote = tribePromote;
+
+// === 길드 멤버 추방 ===
+async function tribeKick(tribeId, encNick, name) {
+  if (!confirm(`"${name}"을(를) 부족에서 추방할까요?`)) return;
+  try {
+    await _firebaseDB.ref(`tribes/${tribeId}/members/${encNick}`).remove();
+    await _firebaseDB.ref(`player_tribes/${encNick}`).remove();
+    showToast(`🦶 ${name} 추방됨`, 'warn');
+    renderTribe();
+  } catch (e) {
+    showToast('실패: ' + e.message, 'warn');
+  }
+}
+window.tribeKick = tribeKick;
+
+// === 부족 정보 자동 캐시 (로그인 시/주기적으로) ===
+async function refreshMyTribeCache() {
+  try {
+    if (!_onlineMode || !game.player || !game.player.nickname) {
+      game._myTribeCache = null;
+      return;
+    }
+    const snap = await _firebaseDB.ref(`player_tribes/${encodeURIComponent(game.player.nickname)}`).once('value');
+    const tribeId = snap.val();
+    if (!tribeId) {
+      game._myTribeCache = null;
+      return;
+    }
+    const tSnap = await _firebaseDB.ref(`tribes/${tribeId}`).once('value');
+    const tribe = tSnap.val();
+    if (!tribe) {
+      game._myTribeCache = null;
+      return;
+    }
+    game._myTribeCache = {
+      id: tribeId,
+      name: tribe.name,
+      icon: tribe.icon,
+      level: tribe.level || 1,
+      memberCount: Object.keys(tribe.members || {}).length,
+      bonusPct: (tribe.level || 1) * 2,
+    };
+    // 전투력 재계산 (보너스 즉시 반영)
+    try { recomputePower(); } catch (e) {}
+  } catch (e) {
+    console.warn('refreshMyTribeCache failed', e);
+  }
+}
+window.refreshMyTribeCache = refreshMyTribeCache;
 
 async function leaveTribe(tribe, isLeader) {
   const msg = isLeader ? `부족 "${tribe.name}"을(를) 해체할까요?\n모든 멤버가 자동 탈퇴됩니다.` : `부족 "${tribe.name}"에서 탈퇴할까요?`;
@@ -15900,6 +17251,332 @@ async function leaveTribe(tribe, isLeader) {
     showToast('실패: ' + e.message, 'warn');
   }
 }
+
+// ============================================================================
+// 🎁 시즌 패스 시스템 (30일 미션 트랙)
+// ============================================================================
+// 30일간 일일 미션 → 누적 EXP → 레벨별 보상 (무료 + VIP 트랙)
+const SEASON_PASS_REWARDS = [
+  // [level, freeReward, vipReward]
+  { lv: 1,  free: { gold: 1000 },          vip: { gem: 30 } },
+  { lv: 2,  free: { food: 500 },           vip: { gold: 5000 } },
+  { lv: 3,  free: { wood: 500 },           vip: { gem: 50 } },
+  { lv: 4,  free: { gem: 10 },             vip: { gold: 10000 } },
+  { lv: 5,  free: { gold: 3000 },          vip: { gem: 100, special: 'sh_pet_egg_rare' } },
+  { lv: 6,  free: { stone: 500 },          vip: { gold: 15000 } },
+  { lv: 7,  free: { gem: 20 },             vip: { gem: 150 } },
+  { lv: 8,  free: { gold: 5000 },          vip: { gold: 25000 } },
+  { lv: 9,  free: { food: 1000 },          vip: { gem: 200 } },
+  { lv: 10, free: { gem: 30, gold: 5000 }, vip: { gem: 300, special: 'sh_pet_egg_epic' } },
+  { lv: 11, free: { wood: 1000 },          vip: { gold: 50000 } },
+  { lv: 12, free: { gold: 7000 },          vip: { gem: 250 } },
+  { lv: 13, free: { gem: 40 },             vip: { gold: 75000 } },
+  { lv: 14, free: { stone: 1000 },         vip: { gem: 400 } },
+  { lv: 15, free: { gem: 50, gold: 10000 },vip: { gem: 500, special: 'sh_pet_egg_epic' } },
+  { lv: 16, free: { food: 2000 },          vip: { gold: 100000 } },
+  { lv: 17, free: { gold: 15000 },         vip: { gem: 600 } },
+  { lv: 18, free: { gem: 60 },             vip: { gold: 150000 } },
+  { lv: 19, free: { wood: 2000 },          vip: { gem: 800 } },
+  { lv: 20, free: { gem: 100, gold: 20000 }, vip: { gem: 1000, special: 'sh_pet_egg_myth' } },
+  { lv: 21, free: { stone: 2000 },         vip: { gold: 200000 } },
+  { lv: 22, free: { gold: 30000 },         vip: { gem: 1200 } },
+  { lv: 23, free: { gem: 80 },             vip: { gold: 300000 } },
+  { lv: 24, free: { food: 5000 },          vip: { gem: 1500 } },
+  { lv: 25, free: { gem: 150, gold: 50000 }, vip: { gem: 2000, special: 'sh_pet_egg_myth' } },
+  { lv: 26, free: { wood: 5000 },          vip: { gold: 500000 } },
+  { lv: 27, free: { gold: 100000 },        vip: { gem: 2500 } },
+  { lv: 28, free: { gem: 200 },            vip: { gold: 700000 } },
+  { lv: 29, free: { stone: 10000 },        vip: { gem: 3000 } },
+  { lv: 30, free: { gem: 500, gold: 200000 }, vip: { gem: 5000, special: 'sh_pet_egg_myth' } },
+];
+
+const SEASON_DAILY_MISSIONS = [
+  { id: 'sm_tap30',     icon: '⛏', desc: '채집 30회',     target: 30,  type: 'tap',     exp: 10 },
+  { id: 'sm_collect5k', icon: '💰', desc: '금화 5000 획득',target: 5000,type: 'gold',    exp: 15 },
+  { id: 'sm_build3',    icon: '🏗', desc: '건물 3개 건설', target: 3,   type: 'build',   exp: 15 },
+  { id: 'sm_arena1',    icon: '🏟', desc: '투기장 1회',    target: 1,   type: 'arena',   exp: 10 },
+  { id: 'sm_pet1',      icon: '🦁', desc: '펫 1마리 소환', target: 1,   type: 'pet',     exp: 15 },
+  { id: 'sm_login',     icon: '✅', desc: '오늘 접속',     target: 1,   type: 'login',   exp: 5  },
+];
+
+// 시즌은 매월 1일부터 30일까지
+function getSeasonId() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}`;
+}
+function getSeasonDayProgress() {
+  // 시즌 내 몇 일째인지 (1~30)
+  return Math.min(30, new Date().getDate());
+}
+
+function ensureSeasonPassData() {
+  const seasonId = getSeasonId();
+  if (!game.seasonPass || game.seasonPass.seasonId !== seasonId) {
+    game.seasonPass = {
+      seasonId: seasonId,
+      exp: 0, level: 0,
+      claimed: {},
+      dailyMissions: {},
+      dailyClaimed: {},
+      vipUnlocked: (game.vipLevel || 0) >= 3,
+    };
+    return;
+  }
+  // 같은 시즌이지만 누락된 필드 자동 보완 (구버전 호환)
+  const sp = game.seasonPass;
+  if (typeof sp.exp !== 'number') sp.exp = 0;
+  if (typeof sp.level !== 'number') sp.level = 0;
+  if (!sp.claimed || typeof sp.claimed !== 'object') sp.claimed = {};
+  if (!sp.dailyMissions || typeof sp.dailyMissions !== 'object') sp.dailyMissions = {};
+  if (!sp.dailyClaimed || typeof sp.dailyClaimed !== 'object') sp.dailyClaimed = {};
+  // VIP 상태는 매번 새로 갱신 (구매하면 즉시 활성화)
+  sp.vipUnlocked = (game.vipLevel || 0) >= 3;
+}
+
+// 시즌 패스 EXP 추가 + 레벨 계산
+function addSeasonExp(amount) {
+  ensureSeasonPassData();
+  game.seasonPass.exp = (game.seasonPass.exp || 0) + amount;
+  // 100 EXP당 1 레벨
+  const newLevel = Math.min(30, Math.floor(game.seasonPass.exp / 100));
+  if (newLevel > (game.seasonPass.level || 0)) {
+    const prevLevel = game.seasonPass.level || 0;
+    game.seasonPass.level = newLevel;
+    try { showToast(`🎁 시즌 패스 Lv.${newLevel} 달성!`, 'gain'); } catch (e) {}
+    try { playSound('levelUp'); } catch (e) {}
+  }
+}
+window.addSeasonExp = addSeasonExp;
+
+// 일일 미션 진행도 갱신
+function updateSeasonMission(type, amount = 1) {
+  ensureSeasonPassData();
+  const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+  if (!game.seasonPass.dailyMissions[today]) {
+    // 오늘 미션 3개 랜덤 선택
+    const shuffled = [...SEASON_DAILY_MISSIONS].sort(() => Math.random() - 0.5).slice(0, 3);
+    game.seasonPass.dailyMissions[today] = {};
+    for (const m of shuffled) game.seasonPass.dailyMissions[today][m.id] = 0;
+  }
+  // 해당 type의 미션 진행
+  for (const m of SEASON_DAILY_MISSIONS) {
+    if (m.type === type && game.seasonPass.dailyMissions[today][m.id] !== undefined) {
+      game.seasonPass.dailyMissions[today][m.id] = Math.min(m.target, (game.seasonPass.dailyMissions[today][m.id] || 0) + amount);
+    }
+  }
+  try { updateSeasonBadge(); } catch (e) {}
+}
+window.updateSeasonMission = updateSeasonMission;
+
+function updateSeasonBadge() {
+  ensureSeasonPassData();
+  const badge = document.getElementById('season-badge');
+  if (!badge) return;
+  // 받을 수 있는 보상이 있으면 표시
+  let hasClaimable = false;
+  for (let lv = 1; lv <= (game.seasonPass.level || 0); lv++) {
+    if (!game.seasonPass.claimed[`${lv}_free`]) { hasClaimable = true; break; }
+    if (game.seasonPass.vipUnlocked && !game.seasonPass.claimed[`${lv}_vip`]) { hasClaimable = true; break; }
+  }
+  // 오늘 받을 수 있는 일일 미션 보상
+  const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+  const todayMissions = game.seasonPass.dailyMissions[today] || {};
+  if (!game.seasonPass.dailyClaimed[today]) {
+    let completed = 0;
+    for (const m of SEASON_DAILY_MISSIONS) {
+      if (todayMissions[m.id] !== undefined && todayMissions[m.id] >= m.target) completed++;
+    }
+    if (completed > 0) hasClaimable = true;
+  }
+  badge.style.display = hasClaimable ? 'flex' : 'none';
+  badge.textContent = hasClaimable ? '!' : '';
+}
+window.updateSeasonBadge = updateSeasonBadge;
+
+function openSeasonPass() {
+  ensureSeasonPassData();
+  document.getElementById('m-season-pass').classList.add('show');
+  renderSeasonPass();
+  // 접속 미션 자동 완료
+  updateSeasonMission('login', 1);
+}
+window.openSeasonPass = openSeasonPass;
+
+function renderSeasonPass() {
+  ensureSeasonPassData();
+  const body = document.getElementById('season-pass-body');
+  if (!body) return;
+
+  const sp = game.seasonPass;
+  const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+  const todayMissions = sp.dailyMissions[today] || {};
+  const dailyClaimed = !!sp.dailyClaimed[today];
+
+  // 오늘 미션이 비어 있으면 채워 넣기
+  if (Object.keys(todayMissions).length === 0) {
+    const shuffled = [...SEASON_DAILY_MISSIONS].sort(() => Math.random() - 0.5).slice(0, 3);
+    sp.dailyMissions[today] = {};
+    for (const m of shuffled) sp.dailyMissions[today][m.id] = 0;
+  }
+  const missions = sp.dailyMissions[today];
+  const missionDefs = SEASON_DAILY_MISSIONS.filter(m => missions[m.id] !== undefined);
+  const completedCount = missionDefs.filter(m => missions[m.id] >= m.target).length;
+  const allDone = completedCount === missionDefs.length;
+  const dailyExp = missionDefs.reduce((s, m) => s + (missions[m.id] >= m.target ? m.exp : 0), 0);
+
+  // EXP 진행도
+  const curExp = sp.exp || 0;
+  const curLevel = sp.level || 0;
+  const expForNext = (curLevel + 1) * 100;
+  const expPct = curLevel >= 30 ? 100 : Math.min(100, ((curExp % 100) / 100) * 100);
+
+  body.innerHTML = `
+    <div style="background:linear-gradient(135deg, #6a1b9a, #4a148c); border:3px solid #ffd54f; border-radius:14px; padding:14px; margin-bottom:10px; color:white;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        <div style="font-size:36px;">🎁</div>
+        <div style="flex:1;">
+          <div style="font-size:16px; font-weight:bold; color:#ffd54f;">${sp.seasonId} 시즌 패스</div>
+          <div style="font-size:11px; color:#e1bee7;">Lv.${curLevel} / 30 · EXP ${curExp.toLocaleString()}</div>
+        </div>
+        ${sp.vipUnlocked ? '<div style="background:linear-gradient(to bottom, #ffd700, #f57c00); color:#3e2723; padding:4px 8px; border-radius:8px; font-size:10px; font-weight:bold; border:2px solid #3e2723;">👑 VIP</div>' : ''}
+      </div>
+      <div style="background:rgba(0,0,0,0.4); border-radius:6px; overflow:hidden; height:10px;">
+        <div style="background:linear-gradient(to right, #ffd700, #ff9800); height:100%; width:${expPct}%; transition: width 0.5s;"></div>
+      </div>
+      <div style="font-size:10px; color:#e1bee7; margin-top:3px; text-align:center;">${curLevel >= 30 ? '🏆 최고 레벨!' : `다음 레벨까지: ${expForNext - curExp} EXP`}</div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.85); border:2px solid var(--wood); border-radius:10px; padding:10px; margin-bottom:10px;">
+      <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:6px;">📋 오늘의 미션 (${completedCount}/${missionDefs.length})</div>
+      ${missionDefs.map(m => {
+        const prog = missions[m.id] || 0;
+        const done = prog >= m.target;
+        return `
+          <div style="display:flex; align-items:center; gap:8px; padding:6px; margin-bottom:4px; background:${done?'#c8e6c9':'#fff'}; border:1px solid ${done?'#43a047':'#ddd'}; border-radius:6px;">
+            <div style="font-size:20px;">${m.icon}</div>
+            <div style="flex:1;">
+              <div style="font-size:11px; font-weight:bold; color:var(--wood-dark);">${m.desc}</div>
+              <div style="font-size:10px; color:#666;">진행 ${Math.min(prog, m.target)}/${m.target} · 보상 +${m.exp} EXP</div>
+            </div>
+            ${done ? '<div style="color:#43a047; font-size:14px; font-weight:bold;">✓</div>' : ''}
+          </div>
+        `;
+      }).join('')}
+      ${allDone && !dailyClaimed ? `
+        <button id="claim-daily-mission-btn" style="width:100%; margin-top:6px; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:8px; font-family:inherit; font-weight:bold; font-size:12px; cursor:pointer; animation:pulse 1.5s infinite;">🎁 일일 보상 받기 (+${dailyExp} EXP)</button>
+      ` : dailyClaimed ? '<div style="text-align:center; font-size:10px; color:#999; margin-top:4px;">✅ 오늘 보상 수령 완료</div>' : ''}
+    </div>
+
+    ${!sp.vipUnlocked ? `
+      <div style="background:linear-gradient(to bottom, #fff3e0, #ffd54f); border:2px solid #f57c00; border-radius:10px; padding:8px; margin-bottom:8px; text-align:center; font-size:11px;">
+        🔓 <b>VIP 트랙</b>은 VIP Lv.3 이상에서 자동 활성화됩니다.
+      </div>
+    ` : ''}
+
+    <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:6px;">🏆 보상 트랙</div>
+    <div id="season-reward-list" style="max-height:45vh; overflow-y:auto;"></div>
+  `;
+
+  // 보상 리스트 렌더
+  const rewardList = body.querySelector('#season-reward-list');
+  SEASON_PASS_REWARDS.forEach(r => {
+    const unlocked = curLevel >= r.lv;
+    const freeKey = `${r.lv}_free`;
+    const vipKey = `${r.lv}_vip`;
+    const freeClaimed = !!sp.claimed[freeKey];
+    const vipClaimed = !!sp.claimed[vipKey];
+    const card = document.createElement('div');
+    card.style.cssText = `display:flex; gap:6px; align-items:center; padding:8px; margin-bottom:5px; background:${unlocked?'#fff':'#f5f5f5'}; border:2px solid ${unlocked?'#ab47bc':'#bdbdbd'}; border-radius:8px; ${unlocked?'':'opacity:0.6;'}`;
+    card.innerHTML = `
+      <div style="background:linear-gradient(135deg, #ab47bc, #6a1b9a); color:white; min-width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:6px; font-weight:bold; font-size:13px;">${r.lv}</div>
+      <div style="flex:1; display:flex; gap:4px;">
+        <div style="flex:1; padding:4px; background:#e1bee7; border-radius:4px; ${freeClaimed?'opacity:0.4;':''}">
+          <div style="font-size:9px; color:#6a1b9a; font-weight:bold;">🆓 무료</div>
+          <div style="font-size:10px; color:var(--wood-dark);">${formatReward(r.free)}</div>
+          ${unlocked && !freeClaimed ? `<button class="claim-free-btn" data-lv="${r.lv}" style="margin-top:2px; width:100%; background:#66bb6a; color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:2px; font-size:9px; cursor:pointer; font-family:inherit; font-weight:bold;">받기</button>` : freeClaimed ? '<div style="text-align:center; font-size:9px; color:#43a047; font-weight:bold;">✓ 수령</div>' : '<div style="text-align:center; font-size:9px; color:#999;">잠김</div>'}
+        </div>
+        ${sp.vipUnlocked ? `
+          <div style="flex:1; padding:4px; background:linear-gradient(to bottom, #fff8e1, #ffe082); border-radius:4px; ${vipClaimed?'opacity:0.4;':''}">
+            <div style="font-size:9px; color:#bf8b00; font-weight:bold;">👑 VIP</div>
+            <div style="font-size:10px; color:var(--wood-dark);">${formatReward(r.vip)}</div>
+            ${unlocked && !vipClaimed ? `<button class="claim-vip-btn" data-lv="${r.lv}" style="margin-top:2px; width:100%; background:linear-gradient(to bottom, #ffd700, #f57c00); color:#3e2723; border:1px solid var(--wood-dark); border-radius:4px; padding:2px; font-size:9px; cursor:pointer; font-family:inherit; font-weight:bold;">받기</button>` : vipClaimed ? '<div style="text-align:center; font-size:9px; color:#43a047; font-weight:bold;">✓ 수령</div>' : '<div style="text-align:center; font-size:9px; color:#999;">잠김</div>'}
+          </div>
+        ` : `
+          <div style="flex:1; padding:4px; background:#eee; border-radius:4px; opacity:0.4;">
+            <div style="font-size:9px; color:#999; text-align:center;">🔒 VIP 전용</div>
+          </div>
+        `}
+      </div>
+    `;
+    rewardList.appendChild(card);
+  });
+
+  // 핸들러
+  const claimDaily = body.querySelector('#claim-daily-mission-btn');
+  if (claimDaily) {
+    claimDaily.onclick = () => {
+      sp.dailyClaimed[today] = true;
+      addSeasonExp(dailyExp);
+      try { showToast(`+${dailyExp} 시즌 EXP!`, 'gain'); } catch (e) {}
+      try { playSound('coin'); } catch (e) {}
+      renderSeasonPass();
+      updateSeasonBadge();
+    };
+  }
+  body.querySelectorAll('.claim-free-btn').forEach(btn => {
+    btn.onclick = () => claimSeasonReward(parseInt(btn.dataset.lv), 'free');
+  });
+  body.querySelectorAll('.claim-vip-btn').forEach(btn => {
+    btn.onclick = () => claimSeasonReward(parseInt(btn.dataset.lv), 'vip');
+  });
+}
+window.renderSeasonPass = renderSeasonPass;
+
+function formatReward(r) {
+  if (!r) return '';
+  const parts = [];
+  if (r.gold) parts.push(`💰${r.gold.toLocaleString()}`);
+  if (r.gem) parts.push(`💎${r.gem}`);
+  if (r.food) parts.push(`🍖${r.food.toLocaleString()}`);
+  if (r.wood) parts.push(`🪵${r.wood.toLocaleString()}`);
+  if (r.stone) parts.push(`🪨${r.stone.toLocaleString()}`);
+  if (r.special) parts.push(`🎁특별`);
+  return parts.join(' ');
+}
+
+function claimSeasonReward(lv, track) {
+  ensureSeasonPassData();
+  const sp = game.seasonPass;
+  const key = `${lv}_${track}`;
+  if (sp.claimed[key]) return;
+  if ((sp.level || 0) < lv) {
+    showToast('아직 레벨이 부족해요', 'warn');
+    return;
+  }
+  const rData = SEASON_PASS_REWARDS.find(r => r.lv === lv);
+  if (!rData) return;
+  const r = track === 'free' ? rData.free : rData.vip;
+  if (!r) return;
+  // 보상 지급
+  if (r.gold) addRes('gold', r.gold);
+  if (r.gem) addRes('gem', r.gem);
+  if (r.food) addRes('food', r.food);
+  if (r.wood) addRes('wood', r.wood);
+  if (r.stone) addRes('stone', r.stone);
+  if (r.special) {
+    // 특별 보상: 펫 알 같은 아이템
+    const item = SHOP_ITEMS.find(s => s.id === r.special);
+    if (item && item.effect) {
+      try { item.effect(); } catch (e) {}
+    }
+  }
+  sp.claimed[key] = true;
+  showToast(`🎁 Lv.${lv} ${track === 'vip' ? 'VIP' : '무료'} 보상 수령!`, 'gain');
+  try { playSound('coin'); } catch (e) {}
+  renderSeasonPass();
+  updateSeasonBadge();
+}
+window.claimSeasonReward = claimSeasonReward;
 
 // ============================================================================
 // 📅 캘린더 시스템
@@ -16858,8 +18535,20 @@ function renderRoulette() {
 
   const today = getTodayKey();
   const freeUsed = game.rouletteFreeDate === today;
-  const spinCost = freeUsed ? 10 : 0;
-  const canAffordSpin = !freeUsed || (game.res.gem || 0) >= spinCost;
+
+  // === 하루 3회 제한 ===
+  const MAX_SPINS_PER_DAY = 3;
+  // 날짜가 바뀌면 카운터 리셋
+  if (game.rouletteSpinsDate !== today) {
+    game.rouletteSpinsDate = today;
+    game.rouletteSpinsToday = 0;
+  }
+  const spinsUsed = game.rouletteSpinsToday || 0;
+  const spinsLeft = MAX_SPINS_PER_DAY - spinsUsed;
+  const limitReached = spinsLeft <= 0;
+
+  const spinCost = freeUsed ? 50 : 0;
+  const canAffordSpin = !limitReached && (!freeUsed || (game.res.gem || 0) >= spinCost);
 
   // 확률 표시용
   const totalWeight = ROULETTE_PRIZES.reduce((sum, p) => sum + p.weight, 0);
@@ -16907,9 +18596,11 @@ function renderRoulette() {
       </div>
 
       <div style="background:linear-gradient(135deg, #5d4037, #3e2723); border:3px solid #ffd54f; border-radius:12px; padding:14px; color:white; margin-bottom:10px;">
-        <div style="font-size:14px; font-weight:bold; color:#ffd54f;">${freeUsed ? '오늘 무료 회전 사용 완료' : '🎁 오늘 무료 회전 가능!'}</div>
+        <div style="font-size:14px; font-weight:bold; color:#ffd54f;">
+          ${limitReached ? '⏰ 오늘 회전 횟수 소진' : (freeUsed ? `🎰 추가 회전 가능 (${spinsLeft}회 남음)` : '🎁 오늘 무료 회전 가능!')}
+        </div>
         <div style="font-size:11px; color:#fff8e1; margin-top:4px;">
-          ${freeUsed ? '내일 다시 무료 회전 가능' : '하루 1회 무료 + 추가 회전 💎10/회'}
+          📅 오늘 ${spinsUsed}/${MAX_SPINS_PER_DAY}회 사용 · 무료 1회 + 추가 💎50/회 (최대 3회)
         </div>
       </div>
 
@@ -16920,9 +18611,9 @@ function renderRoulette() {
         padding: 14px; font-family: inherit; font-size: 16px; font-weight: bold;
         cursor: ${canAffordSpin ? 'pointer' : 'not-allowed'};
         box-shadow: 0 3px 0 #3e2723;
-        ${freeUsed ? '' : 'animation: pulse 1.2s infinite;'}
+        ${freeUsed || limitReached ? '' : 'animation: pulse 1.2s infinite;'}
       ">
-        ${freeUsed ? `🎰 추가 회전 (💎${spinCost})` : '🎰 무료 회전!'}
+        ${limitReached ? '⏰ 내일 다시!' : (freeUsed ? `🎰 추가 회전 (💎${spinCost})` : '🎰 무료 회전!')}
       </button>
 
       <div style="margin-top:12px; padding:10px; background:rgba(255,255,255,0.5); border:2px solid var(--wood); border-radius:10px;">
@@ -16939,17 +18630,32 @@ function renderRoulette() {
   `;
 
   const btn = document.getElementById('roulette-spin-btn');
-  btn.onclick = () => spinRoulette(freeUsed);
+  if (!limitReached) btn.onclick = () => spinRoulette(freeUsed);
 }
 window.renderRoulette = renderRoulette;
 
 function spinRoulette(isExtraSpin) {
-  const cost = isExtraSpin ? 10 : 0;
+  // === 하루 3회 제한 체크 ===
+  const today = getTodayKey();
+  if (game.rouletteSpinsDate !== today) {
+    game.rouletteSpinsDate = today;
+    game.rouletteSpinsToday = 0;
+  }
+  const MAX_SPINS_PER_DAY = 3;
+  if ((game.rouletteSpinsToday || 0) >= MAX_SPINS_PER_DAY) {
+    showToast('⏰ 오늘 회전 횟수 소진! 내일 다시 도전하세요', 'warn');
+    return;
+  }
+
+  const cost = isExtraSpin ? 50 : 0;
   if (cost > 0 && (game.res.gem || 0) < cost) {
     showToast('💎 보석 부족!', 'warn');
     return;
   }
   if (cost > 0) game.res.gem -= cost;
+
+  // 회전 카운터 증가
+  game.rouletteSpinsToday = (game.rouletteSpinsToday || 0) + 1;
 
   // 가중 랜덤 선택
   const totalWeight = ROULETTE_PRIZES.reduce((sum, p) => sum + p.weight, 0);
@@ -17733,8 +19439,34 @@ function startArenaBattle(enemy) {
 
   const myDef = PETS[myBestKey];
   const enemyDef = PETS[enemy.petKey];
-  const myFinalPower = myBestPower + Math.random() * 100;
-  const enemyFinalPower = enemy.petPower + Math.random() * 100;
+  let myFinalPower = myBestPower + Math.random() * 100;
+  let enemyFinalPower = enemy.petPower + Math.random() * 100;
+
+  // === ⚔ 펫 스킬 적용 ===
+  const mySkill = getPetSkill(myBestKey);
+  const enemySkill = getPetSkill(enemy.petKey);
+  if (mySkill) {
+    if (mySkill.type === 'attack' || mySkill.type === 'hybrid') {
+      myFinalPower *= mySkill.power;
+    }
+    if (mySkill.type === 'defense') {
+      // 방어 스킬: 상대 공격력 감소
+      enemyFinalPower *= mySkill.power;  // < 1.0
+    } else if (mySkill.defense) {
+      enemyFinalPower *= mySkill.defense;
+    }
+  }
+  if (enemySkill) {
+    if (enemySkill.type === 'attack' || enemySkill.type === 'hybrid') {
+      enemyFinalPower *= enemySkill.power;
+    }
+    if (enemySkill.type === 'defense') {
+      myFinalPower *= enemySkill.power;
+    } else if (enemySkill.defense) {
+      myFinalPower *= enemySkill.defense;
+    }
+  }
+
   const isWin = myFinalPower > enemyFinalPower;
 
   // 통계 업데이트
@@ -17765,6 +19497,8 @@ function startArenaBattle(enemy) {
   if (!game.stats) game.stats = {};
   game.stats.arenaMatches = (game.stats.arenaMatches || 0) + 1;
   if (isWin) game.stats.arenaWins = (game.stats.arenaWins || 0) + 1;
+  // 시즌 미션
+  if (typeof updateSeasonMission === 'function') updateSeasonMission('arena', 1);
 
   try { saveGame(); } catch (e) {}
   if ((typeof isOnlineMode === 'function') && isOnlineMode()) {
@@ -17782,6 +19516,7 @@ function startArenaBattle(enemy) {
     oldPoints,
     newPoints: game.arenaRankPoints,
     pointChange,
+    mySkill, enemySkill,
   });
 }
 window.startArenaBattle = startArenaBattle;
@@ -17831,6 +19566,7 @@ function showArenaBattleResult(result) {
           </div>
           <div style="font-size:11px; font-weight:bold; color:${myTier}; margin-top:4px;">${result.myDef.name}</div>
           <div style="font-size:10px; color:var(--wood-dark);">나 (⚔${result.myPower})</div>
+          ${result.mySkill ? `<div style="background:linear-gradient(135deg, #4527a0, #311b92); color:#fff; border-radius:6px; padding:2px 4px; margin-top:3px; font-size:8px;"><b>${result.mySkill.icon} ${result.mySkill.name}</b></div>` : ''}
         </div>
         <div style="font-size:32px;">⚔</div>
         <div style="text-align:center;">
@@ -17839,6 +19575,7 @@ function showArenaBattleResult(result) {
           </div>
           <div style="font-size:11px; font-weight:bold; color:${enemyTier}; margin-top:4px;">${result.enemyDef.name}</div>
           <div style="font-size:10px; color:var(--wood-dark);">${result.enemyNickname} (⚔${result.enemyPower})</div>
+          ${result.enemySkill ? `<div style="background:linear-gradient(135deg, #b71c1c, #7f0000); color:#fff; border-radius:6px; padding:2px 4px; margin-top:3px; font-size:8px;"><b>${result.enemySkill.icon} ${result.enemySkill.name}</b></div>` : ''}
         </div>
       </div>
 
@@ -19079,6 +20816,14 @@ function renderPetCatalogTab(tab) {
           <div style="font-size:12px; font-weight:bold; margin-top:4px; text-align:center;">${def.name}${count > 1 ? ' x' + count : ''}</div>
           <div style="font-size:9px; color:${color}; font-weight:bold; text-align:center;">[${PET_TIER_NAMES[def.tier]}]</div>
           <div style="font-size:11px; color:var(--red); text-align:center; margin-top:2px;">⚔ ${evoBonus}${evoLevel > 0 ? ' <span style="color:#ffa000;">(+' + (evoLevel * 50) + '%)</span>' : ''}</div>
+          ${(() => {
+            const sk = getPetSkill(key);
+            if (!sk) return '';
+            return `<div style="background:linear-gradient(135deg, #4527a0, #311b92); color:#fff; border-radius:6px; padding:3px 4px; margin-top:4px; text-align:center; font-size:9px;">
+              <b>${sk.icon} ${sk.name}</b>
+              <div style="opacity:0.85; font-size:8px;">${sk.desc}</div>
+            </div>`;
+          })()}
           <div style="font-size:9px; color:var(--wood-dark); margin-top:4px; line-height:1.3; text-align:center;">${def.desc}</div>
           ${canEvo ? `
             <button class="evolve-pet-btn" data-key="${key}" type="button" style="
@@ -19688,8 +21433,8 @@ function openBuildingMenu(b, clientX, clientY) {
   const canUpgrade = b.state === 'complete' && (b.def.yield && Object.keys(b.def.yield).length > 0);
   const upgradeLevel = (game.buildingUpgrades && game.buildingUpgrades[b.uniqueId]) || 0;
   const upgradeCost = canUpgrade && upgradeLevel < 5 ? {
-    gold: 200 * Math.pow(2, upgradeLevel),
-    [Object.keys(b.def.yield)[0] === 'gold' ? 'wood' : 'gold']: 100 * (upgradeLevel + 1),
+    gold: 1000 * Math.pow(2, upgradeLevel),
+    [Object.keys(b.def.yield)[0] === 'gold' ? 'wood' : 'gold']: 500 * (upgradeLevel + 1),
   } : null;
 
   const menu = document.createElement('div');
@@ -20497,6 +22242,24 @@ const RESEARCH_TYPES = {
   },
 };
 
+// === 모든 연구 비용 ×5 일괄 적용 (cost 함수 래핑) ===
+(function applyResearchCostMultiplier() {
+  const MULT = 5;
+  for (const key of Object.keys(RESEARCH_TYPES)) {
+    const def = RESEARCH_TYPES[key];
+    if (!def || typeof def.cost !== 'function') continue;
+    const orig = def.cost;
+    def.cost = (lv) => {
+      const c = orig(lv) || {};
+      const out = {};
+      for (const r of Object.keys(c)) {
+        out[r] = (typeof c[r] === 'number') ? Math.max(1, Math.ceil(c[r] * MULT)) : c[r];
+      }
+      return out;
+    };
+  }
+})();
+
 function openLabResearch() {
   // 연구소가 있어야 함
   const hasLab = game.buildings.some(b => b.type === 'lab' && b.state === 'complete');
@@ -20657,6 +22420,8 @@ function tapHarvest() {
   game.exp += 1;
   if (typeof checkQuestProgress === 'function') checkQuestProgress('tap');
   if (typeof checkDailyQuestProgress === 'function') checkDailyQuestProgress('daily_tap');
+  // 시즌 패스 미션 진행
+  if (typeof updateSeasonMission === 'function') updateSeasonMission('tap', 1);
   // 통계
   if (!game.stats) game.stats = {};
   game.stats.tapCount = (game.stats.tapCount || 0) + 1;
@@ -20683,11 +22448,38 @@ function tick(now) {
       try { checkVipExpiry(); } catch (e) {}
     }
 
+    // === 전투력 실시간 반영 (1초마다 재계산) ===
+    if (!game._powerRecalcTimer) game._powerRecalcTimer = 0;
+    game._powerRecalcTimer += dt;
+    if (game._powerRecalcTimer >= 1) {
+      game._powerRecalcTimer = 0;
+      try { recomputePower(); } catch (e) {}
+    }
+
+    // === 플레이어 정보 Firebase 실시간 동기화 (30초마다) ===
+    // 랭킹, 친구 정보 등에 실시간 반영
+    if (!game._profileUploadTimer) game._profileUploadTimer = 0;
+    game._profileUploadTimer += dt;
+    if (game._profileUploadTimer >= 30) {
+      game._profileUploadTimer = 0;
+      // 전투력/레벨이 변했을 때만 업로드 (불필요한 트래픽 방지)
+      const sig = `${game.level}_${game.totalPower}_${Object.keys(game.pets || {}).length}`;
+      if (game._lastProfileSig !== sig) {
+        game._lastProfileSig = sig;
+        try { uploadPlayerProfile(); } catch (e) {}
+      }
+    }
+
+    // === 시간제 버프 배수 계산 ===
+    const _now = Date.now();
+    let _hasteBonus = 1;
+    if (game.hasteUntil && _now < game.hasteUntil) _hasteBonus = 1.5;
+
     // update entities
     for (const b of game.buildings) {
       let bdt = dt;
       if (b.state === 'under_construction') bdt *= game.buildSpeed;
-      if (b.state === 'complete' || b.state === 'ready_to_harvest') bdt *= game.productionMult;
+      if (b.state === 'complete' || b.state === 'ready_to_harvest') bdt *= game.productionMult * _hasteBonus;
       try { b.update(bdt); } catch (e) { console.warn('building update error', e); }
     }
     for (const v of game.villagers) {
@@ -20725,6 +22517,25 @@ function tick(now) {
 
   // day cycle
   game.dayTimer += dt;
+
+  // === 🌅 시간대 진행 (dayTimer 0~90초 → gameHour 0~24) ===
+  game.gameHour = (game.dayTimer / game.dayLength) * 24;
+  // 시간대 결정
+  let newTimeOfDay;
+  if (game.gameHour >= 5 && game.gameHour < 7) newTimeOfDay = 'dawn';
+  else if (game.gameHour >= 7 && game.gameHour < 17) newTimeOfDay = 'day';
+  else if (game.gameHour >= 17 && game.gameHour < 19) newTimeOfDay = 'sunset';
+  else newTimeOfDay = 'night';
+  // 시간대 변경 시 1회만 알림
+  if (game.timeOfDay !== newTimeOfDay) {
+    game.timeOfDay = newTimeOfDay;
+    if (newTimeOfDay === 'night') {
+      try { showToast('🌙 밤이 됐어요... 침략 주의!', 'warn'); } catch (e) {}
+    } else if (newTimeOfDay === 'dawn') {
+      try { showToast('🌅 새벽이 밝아옵니다', 'gain'); } catch (e) {}
+    }
+  }
+
   if (game.dayTimer >= game.dayLength) {
     game.dayTimer = 0;
     game.day++;
@@ -20735,7 +22546,9 @@ function tick(now) {
       applyOccupationTax();
     }
     // 친구가 가끔 나를 침략 (Day 5 이후, 친구가 2명 이상일 때 가능)
-    if (game.day >= 5 && game.friends && game.friends.length >= 2 && Math.random() < 0.15) {
+    // 🌙 밤 시간대(night)면 침략 확률 ×2.5배
+    const invasionRate = (game.timeOfDay === 'night') ? 0.375 : 0.15;
+    if (game.day >= 5 && game.friends && game.friends.length >= 2 && Math.random() < invasionRate) {
       maybeEnemyInvasion();
     }
     // 친구 중 일부가 가끔 점령당함 (구출 기능을 위해)
@@ -21131,6 +22944,54 @@ function render() {
   }
 
   ctx.restore();
+
+  // ====== 🌅 시간대 색상 오버레이 (캔버스 위에 색 입힘) ======
+  drawTimeOfDayOverlay(ctx, cw, ch);
+  // ====== 💫 화면 가장자리 페이드 (거리감) ======
+  drawScreenVignette(ctx, cw, ch);
+}
+
+// === 시간대 오버레이 ===
+function drawTimeOfDayOverlay(ctx, w, h) {
+  const t = game.timeOfDay;
+  if (!t || t === 'day') return;  // 낮엔 오버레이 없음
+  let color, alpha;
+  if (t === 'dawn') {
+    color = '255, 180, 130'; alpha = 0.18;
+  } else if (t === 'sunset') {
+    color = '255, 120, 60'; alpha = 0.25;
+  } else if (t === 'night') {
+    color = '20, 30, 80'; alpha = 0.40;
+  } else return;
+  ctx.fillStyle = `rgba(${color}, ${alpha})`;
+  ctx.fillRect(0, 0, w, h);
+
+  // 밤에는 별 효과
+  if (t === 'night') {
+    if (!game._stars) {
+      game._stars = [];
+      for (let i = 0; i < 30; i++) {
+        game._stars.push({ x: Math.random(), y: Math.random() * 0.5, s: 0.5 + Math.random() * 1.5, p: Math.random() * Math.PI * 2 });
+      }
+    }
+    const now = Date.now() / 1000;
+    for (const star of game._stars) {
+      const tw = 0.5 + Math.sin(now * 2 + star.p) * 0.5;
+      ctx.fillStyle = `rgba(255, 255, 200, ${0.6 * tw})`;
+      ctx.beginPath();
+      ctx.arc(star.x * w, star.y * h, star.s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// === 화면 가장자리 비네팅 (거리감) ===
+function drawScreenVignette(ctx, w, h) {
+  const g = ctx.createRadialGradient(w/2, h/2, Math.min(w,h) * 0.4, w/2, h/2, Math.max(w,h) * 0.7);
+  g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  g.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
 }
 
 // Camera helpers
@@ -21334,7 +23195,7 @@ function beginGame() {
       setTimeout(() => {
         try { uploadPlayerProfile(); } catch (e) {}
         try { uploadMyVillage(); } catch (e) {}
-        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {}
+        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {} try { updateSeasonBadge(); } catch (e) {}
       }, 1500);
     }
   } catch (e) {}
@@ -21815,6 +23676,8 @@ async function _initImpl() {
   if (btnCalendar) btnCalendar.onclick = openCalendar;
   const btnVip = document.getElementById('btn-vip');
   if (btnVip) btnVip.onclick = openVipShop;
+  const btnSeasonPass = document.getElementById('btn-season-pass');
+  if (btnSeasonPass) btnSeasonPass.onclick = openSeasonPass;
   // 사운드 토글 버튼
   const btnSound = document.getElementById('btn-sound');
   if (btnSound) {

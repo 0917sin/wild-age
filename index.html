@@ -89,10 +89,10 @@
     .build-cat-bar { padding: 4px; gap: 4px; bottom: 126px; }
     .build-cat-bar .build-cat-btn { padding: 6px 4px; font-size: 11px; }
 
-    /* 탭 버튼 위치를 카테고리바 + 빌드바 위로 올려서 안 겹치게 */
+    /* 탭 버튼 위치 - 오른쪽 아래 정확히 (빌드바 위) */
     .tap-btn {
-      width: 64px; height: 64px; font-size: 30px;
-      bottom: 184px; right: 76px;
+      width: 70px; height: 70px; font-size: 32px;
+      bottom: 188px; right: 10px;
       border-width: 3px;
     }
 
@@ -1011,12 +1011,12 @@
 
   /* TAP BUTTON */
   .tap-btn {
-    position: absolute; bottom: 190px; right: 88px;
-    width: 76px; height: 76px;
+    position: absolute; bottom: 195px; right: 12px;
+    width: 80px; height: 80px;
     background: radial-gradient(circle at 30% 30%, #fff59d, var(--gold));
     border: 4px solid var(--wood-dark);
     border-radius: 50%;
-    font-size: 36px;
+    font-size: 38px;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 6px 0 var(--wood-dark), 0 8px 16px rgba(0,0,0,0.3);
     cursor: pointer;
@@ -10718,12 +10718,26 @@ function updateHUD() {
   game._lastHudUpdate = _now;
   // res 안전성
   if (!game.res) game.res = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
+  // 자원 숫자 축약 (1만 이상은 K, 100만 이상은 M, 10억 이상은 B)
+  function fmtRes(n) {
+    n = Math.floor(n || 0);
+    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B';
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
+    if (n >= 10_000) return (n / 1_000).toFixed(1) + 'K';
+    return n.toLocaleString();
+  }
   try {
-    document.getElementById('res-gold').textContent = Math.floor(game.res.gold || 0);
-    document.getElementById('res-food').textContent = Math.floor(game.res.food || 0);
-    document.getElementById('res-wood').textContent = Math.floor(game.res.wood || 0);
-    document.getElementById('res-stone').textContent = Math.floor(game.res.stone || 0);
-    document.getElementById('res-gem').textContent = Math.floor(game.res.gem || 0);
+    document.getElementById('res-gold').textContent = fmtRes(game.res.gold);
+    document.getElementById('res-food').textContent = fmtRes(game.res.food);
+    document.getElementById('res-wood').textContent = fmtRes(game.res.wood);
+    document.getElementById('res-stone').textContent = fmtRes(game.res.stone);
+    document.getElementById('res-gem').textContent = fmtRes(game.res.gem);
+    // 부모 .resource에 title 설정 (정확한 수치 hover/롱탭)
+    document.getElementById('res-gold').parentElement.title = '💰 골드: ' + Math.floor(game.res.gold || 0).toLocaleString();
+    document.getElementById('res-food').parentElement.title = '🍖 식량: ' + Math.floor(game.res.food || 0).toLocaleString();
+    document.getElementById('res-wood').parentElement.title = '🪵 목재: ' + Math.floor(game.res.wood || 0).toLocaleString();
+    document.getElementById('res-stone').parentElement.title = '🪨 석재: ' + Math.floor(game.res.stone || 0).toLocaleString();
+    document.getElementById('res-gem').parentElement.title = '💎 보석: ' + Math.floor(game.res.gem || 0).toLocaleString();
     document.getElementById('lv-num').textContent = (game.level || 1) >= MAX_LEVEL ? 'MAX' : (game.level || 1);
     // === VIP HUD 뱃지 (레벨 박스 아래) ===
     const vipBadgeHud = document.getElementById('vip-badge-hud');
@@ -14458,6 +14472,42 @@ function openFriends() {
   ensureFriendsState();
   const body = document.getElementById('friends-body');
   const pending = window.__pendingFriendRequests || 0;
+
+  // === 🔱 운영자라면 글로벌 유저들 자동으로 친구에 추가 ===
+  (async () => {
+    if (typeof isAdmin === 'function' && isAdmin() && typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try {
+        const allPlayers = await fetchGlobalRanking(100);  // 최대 100명
+        if (allPlayers && allPlayers.length > 0) {
+          const myNick = game.player && game.player.nickname;
+          let added = 0;
+          for (const p of allPlayers) {
+            if (!p.name || p.name === myNick) continue;
+            // 이미 친구면 스킵
+            if (game.friends.some(f => f.nickname === p.name)) continue;
+            // 친구로 자동 추가
+            game.friends.push({
+              nickname: p.name,
+              level: p.level || 1,
+              power: p.totalPower || 0,
+              petCount: p.petCount || 0,
+              avatar: p.avatar || '⛺',
+              pets: {},
+              addedAt: Date.now(),
+              autoAdded: true,  // 자동 추가 표시
+            });
+            added++;
+          }
+          if (added > 0) {
+            try { showToast(`🔱 운영자 권한: 자동으로 ${added}명 친구 추가됨`, 'gain'); } catch (e) {}
+            try { saveGame(); } catch (e) {}
+            renderFriendsTab('list');  // 다시 렌더
+          }
+        }
+      } catch (e) { console.warn('admin auto friend failed', e); }
+    }
+  })();
+
   body.innerHTML = `
     <div style="display:flex; gap:6px; margin-bottom:12px; border-bottom:2px dashed var(--wood-dark); padding-bottom:8px; flex-wrap:wrap;">
       <button class="friends-tab active" data-tab="list">친구 (${game.friends.length})</button>
@@ -21913,6 +21963,10 @@ window.arenaReset = arenaReset;
 async function arenaChallenge(idx) {
   const opp = game.arena.opponents[idx];
   if (!opp) return;
+  if (opp._defeated) {
+    showToast('이미 도전한 상대예요. 🔄 리셋하거나 다른 상대 도전하세요!', 'warn');
+    return;
+  }
 
   const freeLeft = Math.max(0, ARENA_FREE_DAILY - (game.arena.freeUsed || 0));
   if (freeLeft <= 0) {
@@ -21946,6 +22000,20 @@ async function arenaChallenge(idx) {
     game.arena.wins = (game.arena.wins || 0) + 1;
   } else {
     game.arena.losses = (game.arena.losses || 0) + 1;
+  }
+
+  // === 🎬 전투 애니메이션 (건너뛰기 아닐 때만) ===
+  if (!game.arena.skipBattle) {
+    // 내 펫 (가장 강한 펫)
+    let myStrongestPet = 'wolf';
+    let maxPower = 0;
+    for (const [k, count] of Object.entries(game.pets || {})) {
+      if (PETS[k] && count > 0 && PETS[k].power > maxPower) {
+        maxPower = PETS[k].power;
+        myStrongestPet = k;
+      }
+    }
+    await playBattleAnimation(myStrongestPet, opp, won);
   }
 
   // 보상
@@ -21996,6 +22064,201 @@ async function arenaChallenge(idx) {
   updateHUD();
 }
 window.arenaChallenge = arenaChallenge;
+
+// === 🎬 전투 애니메이션 ===
+function playBattleAnimation(myPetKey, opp, won) {
+  return new Promise(resolve => {
+    const myPet = PETS[myPetKey] || PETS.wolf;
+    const oppPet = PETS[opp.representPet] || PETS.wolf;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-bg show';
+    overlay.style.zIndex = '10000';
+    overlay.style.background = 'rgba(0,0,0,0.85)';
+    overlay.innerHTML = `
+      <style>
+        @keyframes battleEnterLeft {
+          0% { transform: translateX(-100vw) scale(0.5); opacity: 0; }
+          70% { transform: translateX(20px) scale(1.1); opacity: 1; }
+          100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+        @keyframes battleEnterRight {
+          0% { transform: translateX(100vw) scale(0.5); opacity: 0; }
+          70% { transform: translateX(-20px) scale(1.1); opacity: 1; }
+          100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+        @keyframes battleAttackLeft {
+          0%, 100% { transform: translateX(0); }
+          40% { transform: translateX(60px) scale(1.1); }
+          50% { transform: translateX(50px); }
+        }
+        @keyframes battleAttackRight {
+          0%, 100% { transform: translateX(0); }
+          40% { transform: translateX(-60px) scale(1.1); }
+          50% { transform: translateX(-50px); }
+        }
+        @keyframes battleHit {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-12px) rotate(-5deg); filter: brightness(2); }
+          50% { transform: translateX(12px) rotate(5deg); filter: brightness(2); }
+          75% { transform: translateX(-8px) rotate(-3deg); }
+        }
+        @keyframes battleDefeat {
+          0% { transform: translateY(0) rotate(0); opacity: 1; }
+          100% { transform: translateY(60px) rotate(90deg); opacity: 0; }
+        }
+        @keyframes battleVictoryPose {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-20px) scale(1.2); filter: drop-shadow(0 0 20px #ffd700); }
+        }
+        @keyframes battleFlashScreen {
+          0%, 100% { background: rgba(0,0,0,0.85); }
+          50% { background: rgba(255,255,255,0.9); }
+        }
+        @keyframes battleSlashEffect {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-50%) scale(0.3) rotate(-45deg); }
+          50% { opacity: 1; transform: translateX(-50%) translateY(-50%) scale(1.2) rotate(-45deg); }
+          100% { opacity: 0; transform: translateX(-50%) translateY(-50%) scale(2) rotate(-45deg); }
+        }
+        @keyframes battleVsText {
+          0% { opacity: 0; transform: scale(0.3) rotate(-180deg); }
+          50% { opacity: 1; transform: scale(1.5) rotate(0deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+        @keyframes battleResultText {
+          0% { opacity: 0; transform: translateY(-50px) scale(0.3); }
+          60% { opacity: 1; transform: translateY(0) scale(1.3); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .battle-pet-left { animation: battleEnterLeft 0.6s ease-out; }
+        .battle-pet-right { animation: battleEnterRight 0.6s ease-out; }
+        .battle-vs { animation: battleVsText 0.8s ease-out; }
+      </style>
+      <div id="battle-stage" style="position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;">
+        <!-- 상단 정보 -->
+        <div style="position:absolute; top:8%; left:0; right:0; display:flex; justify-content:space-around; padding:0 5%;">
+          <div class="battle-pet-left" style="text-align:center; color:white; font-weight:bold;">
+            <div style="font-size:13px; color:#42a5f5;">나</div>
+            <div style="font-size:11px; opacity:0.9;">⚔ ${(game.totalPower || 0).toLocaleString()}</div>
+          </div>
+          <div class="battle-pet-right" style="text-align:center; color:white; font-weight:bold;">
+            <div style="font-size:13px; color:#ff5252;">${escapeHtml(opp.nickname || '상대')}</div>
+            <div style="font-size:11px; opacity:0.9;">⚔ ${(opp.totalPower || 0).toLocaleString()}</div>
+          </div>
+        </div>
+
+        <!-- 펫 대결 영역 -->
+        <div style="position:relative; width:90vw; max-width:500px; height:200px; display:flex; align-items:center; justify-content:space-between; padding:0 20px;">
+          <!-- 내 펫 (왼쪽) -->
+          <div id="battle-my-pet" class="battle-pet-left" style="position:relative; z-index:2;">
+            <div style="background:radial-gradient(circle, rgba(66,165,245,0.4), transparent); padding:20px; border-radius:50%;">
+              ${petSVG(myPet, 100)}
+            </div>
+          </div>
+
+          <!-- VS 텍스트 -->
+          <div class="battle-vs" style="position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); font-size:60px; font-weight:bold; color:#ffd700; text-shadow:0 0 20px #ff6b6b, 0 0 40px #ff6b6b; z-index:3;">
+            VS
+          </div>
+
+          <!-- 상대 펫 (오른쪽) -->
+          <div id="battle-opp-pet" class="battle-pet-right" style="position:relative; z-index:2;">
+            <div style="background:radial-gradient(circle, rgba(239,83,80,0.4), transparent); padding:20px; border-radius:50%;">
+              ${petSVG(oppPet, 100)}
+            </div>
+          </div>
+        </div>
+
+        <!-- 슬래시 이펙트 (중앙) -->
+        <div id="battle-slash" style="position:absolute; left:50%; top:50%; width:200px; height:8px; background:linear-gradient(to right, transparent, #ffeb3b, #fff, #ffeb3b, transparent); pointer-events:none; opacity:0; z-index:5;"></div>
+
+        <!-- 하단 텍스트 -->
+        <div id="battle-text" style="position:absolute; bottom:15%; left:0; right:0; text-align:center; color:white; font-size:18px; font-weight:bold; min-height:30px;">
+          ⚡ 전투 시작!
+        </div>
+
+        <!-- 건너뛰기 버튼 -->
+        <div style="position:absolute; top:10px; right:10px;">
+          <button id="battle-skip-btn" style="background:rgba(0,0,0,0.5); color:white; border:2px solid rgba(255,255,255,0.5); border-radius:8px; padding:6px 12px; font-family:inherit; font-size:11px; cursor:pointer;">⏭ 건너뛰기</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      overlay.remove();
+      resolve();
+    };
+
+    // 건너뛰기 버튼
+    overlay.querySelector('#battle-skip-btn').onclick = finish;
+
+    // 전투 사운드
+    try { playSound('click'); } catch (e) {}
+
+    // 시퀀스 (1.8초)
+    setTimeout(() => {
+      // 첫 공격
+      const myPetEl = document.getElementById('battle-my-pet');
+      const oppPetEl = document.getElementById('battle-opp-pet');
+      const slashEl = document.getElementById('battle-slash');
+      const textEl = document.getElementById('battle-text');
+      if (!overlay.parentNode) return;
+
+      // 내가 공격 (또는 상대가 공격, 50/50)
+      const myFirst = won || Math.random() < 0.5;
+      if (myPetEl && oppPetEl) {
+        if (myFirst) {
+          myPetEl.style.animation = 'battleAttackLeft 0.5s ease-in-out';
+          setTimeout(() => {
+            if (slashEl) { slashEl.style.opacity = '1'; slashEl.style.animation = 'battleSlashEffect 0.4s ease-out'; }
+            if (oppPetEl) oppPetEl.style.animation = 'battleHit 0.5s ease-in-out';
+            if (textEl) textEl.textContent = '💥 강력한 공격!';
+            try { playSound('hit'); } catch (e) {}
+            try { triggerShake(8, 0.3); } catch (e) {}
+          }, 250);
+        } else {
+          oppPetEl.style.animation = 'battleAttackRight 0.5s ease-in-out';
+          setTimeout(() => {
+            if (slashEl) { slashEl.style.opacity = '1'; slashEl.style.animation = 'battleSlashEffect 0.4s ease-out'; }
+            if (myPetEl) myPetEl.style.animation = 'battleHit 0.5s ease-in-out';
+            if (textEl) textEl.textContent = '💢 상대의 반격!';
+            try { playSound('hit'); } catch (e) {}
+          }, 250);
+        }
+      }
+    }, 700);
+
+    // 결과 표시 (1.5초 후)
+    setTimeout(() => {
+      if (!overlay.parentNode) return;
+      const myPetEl = document.getElementById('battle-my-pet');
+      const oppPetEl = document.getElementById('battle-opp-pet');
+      const textEl = document.getElementById('battle-text');
+      const loser = won ? oppPetEl : myPetEl;
+      const winner = won ? myPetEl : oppPetEl;
+      if (loser) loser.style.animation = 'battleDefeat 0.8s ease-in forwards';
+      if (winner) winner.style.animation = 'battleVictoryPose 0.8s ease-out infinite';
+      if (textEl) {
+        textEl.innerHTML = won
+          ? '<span style="color:#66bb6a; font-size:32px; animation: battleResultText 0.6s ease-out;">🏆 승리!</span>'
+          : '<span style="color:#ef5350; font-size:32px; animation: battleResultText 0.6s ease-out;">💔 패배...</span>';
+      }
+      try { playSound(won ? 'levelUp' : 'click'); } catch (e) {}
+      // 화면 효과
+      if (won) {
+        try { emitConfetti(window.innerWidth / 2, window.innerHeight / 2, 60); } catch (e) {}
+      }
+    }, 1500);
+
+    // 자동 종료 (2.5초 후)
+    setTimeout(finish, 2500);
+  });
+}
+window.playBattleAnimation = playBattleAnimation;
 
 // === 전투 결과 모달 ===
 function showArenaResultModal(opp, won, rewards) {
@@ -22926,7 +23189,7 @@ function executeArenaBattle(myPetKey, friendName, friendAvatar, friendPower, fri
 window.executeArenaBattle = executeArenaBattle;
 
 // === 투기장 전투 결과 모달 ===
-function showArenaResultModal(myPetKey, friendName, friendAvatar, friendPower, won, myScore, enemyScore, goldReward, expReward) {
+function showArenaResultModal_legacy(myPetKey, friendName, friendAvatar, friendPower, won, myScore, enemyScore, goldReward, expReward) {
   const myDef = PETS[myPetKey];
   const tierColor = PET_TIER_COLORS[myDef.tier] || '#999';
 

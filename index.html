@@ -1056,8 +1056,14 @@
     pointer-events: auto;
   }
   .tutorial-overlay.show { display: block; }
-  .tutorial-overlay.see-through { background: rgba(0, 0, 0, 0.5); }
+  .tutorial-overlay.see-through { background: transparent; pointer-events: none; }
   .tutorial-overlay.see-through .tutorial-spotlight {
+    pointer-events: none;
+  }
+  .tutorial-overlay.see-through .tutorial-bubble {
+    pointer-events: auto;  /* 말풍선만 클릭 가능 */
+  }
+  .tutorial-overlay.see-through .tutorial-finger {
     pointer-events: none;
   }
 
@@ -2890,10 +2896,12 @@ const TUTORIAL_STEPS = [
     waitForClick: false,
   },
   {
-    // 3. 채집 — 빈 땅 탭하기
-    icon: '👆',
-    title: '땅을 탭해보세요!',
-    msg: '화면을 탭하면 자원이 모여요.\n\n나무, 돌, 풀숲을 탭해서\n자원을 모아보세요!\n\n(아무 곳이나 5번 탭하세요)',
+    // 3. 채집 — 곡괭이 버튼 클릭
+    icon: '⛏️',
+    title: '곡괭이로 채집!',
+    msg: '오른쪽 아래의 곡괭이 버튼을\n눌러서 자원을 모아보세요!\n\n💰 골드 / 🪵 목재 / 🪨 석재\n중 랜덤으로 획득합니다.\n\n(곡괭이 5번 눌러주세요)',
+    target: '#tap-btn',
+    spotlightSize: { padding: 8 },
     autoCheck: () => (game._tutorialTaps || 0) >= 5,
     waitForClick: false,
     showFinger: true,
@@ -9942,6 +9950,20 @@ const SHOP_ITEMS = [
   }
 })();
 
+// === 🌟 버프 아이템만 추가 ×10 인상 (총 ×50) ===
+(function applyBuffExtraMultiplier() {
+  const BUFF_EXTRA = 10;
+  for (const item of SHOP_ITEMS) {
+    if (item.category !== 'buff') continue;
+    if (!item.cost) continue;
+    for (const key of Object.keys(item.cost)) {
+      if (typeof item.cost[key] === 'number') {
+        item.cost[key] = Math.max(1, Math.ceil(item.cost[key] * BUFF_EXTRA));
+      }
+    }
+  }
+})();
+
 const ATTENDANCE_REWARDS = [
   { day: 1,  icon: '💰', amt: 100,  res: 'gold' },
   { day: 2,  icon: '🍖', amt: 50,   res: 'food' },
@@ -11054,7 +11076,9 @@ function renderShopTab(category) {
   }
 
   filtered.forEach(item => {
-    const owned = !item.consumable && game.ownedItems[item.id];
+    // 🛒 모든 아이템 재구매 가능 (소유 표시 제거, 항상 구매 가능)
+    // 단, 'req' 잠금만 유지
+    const owned = false;  // 항상 false → 영구 아이템도 매번 구매 가능
     const locked = item.req && !game.ownedItems[item.req];
     if (locked) {
       // 잠긴 아이템 표시
@@ -11076,17 +11100,19 @@ function renderShopTab(category) {
       const ico = { gold:'💰', food:'🍖', wood:'🪵', stone:'🪨', gem:'💎' }[k];
       return `${ico}${v}`;
     }).join(' ');
+    // 이미 한 번 구매한 영구 아이템 표시 (req 잠금 해제 표시용)
+    const purchasedBefore = !item.consumable && game.ownedItems[item.id];
+    const purchaseCountText = purchasedBefore ? ' · 재구매' : '';
     const div = document.createElement('div');
     div.className = 'shop-item';
     div.innerHTML = `
       <div class="si-icon">${item.icon}</div>
       <div class="si-name">${item.name}</div>
-      <div class="si-desc">${item.desc}</div>
-      <button class="si-buy ${owned?'owned':can?'':'cant'}" type="button">${owned ? '✓ 구매완료' : costStr}</button>
+      <div class="si-desc">${item.desc}${purchaseCountText}</div>
+      <button class="si-buy ${can?'':'cant'}" type="button">${costStr}</button>
     `;
     const btn = div.querySelector('.si-buy');
     btn.onclick = () => {
-      if (owned) return;
       if (!canAfford(item.cost)) { showToast('자원 부족!', 'warn'); return; }
       // 구매 확인 다이얼로그
       const costDisplay = Object.entries(item.cost).map(([k,v]) => {
@@ -11100,6 +11126,7 @@ function renderShopTab(category) {
           if (!canAfford(item.cost)) { showToast('자원 부족!', 'warn'); return; }
           spendRes(item.cost);
           item.effect();
+          // 선행 잠금 해제용으로만 기록 (재구매 차단 안 함)
           if (!item.consumable) game.ownedItems[item.id] = true;
           showToast(`${item.name} 구매!`, 'gain');
           renderShopTab(category);

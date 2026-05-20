@@ -2098,22 +2098,71 @@ async function searchPlayer(nickname) {
 window.searchPlayer = searchPlayer;
 
 // === 전체 랭킹 가져오기 ===
-async function fetchGlobalRanking(limit) {
-  if (!_onlineMode) return [];
-  limit = limit || 50;
-  try {
-    const ref = _firebaseDB.ref('players').orderByChild('score').limitToLast(limit);
-    const snap = await ref.once('value');
-    if (!snap.exists()) return [];
-    const arr = [];
-    snap.forEach(child => {
-      arr.push(child.val());
+// === 🤖 AI 유저 풀 (50명) ===
+// 매일 같은 닉네임 유지 — seeded 닉네임
+const AI_USER_POOL = [
+  '북풍의전사','대지의수호자','별빛검객','달빛사냥꾼','용맹한족장','폭풍의지배자','얼음의기사','불꽃의왕',
+  '바람의제자','천둥장군','어둠의그림자','빛나는궁수','강철의주먹','녹슨도끼','은빛창','피의늑대',
+  '폭풍부족장','용맹한사자','외로운늑대','거대한곰','날쌘여우','강철황소','전설의호랑이','신성한매',
+  '고대의용','신화의기사','별의수호자','달의여왕','태양의제왕','심해의주인','산의지배자','평원의약탈자',
+  '천상의궁수','지옥의사도','시간의여행자','공간의지배자','전쟁의신','평화의사도','지혜의현자','용기의화신',
+  '운명의검','불멸의전사','영원의수호자','심연의기사','새벽의기사','황혼의암살자','한밤의사냥꾼','정오의용사',
+  '대장간의왕','부족의대족장'
+];
+
+// AI 유저 생성 — 랭킹 2등의 전투력 기준
+function generateAIUsers(myPower, ranking2ndPower) {
+  const targetPower = ranking2ndPower || myPower || 10000;
+  const out = [];
+  for (let i = 0; i < AI_USER_POOL.length; i++) {
+    const name = AI_USER_POOL[i];
+    // ±15% 변동
+    const variance = 0.85 + Math.random() * 0.30;
+    const score = Math.floor(targetPower * variance);
+    // 시드 기반 일관된 데이터
+    const seed = strHash(name);
+    const rng = seededRng(seed);
+    const level = 50 + Math.floor(rng() * 200);
+    const code = '#' + (1000 + Math.floor(rng() * 9000));
+    out.push({
+      uid: 'ai_' + name,
+      nickname: name,
+      code: code,
+      score: score,
+      level: level,
+      petCount: 50 + Math.floor(rng() * 200),
+      isAI: true,
+      avatar: '🤖',
+      tribe: '봇 부족'
     });
-    return arr.sort((a, b) => (b.score || 0) - (a.score || 0));
-  } catch (e) {
-    console.warn('[Firebase] ranking failed', e);
-    return [];
   }
+  return out;
+}
+window.generateAIUsers = generateAIUsers;
+
+async function fetchGlobalRanking(limit) {
+  limit = limit || 50;
+  let realPlayers = [];
+  if (_onlineMode) {
+    try {
+      const ref = _firebaseDB.ref('players').orderByChild('score').limitToLast(limit);
+      const snap = await ref.once('value');
+      if (snap.exists()) {
+        snap.forEach(child => { realPlayers.push(child.val()); });
+      }
+    } catch (e) {
+      console.warn('[Firebase] ranking failed', e);
+    }
+  }
+  realPlayers.sort((a, b) => (b.score || 0) - (a.score || 0));
+  // === AI 유저 추가 (랭킹 2등 전투력 기준) ===
+  const ranking2nd = realPlayers[1] ? (realPlayers[1].score || 0) : 0;
+  const myScore = (typeof getMyScore === 'function') ? getMyScore() : 0;
+  const aiUsers = generateAIUsers(myScore, ranking2nd);
+  // 전체 합치고 점수순 정렬
+  const all = [...realPlayers, ...aiUsers];
+  all.sort((a, b) => (b.score || 0) - (a.score || 0));
+  return all.slice(0, limit);
 }
 window.fetchGlobalRanking = fetchGlobalRanking;
 
@@ -7839,6 +7888,291 @@ const PETS = {
   sleipnir:   { name: '슬레이프니르', icon: '🐴', emoji: '🐴', power: 495, tier: 'mythic', desc: '오딘의 여덟 다리 말.' },
   void_dragon:{ name: '공허의 용',    icon: '🌑', emoji: '🌑', power: 580, tier: 'mythic', desc: '존재 너머에서 온 절멸의 용.' },
   cosmic_god: { name: '우주의 신',    icon: '🌠', emoji: '🌠', power: 600, tier: 'mythic', desc: '별과 은하를 지배하는 절대자.' },
+  mole_baby: { name: '두더지 새끼', icon: '🐀', emoji: '🐀', power: 25, tier: 'common', desc: '땅속을 파는 어린 두더지.' },
+  shrew: { name: '뾰족뒤쥐', icon: '🐭', emoji: '🐭', power: 27, tier: 'common', desc: '아주 작은 식충 동물.' },
+  vole: { name: '들쥐', icon: '🐹', emoji: '🐹', power: 29, tier: 'common', desc: '풀밭에 사는 작은 설치류.' },
+  lemming: { name: '레밍', icon: '🐹', emoji: '🐹', power: 31, tier: 'common', desc: '북극 툰드라의 작은 동물.' },
+  gerbil: { name: '저빌', icon: '🐹', emoji: '🐹', power: 33, tier: 'common', desc: '사막의 작은 쥐.' },
+  chipmunk_b: { name: '얼룩 다람쥐', icon: '🐿️', emoji: '🐿️', power: 35, tier: 'common', desc: '줄무늬가 있는 다람쥐.' },
+  dormouse: { name: '도마우스', icon: '🐭', emoji: '🐭', power: 37, tier: 'common', desc: '잠을 많이 자는 작은 쥐.' },
+  mole2: { name: '두더지', icon: '🐀', emoji: '🐀', power: 39, tier: 'common', desc: '땅속 굴의 주인.' },
+  weasel_b: { name: '작은 족제비', icon: '🦦', emoji: '🦦', power: 41, tier: 'common', desc: '날쌘 사냥꾼.' },
+  marmot: { name: '마멋', icon: '🐹', emoji: '🐹', power: 43, tier: 'common', desc: '땅굴에 사는 통통한 설치류.' },
+  mongoose_b: { name: '아기 몽구스', icon: '🦔', emoji: '🦔', power: 45, tier: 'common', desc: '뱀을 잡는 작은 포유류.' },
+  cricket_b: { name: '귀뚜라미', icon: '🦗', emoji: '🦗', power: 30, tier: 'common', desc: '밤에 우는 곤충.' },
+  grasshopper: { name: '메뚜기', icon: '🦗', emoji: '🦗', power: 32, tier: 'common', desc: '풀밭의 점프 선수.' },
+  katydid: { name: '여치', icon: '🦗', emoji: '🦗', power: 34, tier: 'common', desc: '나뭇잎 모양의 곤충.' },
+  mantis: { name: '사마귀', icon: '🦗', emoji: '🦗', power: 38, tier: 'common', desc: '풀숲의 사냥꾼.' },
+  ladybug2: { name: '무당벌레', icon: '🐞', emoji: '🐞', power: 36, tier: 'common', desc: '빨간 점이 있는 곤충.' },
+  firefly2: { name: '반딧불이', icon: '✨', emoji: '✨', power: 40, tier: 'common', desc: '빛을 내는 작은 곤충.' },
+  caterpillar: { name: '애벌레', icon: '🐛', emoji: '🐛', power: 28, tier: 'common', desc: '나비가 되기 전의 모습.' },
+  worm_b: { name: '지렁이', icon: '🪱', emoji: '🪱', power: 26, tier: 'common', desc: '땅을 비옥하게 하는 벌레.' },
+  millipede: { name: '노래기', icon: '🐛', emoji: '🐛', power: 34, tier: 'common', desc: '다리 많은 절지동물.' },
+  centipede: { name: '지네', icon: '🐛', emoji: '🐛', power: 42, tier: 'common', desc: '독을 가진 절지동물.' },
+  snail2: { name: '달팽이', icon: '🐌', emoji: '🐌', power: 30, tier: 'common', desc: '느린 연체동물.' },
+  slug: { name: '민달팽이', icon: '🐌', emoji: '🐌', power: 28, tier: 'common', desc: '껍데기 없는 달팽이.' },
+  moth: { name: '나방', icon: '🦋', emoji: '🦋', power: 35, tier: 'common', desc: '밤에 활동하는 나비 친척.' },
+  butterfly2: { name: '나비', icon: '🦋', emoji: '🦋', power: 38, tier: 'common', desc: '꽃밭을 누비는 곤충.' },
+  dragonfly: { name: '잠자리', icon: '🦗', emoji: '🦗', power: 42, tier: 'common', desc: '날카로운 시력의 비행 곤충.' },
+  mayfly: { name: '하루살이', icon: '🦟', emoji: '🦟', power: 25, tier: 'common', desc: '하루만 사는 곤충.' },
+  mosquito: { name: '모기', icon: '🦟', emoji: '🦟', power: 27, tier: 'common', desc: '여름의 골칫거리.' },
+  housefly: { name: '집파리', icon: '🪰', emoji: '🪰', power: 29, tier: 'common', desc: '쓰레기를 좋아하는 곤충.' },
+  cockroach: { name: '바퀴벌레', icon: '🪳', emoji: '🪳', power: 35, tier: 'common', desc: '끈질긴 생명력의 곤충.' },
+  termite: { name: '흰개미', icon: '🐜', emoji: '🐜', power: 31, tier: 'common', desc: '나무를 갉아먹는 곤충.' },
+  wasp: { name: '말벌', icon: '🐝', emoji: '🐝', power: 48, tier: 'common', desc: '독침을 가진 위험한 곤충.' },
+  hornet: { name: '장수말벌', icon: '🐝', emoji: '🐝', power: 52, tier: 'common', desc: '강력한 독침을 가진 큰 말벌.' },
+  aphid: { name: '진딧물', icon: '🐜', emoji: '🐜', power: 24, tier: 'common', desc: '식물의 적인 작은 곤충.' },
+  flea: { name: '벼룩', icon: '🪲', emoji: '🪲', power: 26, tier: 'common', desc: '점프하는 작은 흡혈 곤충.' },
+  tick: { name: '진드기', icon: '🪲', emoji: '🪲', power: 28, tier: 'common', desc: '피를 빠는 작은 절지동물.' },
+  mite: { name: '응애', icon: '🪲', emoji: '🪲', power: 22, tier: 'common', desc: '아주 작은 절지동물.' },
+  woodlouse: { name: '쥐며느리', icon: '🐛', emoji: '🐛', power: 30, tier: 'common', desc: '습기를 좋아하는 절지동물.' },
+  sparrow2: { name: '참새', icon: '🐦', emoji: '🐦', power: 32, tier: 'common', desc: '도시의 흔한 작은 새.' },
+  swallow: { name: '제비', icon: '🐦', emoji: '🐦', power: 40, tier: 'common', desc: '봄을 알리는 빠른 새.' },
+  finch: { name: '되새', icon: '🐦', emoji: '🐦', power: 36, tier: 'common', desc: '씨앗을 먹는 작은 새.' },
+  canary: { name: '카나리아', icon: '🐤', emoji: '🐤', power: 38, tier: 'common', desc: '노란색 노래 새.' },
+  robin: { name: '울새', icon: '🐦', emoji: '🐦', power: 42, tier: 'common', desc: '빨간 가슴의 새.' },
+  bluetit: { name: '파랑새', icon: '🐦', emoji: '🐦', power: 40, tier: 'common', desc: '푸른 깃털의 작은 새.' },
+  wren: { name: '굴뚝새', icon: '🐦', emoji: '🐦', power: 35, tier: 'common', desc: '아주 작은 갈색 새.' },
+  starling2: { name: '찌르레기', icon: '🐦', emoji: '🐦', power: 44, tier: 'common', desc: '무리 짓는 검은 새.' },
+  crow_baby: { name: '아기 까마귀', icon: '🐦', emoji: '🐦', power: 46, tier: 'common', desc: '검은 깃털의 영리한 새.' },
+  magpie: { name: '까치', icon: '🐦', emoji: '🐦', power: 50, tier: 'common', desc: '흰검 깃털의 새.' },
+  jay: { name: '어치', icon: '🐦', emoji: '🐦', power: 48, tier: 'common', desc: '도토리를 묻는 새.' },
+  cuckoo: { name: '뻐꾸기', icon: '🐦', emoji: '🐦', power: 45, tier: 'common', desc: '남의 둥지에 알을 낳는 새.' },
+  dove: { name: '비둘기', icon: '🐦', emoji: '🐦', power: 38, tier: 'common', desc: '평화의 상징.' },
+  quail: { name: '메추라기', icon: '🐦', emoji: '🐦', power: 42, tier: 'common', desc: '땅을 걷는 작은 새.' },
+  pheasant: { name: '꿩', icon: '🐦', emoji: '🐦', power: 55, tier: 'common', desc: '화려한 깃털의 들새.' },
+  partridge: { name: '자고새', icon: '🐦', emoji: '🐦', power: 50, tier: 'common', desc: '땅을 다니는 새.' },
+  grouse: { name: '뇌조', icon: '🐦', emoji: '🐦', power: 52, tier: 'common', desc: '산속에 사는 새.' },
+  woodpecker_b: { name: '딱따구리', icon: '🐦', emoji: '🐦', power: 48, tier: 'common', desc: '나무를 쪼는 새.' },
+  hummingbird: { name: '벌새', icon: '🐦', emoji: '🐦', power: 44, tier: 'common', desc: '날개를 빠르게 흔드는 작은 새.' },
+  swift: { name: '칼새', icon: '🐦', emoji: '🐦', power: 46, tier: 'common', desc: '빠른 비행의 작은 새.' },
+  martin: { name: '소쩍새', icon: '🐦', emoji: '🐦', power: 40, tier: 'common', desc: '밤에 우는 부엉이 종류.' },
+  chickadee: { name: '박새', icon: '🐦', emoji: '🐦', power: 36, tier: 'common', desc: '추위에 강한 작은 새.' },
+  warbler: { name: '휘파람새', icon: '🐦', emoji: '🐦', power: 38, tier: 'common', desc: '아름다운 소리의 새.' },
+  catfish: { name: '메기', icon: '🐟', emoji: '🐟', power: 45, tier: 'common', desc: '강의 큰 물고기.' },
+  trout: { name: '송어', icon: '🐟', emoji: '🐟', power: 50, tier: 'common', desc: '맑은 물의 물고기.' },
+  salmon: { name: '연어', icon: '🐟', emoji: '🐟', power: 60, tier: 'common', desc: '강을 거슬러 오르는 물고기.' },
+  carp: { name: '잉어', icon: '🐟', emoji: '🐟', power: 48, tier: 'common', desc: '연못의 큰 물고기.' },
+  goldfish: { name: '금붕어', icon: '🐠', emoji: '🐠', power: 32, tier: 'common', desc: '예쁜 관상어.' },
+  bass: { name: '배스', icon: '🐟', emoji: '🐟', power: 55, tier: 'common', desc: '낚시꾼의 표적.' },
+  pike: { name: '강꼬치고기', icon: '🐟', emoji: '🐟', power: 58, tier: 'common', desc: '날카로운 이빨의 물고기.' },
+  eel: { name: '뱀장어', icon: '🐟', emoji: '🐟', power: 50, tier: 'common', desc: '뱀처럼 긴 물고기.' },
+  sardine: { name: '정어리', icon: '🐟', emoji: '🐟', power: 30, tier: 'common', desc: '무리 짓는 작은 물고기.' },
+  herring: { name: '청어', icon: '🐟', emoji: '🐟', power: 35, tier: 'common', desc: '바다의 흔한 물고기.' },
+  anchovy: { name: '멸치', icon: '🐟', emoji: '🐟', power: 28, tier: 'common', desc: '아주 작은 바닷물고기.' },
+  mackerel: { name: '고등어', icon: '🐟', emoji: '🐟', power: 42, tier: 'common', desc: '푸른 등의 물고기.' },
+  tuna_small: { name: '작은 참치', icon: '🐟', emoji: '🐟', power: 55, tier: 'common', desc: '바다의 빠른 물고기.' },
+  cod: { name: '대구', icon: '🐟', emoji: '🐟', power: 50, tier: 'common', desc: '북쪽 바다의 물고기.' },
+  flounder: { name: '광어', icon: '🐠', emoji: '🐠', power: 48, tier: 'common', desc: '바닥에 사는 납작한 물고기.' },
+  sole: { name: '서대', icon: '🐠', emoji: '🐠', power: 45, tier: 'common', desc: '한쪽 눈이 이동한 물고기.' },
+  sardine_school: { name: '정어리 떼', icon: '🐟', emoji: '🐟', power: 35, tier: 'common', desc: '무리 지은 정어리.' },
+  seahorse: { name: '해마', icon: '🐠', emoji: '🐠', power: 40, tier: 'common', desc: '말 모양의 작은 물고기.' },
+  starfish: { name: '불가사리', icon: '⭐', emoji: '⭐', power: 38, tier: 'common', desc: '별 모양의 바다 생물.' },
+  seaurchin: { name: '성게', icon: '🌰', emoji: '🌰', power: 36, tier: 'common', desc: '가시 많은 바다 생물.' },
+  anemone: { name: '말미잘', icon: '🌺', emoji: '🌺', power: 34, tier: 'common', desc: '꽃 같은 바다 생물.' },
+  coral: { name: '산호', icon: '🪸', emoji: '🪸', power: 40, tier: 'common', desc: '바다의 보석.' },
+  clam: { name: '조개', icon: '🦪', emoji: '🦪', power: 32, tier: 'common', desc: '진주를 만들 수도 있는 조개.' },
+  mussel: { name: '홍합', icon: '🦪', emoji: '🦪', power: 30, tier: 'common', desc: '바위에 붙는 조개.' },
+  scallop: { name: '가리비', icon: '🦪', emoji: '🦪', power: 38, tier: 'common', desc: '맛있는 조개.' },
+  squid_b: { name: '오징어', icon: '🦑', emoji: '🦑', power: 50, tier: 'common', desc: '먹물을 뿜는 연체동물.' },
+  cuttlefish: { name: '갑오징어', icon: '🦑', emoji: '🦑', power: 52, tier: 'common', desc: '색을 바꾸는 오징어.' },
+  jellyfish_s: { name: '작은 해파리', icon: '🪼', emoji: '🪼', power: 36, tier: 'common', desc: '투명한 바다 생물.' },
+  crab_small: { name: '작은 게', icon: '🦀', emoji: '🦀', power: 42, tier: 'common', desc: '바위 틈의 작은 게.' },
+  hermit_crab: { name: '소라게', icon: '🦀', emoji: '🦀', power: 38, tier: 'common', desc: '껍데기를 빌려쓰는 게.' },
+  shrimp_b: { name: '새우', icon: '🦐', emoji: '🦐', power: 35, tier: 'common', desc: '바다의 작은 절지동물.' },
+  lobster: { name: '바닷가재', icon: '🦞', emoji: '🦞', power: 60, tier: 'common', desc: '집게가 큰 바다 생물.' },
+  crayfish: { name: '가재', icon: '🦞', emoji: '🦞', power: 45, tier: 'common', desc: '민물의 작은 바닷가재.' },
+  frog2: { name: '두꺼비', icon: '🐸', emoji: '🐸', power: 38, tier: 'common', desc: '습기 좋아하는 양서류.' },
+  toad2: { name: '청개구리', icon: '🐸', emoji: '🐸', power: 36, tier: 'common', desc: '비를 알리는 개구리.' },
+  newt: { name: '도롱뇽', icon: '🦎', emoji: '🦎', power: 35, tier: 'common', desc: '물가의 작은 양서류.' },
+  salamander: { name: '도롱뇽', icon: '🦎', emoji: '🦎', power: 42, tier: 'common', desc: '재생력 좋은 양서류.' },
+  axolotl: { name: '아홀로틀', icon: '🦎', emoji: '🦎', power: 45, tier: 'common', desc: '귀여운 외형의 양서류.' },
+  gecko: { name: '도마뱀붙이', icon: '🦎', emoji: '🦎', power: 40, tier: 'common', desc: '벽을 기는 도마뱀.' },
+  skink: { name: '도마뱀', icon: '🦎', emoji: '🦎', power: 38, tier: 'common', desc: '매끄러운 비늘의 도마뱀.' },
+  chameleon: { name: '카멜레온', icon: '🦎', emoji: '🦎', power: 50, tier: 'common', desc: '색을 바꾸는 도마뱀.' },
+  lizard_b: { name: '도마뱀 새끼', icon: '🦎', emoji: '🦎', power: 32, tier: 'common', desc: '작은 도마뱀.' },
+  horntoad: { name: '뿔두꺼비', icon: '🐸', emoji: '🐸', power: 44, tier: 'common', desc: '뿔이 있는 두꺼비.' },
+  mud_skipper: { name: '진흙 메기', icon: '🐟', emoji: '🐟', power: 42, tier: 'common', desc: '갯벌의 물고기.' },
+  puddle_fish: { name: '웅덩이 물고기', icon: '🐟', emoji: '🐟', power: 30, tier: 'common', desc: '작은 웅덩이 물고기.' },
+  field_mouse: { name: '들쥐', icon: '🐭', emoji: '🐭', power: 26, tier: 'common', desc: '들판의 작은 쥐.' },
+  barn_owl: { name: '외양간 부엉이', icon: '🦉', emoji: '🦉', power: 60, tier: 'common', desc: '외양간에 사는 부엉이.' },
+  tree_frog: { name: '청개구리', icon: '🐸', emoji: '🐸', power: 38, tier: 'common', desc: '나무 위 개구리.' },
+  pond_frog: { name: '연못 개구리', icon: '🐸', emoji: '🐸', power: 35, tier: 'common', desc: '연못에 사는 개구리.' },
+  garden_snake: { name: '정원 뱀', icon: '🐍', emoji: '🐍', power: 50, tier: 'common', desc: '정원의 작은 뱀.' },
+  grass_snake: { name: '풀숲 뱀', icon: '🐍', emoji: '🐍', power: 48, tier: 'common', desc: '풀숲에 사는 뱀.' },
+  worm_lizard: { name: '벌레도마뱀', icon: '🦎', emoji: '🦎', power: 36, tier: 'common', desc: '다리 없는 도마뱀.' },
+  tortoise: { name: '거북', icon: '🐢', emoji: '🐢', power: 55, tier: 'common', desc: '느린 육지 거북.' },
+  terrapin: { name: '민물거북', icon: '🐢', emoji: '🐢', power: 50, tier: 'common', desc: '강의 거북.' },
+  soft_turtle: { name: '자라', icon: '🐢', emoji: '🐢', power: 52, tier: 'common', desc: '부드러운 등껍질의 거북.' },
+  field_rabbit: { name: '들토끼', icon: '🐰', emoji: '🐰', power: 45, tier: 'common', desc: '들판의 토끼.' },
+  snowshoe: { name: '눈신토끼', icon: '🐰', emoji: '🐰', power: 48, tier: 'common', desc: '눈 위를 뛰는 토끼.' },
+  jackrabbit: { name: '잭래빗', icon: '🐰', emoji: '🐰', power: 50, tier: 'common', desc: '긴 귀의 토끼.' },
+  cottontail: { name: '솜꼬리토끼', icon: '🐰', emoji: '🐰', power: 46, tier: 'common', desc: '꼬리가 솜 같은 토끼.' },
+  pika: { name: '우는토끼', icon: '🐹', emoji: '🐹', power: 38, tier: 'common', desc: '산속의 작은 토끼.' },
+  shrew_b: { name: '땃쥐', icon: '🐭', emoji: '🐭', power: 28, tier: 'common', desc: '작은 식충동물.' },
+  hedgehog_b: { name: '아기 고슴도치', icon: '🦔', emoji: '🦔', power: 35, tier: 'common', desc: '작은 가시 동물.' },
+  porcupine_b: { name: '아기 호저', icon: '🦔', emoji: '🦔', power: 38, tier: 'common', desc: '작은 가시 동물.' },
+  opossum: { name: '주머니쥐', icon: '🐭', emoji: '🐭', power: 50, tier: 'common', desc: '죽은 척하는 동물.' },
+  aardvark_b: { name: '아기 땅돼지', icon: '🐗', emoji: '🐗', power: 55, tier: 'common', desc: '개미를 먹는 동물.' },
+  echidna: { name: '바늘두더지', icon: '🦔', emoji: '🦔', power: 52, tier: 'common', desc: '알 낳는 포유류.' },
+  platypus: { name: '오리너구리', icon: '🦫', emoji: '🦫', power: 58, tier: 'common', desc: '독특한 포유류.' },
+  numbat: { name: '주머니개미핥기', icon: '🐾', emoji: '🐾', power: 48, tier: 'common', desc: '호주의 작은 동물.' },
+  quokka: { name: '쿼카', icon: '🐹', emoji: '🐹', power: 50, tier: 'common', desc: '항상 웃는 듯한 동물.' },
+  wallaby: { name: '왈라비', icon: '🦘', emoji: '🦘', power: 60, tier: 'common', desc: '작은 캥거루.' },
+  possum: { name: '주머니쥐', icon: '🐹', emoji: '🐹', power: 45, tier: 'common', desc: '나무를 타는 작은 동물.' },
+  coypu: { name: '뉴트리아', icon: '🦫', emoji: '🦫', power: 55, tier: 'common', desc: '큰 물쥐.' },
+  chinchilla: { name: '친칠라', icon: '🐹', emoji: '🐹', power: 42, tier: 'common', desc: '부드러운 털의 설치류.' },
+  guinea_pig: { name: '기니피그', icon: '🐹', emoji: '🐹', power: 38, tier: 'common', desc: '귀여운 설치류.' },
+  snow_leopard: { name: '눈표범', icon: '🐆', emoji: '🐆', power: 100, tier: 'rare', desc: '히말라야의 회색 표범.' },
+  clouded_leopard: { name: '구름표범', icon: '🐆', emoji: '🐆', power: 105, tier: 'rare', desc: '얼룩진 큰 고양이.' },
+  caracal: { name: '카라칼', icon: '🐆', emoji: '🐆', power: 95, tier: 'rare', desc: '귀 끝이 뾰족한 고양이.' },
+  serval: { name: '서벌', icon: '🐆', emoji: '🐆', power: 98, tier: 'rare', desc: '긴 다리의 야생 고양이.' },
+  ocelot: { name: '오셀롯', icon: '🐆', emoji: '🐆', power: 92, tier: 'rare', desc: '얼룩무늬 고양이.' },
+  margay: { name: '마게이', icon: '🐆', emoji: '🐆', power: 90, tier: 'rare', desc: '나무를 타는 고양이.' },
+  lynx_iberian: { name: '이베리아 스라소니', icon: '🐆', emoji: '🐆', power: 102, tier: 'rare', desc: '유럽의 야생 고양이.' },
+  bobcat_b: { name: '아기 밥캣', icon: '🐆', emoji: '🐆', power: 88, tier: 'rare', desc: '북미의 야생 고양이.' },
+  dhole: { name: '인도들개', icon: '🐺', emoji: '🐺', power: 95, tier: 'rare', desc: '아시아의 야생 개.' },
+  maned_wolf: { name: '갈기늑대', icon: '🐺', emoji: '🐺', power: 110, tier: 'rare', desc: '긴 다리의 남미 늑대.' },
+  fennec: { name: '페넥여우', icon: '🦊', emoji: '🦊', power: 85, tier: 'rare', desc: '큰 귀의 사막 여우.' },
+  arctic_fox: { name: '북극여우', icon: '🦊', emoji: '🦊', power: 92, tier: 'rare', desc: '하얀 털의 북극 여우.' },
+  red_fox: { name: '붉은여우', icon: '🦊', emoji: '🦊', power: 95, tier: 'rare', desc: '붉은 털의 영리한 여우.' },
+  kit_fox: { name: '키트여우', icon: '🦊', emoji: '🦊', power: 88, tier: 'rare', desc: '북미 사막의 작은 여우.' },
+  gray_fox: { name: '회색여우', icon: '🦊', emoji: '🦊', power: 90, tier: 'rare', desc: '나무를 타는 여우.' },
+  honey_badger: { name: '꿀먹이오소리', icon: '🦡', emoji: '🦡', power: 115, tier: 'rare', desc: '두려움 없는 작은 사냥꾼.' },
+  wolverine: { name: '울버린', icon: '🦡', emoji: '🦡', power: 120, tier: 'rare', desc: '강력한 작은 포식자.' },
+  tasmanian: { name: '태즈매니아데빌', icon: '🦡', emoji: '🦡', power: 105, tier: 'rare', desc: '호주의 작은 육식 동물.' },
+  binturong: { name: '빈투롱', icon: '🐾', emoji: '🐾', power: 108, tier: 'rare', desc: '곰고양이라 불리는 동물.' },
+  coati: { name: '코아티', icon: '🦝', emoji: '🦝', power: 92, tier: 'rare', desc: '긴 꼬리의 동물.' },
+  genet: { name: '제넷', icon: '🐱', emoji: '🐱', power: 88, tier: 'rare', desc: '얼룩무늬의 작은 육식동물.' },
+  civet: { name: '사향고양이', icon: '🐱', emoji: '🐱', power: 95, tier: 'rare', desc: '향수의 원료가 되는 동물.' },
+  fossa: { name: '포사', icon: '🐱', emoji: '🐱', power: 110, tier: 'rare', desc: '마다가스카르의 사냥꾼.' },
+  gibbon: { name: '긴팔원숭이', icon: '🐒', emoji: '🐒', power: 100, tier: 'rare', desc: '나무를 잘 타는 유인원.' },
+  lemur: { name: '여우원숭이', icon: '🐒', emoji: '🐒', power: 95, tier: 'rare', desc: '마다가스카르의 영장류.' },
+  aye_aye: { name: '아이아이', icon: '🐒', emoji: '🐒', power: 90, tier: 'rare', desc: '독특한 외형의 영장류.' },
+  tarsier: { name: '타르시어', icon: '🐒', emoji: '🐒', power: 85, tier: 'rare', desc: '큰 눈의 작은 영장류.' },
+  mandrill: { name: '맨드릴', icon: '🐒', emoji: '🐒', power: 115, tier: 'rare', desc: '화려한 얼굴의 원숭이.' },
+  proboscis: { name: '코주부원숭이', icon: '🐒', emoji: '🐒', power: 105, tier: 'rare', desc: '큰 코의 원숭이.' },
+  capuchin: { name: '꼬리감는원숭이', icon: '🐒', emoji: '🐒', power: 90, tier: 'rare', desc: '영리한 작은 원숭이.' },
+  howler: { name: '울음원숭이', icon: '🐒', emoji: '🐒', power: 95, tier: 'rare', desc: '큰 소리로 우는 원숭이.' },
+  spider_monkey: { name: '거미원숭이', icon: '🐒', emoji: '🐒', power: 92, tier: 'rare', desc: '긴 팔다리의 원숭이.' },
+  marmoset: { name: '마모셋', icon: '🐒', emoji: '🐒', power: 80, tier: 'rare', desc: '아주 작은 원숭이.' },
+  tamarin: { name: '타마린', icon: '🐒', emoji: '🐒', power: 82, tier: 'rare', desc: '머리에 술이 있는 원숭이.' },
+  macaque: { name: '짧은꼬리원숭이', icon: '🐒', emoji: '🐒', power: 100, tier: 'rare', desc: '아시아의 원숭이.' },
+  baboon_b: { name: '비비', icon: '🐒', emoji: '🐒', power: 108, tier: 'rare', desc: '큰 송곳니의 원숭이.' },
+  gelada: { name: '겔라다', icon: '🐒', emoji: '🐒', power: 102, tier: 'rare', desc: '에티오피아의 원숭이.' },
+  langur: { name: '랑구르', icon: '🐒', emoji: '🐒', power: 95, tier: 'rare', desc: '회색 털의 원숭이.' },
+  macaw: { name: '마코앵무', icon: '🦜', emoji: '🦜', power: 88, tier: 'rare', desc: '화려한 큰 앵무새.' },
+  cockatoo: { name: '코카투', icon: '🦜', emoji: '🦜', power: 85, tier: 'rare', desc: '머리에 깃이 있는 앵무새.' },
+  toucan: { name: '큰부리새', icon: '🐦', emoji: '🐦', power: 95, tier: 'rare', desc: '거대한 부리의 새.' },
+  lorikeet: { name: '로리키트', icon: '🦜', emoji: '🦜', power: 82, tier: 'rare', desc: '무지개색 앵무새.' },
+  hornbill: { name: '코뿔새', icon: '🐦', emoji: '🐦', power: 100, tier: 'rare', desc: '뿔 모양 부리의 새.' },
+  kingfisher: { name: '물총새', icon: '🐦', emoji: '🐦', power: 90, tier: 'rare', desc: '물고기 사냥의 명수.' },
+  flamingo_b: { name: '아기 플라밍고', icon: '🦩', emoji: '🦩', power: 92, tier: 'rare', desc: '분홍색 다리 긴 새.' },
+  crane: { name: '두루미', icon: '🦢', emoji: '🦢', power: 105, tier: 'rare', desc: '우아한 큰 새.' },
+  heron: { name: '왜가리', icon: '🦢', emoji: '🦢', power: 95, tier: 'rare', desc: '강가의 큰 새.' },
+  stork: { name: '황새', icon: '🦢', emoji: '🦢', power: 100, tier: 'rare', desc: '아기를 데려온다는 새.' },
+  ibis: { name: '따오기', icon: '🦢', emoji: '🦢', power: 88, tier: 'rare', desc: '곡선 부리의 새.' },
+  pelican_b: { name: '아기 펠리컨', icon: '🐦', emoji: '🐦', power: 95, tier: 'rare', desc: '큰 부리 주머니의 새.' },
+  albatross_b: { name: '알바트로스', icon: '🐦', emoji: '🐦', power: 110, tier: 'rare', desc: '큰 날개의 바다 새.' },
+  osprey: { name: '물수리', icon: '🦅', emoji: '🦅', power: 115, tier: 'rare', desc: '물고기를 사냥하는 매.' },
+  kestrel: { name: '황조롱이', icon: '🦅', emoji: '🦅', power: 95, tier: 'rare', desc: '작은 매.' },
+  harrier: { name: '개구리매', icon: '🦅', emoji: '🦅', power: 100, tier: 'rare', desc: '습지의 매.' },
+  goshawk: { name: '참매', icon: '🦅', emoji: '🦅', power: 105, tier: 'rare', desc: '숲의 사냥꾼.' },
+  saker: { name: '세이커매', icon: '🦅', emoji: '🦅', power: 102, tier: 'rare', desc: '아시아의 매.' },
+  peregrine: { name: '송골매', icon: '🦅', emoji: '🦅', power: 120, tier: 'rare', desc: '가장 빠른 새.' },
+  barn_owl_b: { name: '외양간올빼미', icon: '🦉', emoji: '🦉', power: 92, tier: 'rare', desc: '하얀 얼굴의 올빼미.' },
+  horned_owl: { name: '큰뿔부엉이', icon: '🦉', emoji: '🦉', power: 110, tier: 'rare', desc: '뿔 같은 깃의 부엉이.' },
+  snowy_owl: { name: '눈올빼미', icon: '🦉', emoji: '🦉', power: 105, tier: 'rare', desc: '하얀 깃털의 부엉이.' },
+  elf_owl: { name: '꼬마부엉이', icon: '🦉', emoji: '🦉', power: 80, tier: 'rare', desc: '가장 작은 부엉이.' },
+  bat_fruit: { name: '과일박쥐', icon: '🦇', emoji: '🦇', power: 88, tier: 'rare', desc: '과일을 먹는 큰 박쥐.' },
+  flying_fox: { name: '플라잉폭스', icon: '🦇', emoji: '🦇', power: 100, tier: 'rare', desc: '여우 얼굴의 큰 박쥐.' },
+  vampire_bat: { name: '흡혈박쥐', icon: '🦇', emoji: '🦇', power: 95, tier: 'rare', desc: '피를 마시는 박쥐.' },
+  horseshoe_bat: { name: '관박쥐', icon: '🦇', emoji: '🦇', power: 85, tier: 'rare', desc: '코가 독특한 박쥐.' },
+  sea_otter: { name: '해달', icon: '🦦', emoji: '🦦', power: 90, tier: 'rare', desc: '바다의 귀여운 동물.' },
+  river_otter: { name: '강달', icon: '🦦', emoji: '🦦', power: 88, tier: 'rare', desc: '강의 활발한 동물.' },
+  giant_otter: { name: '거대수달', icon: '🦦', emoji: '🦦', power: 110, tier: 'rare', desc: '남미의 큰 수달.' },
+  beaver_b: { name: '아기 비버', icon: '🦫', emoji: '🦫', power: 92, tier: 'rare', desc: '댐을 짓는 동물.' },
+  capybara_b: { name: '카피바라', icon: '🐾', emoji: '🐾', power: 100, tier: 'rare', desc: '가장 큰 설치류.' },
+  porcupine_giant: { name: '큰호저', icon: '🦔', emoji: '🦔', power: 105, tier: 'rare', desc: '큰 가시의 동물.' },
+  quoll: { name: '쿼롤', icon: '🐾', emoji: '🐾', power: 88, tier: 'rare', desc: '호주의 작은 육식동물.' },
+  numbat_b: { name: '주머니개미핥기', icon: '🐾', emoji: '🐾', power: 85, tier: 'rare', desc: '호주 특산 동물.' },
+  bilby: { name: '빌비', icon: '🐹', emoji: '🐹', power: 92, tier: 'rare', desc: '긴 귀의 호주 동물.' },
+  bandicoot: { name: '반디쿠트', icon: '🐾', emoji: '🐾', power: 90, tier: 'rare', desc: '호주의 작은 동물.' },
+  cuscus: { name: '쿠스쿠스', icon: '🐾', emoji: '🐾', power: 95, tier: 'rare', desc: '나무 위의 유대류.' },
+  sugar_glider: { name: '슈가글라이더', icon: '🐿️', emoji: '🐿️', power: 88, tier: 'rare', desc: '날아오르는 작은 동물.' },
+  colugo: { name: '날여우원숭이', icon: '🐿️', emoji: '🐿️', power: 100, tier: 'rare', desc: '활공하는 포유류.' },
+  pangolin_b: { name: '아기 천산갑', icon: '🦎', emoji: '🦎', power: 102, tier: 'rare', desc: '비늘이 있는 포유류.' },
+  saber_tooth: { name: '검치호랑이', icon: '🐅', emoji: '🐅', power: 175, tier: 'epic', desc: '거대한 송곳니의 고대 호랑이.' },
+  cave_lion: { name: '동굴사자', icon: '🦁', emoji: '🦁', power: 180, tier: 'epic', desc: '빙하기의 거대 사자.' },
+  cave_bear: { name: '동굴곰', icon: '🐻', emoji: '🐻', power: 195, tier: 'epic', desc: '빙하기의 거대 곰.' },
+  dire_bear: { name: '다이어베어', icon: '🐻', emoji: '🐻', power: 200, tier: 'epic', desc: '거대한 고대 곰.' },
+  great_wolf: { name: '거대늑대', icon: '🐺', emoji: '🐺', power: 165, tier: 'epic', desc: '거대한 회색 늑대.' },
+  alpha_wolf: { name: '알파늑대', icon: '🐺', emoji: '🐺', power: 170, tier: 'epic', desc: '무리의 우두머리.' },
+  thunder_wolf: { name: '천둥늑대', icon: '🐺', emoji: '🐺', power: 178, tier: 'epic', desc: '번개를 닮은 늑대.' },
+  shadow_panther: { name: '그림자표범', icon: '🐆', emoji: '🐆', power: 168, tier: 'epic', desc: '어둠에 숨는 표범.' },
+  jade_tiger: { name: '비취호랑이', icon: '🐅', emoji: '🐅', power: 172, tier: 'epic', desc: '비취색 호랑이.' },
+  white_tiger: { name: '백호', icon: '🐅', emoji: '🐅', power: 185, tier: 'epic', desc: '하얀 줄무늬의 호랑이.' },
+  black_panther: { name: '흑표범', icon: '🐆', emoji: '🐆', power: 175, tier: 'epic', desc: '검은 표범.' },
+  golden_lion: { name: '황금사자', icon: '🦁', emoji: '🦁', power: 190, tier: 'epic', desc: '황금 갈기의 사자.' },
+  mammoth: { name: '매머드', icon: '🐘', emoji: '🐘', power: 220, tier: 'epic', desc: '거대한 털복숭이 코끼리.' },
+  mastodon: { name: '마스토돈', icon: '🐘', emoji: '🐘', power: 215, tier: 'epic', desc: '고대의 거대 코끼리.' },
+  elasmotherium: { name: '엘라스모테리움', icon: '🦏', emoji: '🦏', power: 200, tier: 'epic', desc: '거대한 뿔의 코뿔소.' },
+  rhino_armored: { name: '갑옷코뿔소', icon: '🦏', emoji: '🦏', power: 195, tier: 'epic', desc: '두꺼운 가죽의 코뿔소.' },
+  giant_boar: { name: '거대 멧돼지', icon: '🐗', emoji: '🐗', power: 175, tier: 'epic', desc: '엄청 큰 멧돼지.' },
+  terror_bird: { name: '공포새', icon: '🦃', emoji: '🦃', power: 180, tier: 'epic', desc: '거대한 육식 조류.' },
+  giant_eagle: { name: '거대독수리', icon: '🦅', emoji: '🦅', power: 175, tier: 'epic', desc: '거대한 사냥의 왕.' },
+  thunderbird: { name: '천둥새', icon: '🦅', emoji: '🦅', power: 195, tier: 'epic', desc: '폭풍을 부르는 거대 새.' },
+  storm_petrel: { name: '폭풍의 새', icon: '🐦', emoji: '🐦', power: 165, tier: 'epic', desc: '폭풍을 타는 새.' },
+  giant_owl: { name: '거대부엉이', icon: '🦉', emoji: '🦉', power: 170, tier: 'epic', desc: '거대한 밤의 사냥꾼.' },
+  snow_owl_great: { name: '거대 눈올빼미', icon: '🦉', emoji: '🦉', power: 178, tier: 'epic', desc: '북극의 거대 부엉이.' },
+  giant_bat: { name: '거대 박쥐', icon: '🦇', emoji: '🦇', power: 168, tier: 'epic', desc: '거대한 흡혈박쥐.' },
+  dire_wolf: { name: '다이어울프', icon: '🐺', emoji: '🐺', power: 188, tier: 'epic', desc: '거대한 고대 늑대.' },
+  hellhound: { name: '지옥견', icon: '🐕', emoji: '🐕', power: 195, tier: 'epic', desc: '지옥에서 온 사냥개.' },
+  giant_serpent: { name: '거대 뱀', icon: '🐍', emoji: '🐍', power: 175, tier: 'epic', desc: '거대한 뱀.' },
+  anaconda: { name: '아나콘다', icon: '🐍', emoji: '🐍', power: 185, tier: 'epic', desc: '거대한 보아.' },
+  king_cobra: { name: '킹코브라', icon: '🐍', emoji: '🐍', power: 180, tier: 'epic', desc: '독사의 왕.' },
+  giant_squid: { name: '거대 오징어', icon: '🦑', emoji: '🦑', power: 195, tier: 'epic', desc: '심해의 거인.' },
+  great_white: { name: '백상아리', icon: '🦈', emoji: '🦈', power: 200, tier: 'epic', desc: '바다의 최강 포식자.' },
+  orca_great: { name: '거대 범고래', icon: '🐋', emoji: '🐋', power: 210, tier: 'epic', desc: '바다의 늑대.' },
+  killer_whale: { name: '범고래', icon: '🐋', emoji: '🐋', power: 205, tier: 'epic', desc: '바다의 사냥꾼.' },
+  giant_octopus: { name: '거대 문어', icon: '🐙', emoji: '🐙', power: 190, tier: 'epic', desc: '심해의 영리한 거인.' },
+  plesiosaur: { name: '플레시오사우르스', icon: '🦕', emoji: '🦕', power: 215, tier: 'epic', desc: '긴 목의 수생 공룡.' },
+  mosasaur: { name: '모사사우르스', icon: '🐊', emoji: '🐊', power: 220, tier: 'epic', desc: '바다의 거대 도마뱀.' },
+  megalodon_baby: { name: '아기 메갈로돈', icon: '🦈', emoji: '🦈', power: 225, tier: 'epic', desc: '거대한 상어의 새끼.' },
+  giant_lizard: { name: '거대 도마뱀', icon: '🦎', emoji: '🦎', power: 175, tier: 'epic', desc: '거대한 파충류.' },
+  komodo: { name: '코모도왕도마뱀', icon: '🦎', emoji: '🦎', power: 180, tier: 'epic', desc: '독있는 거대 도마뱀.' },
+  giant_turtle: { name: '거대 거북', icon: '🐢', emoji: '🐢', power: 195, tier: 'epic', desc: '거대한 고대 거북.' },
+  giant_crab: { name: '거대 게', icon: '🦀', emoji: '🦀', power: 170, tier: 'epic', desc: '거대한 집게의 게.' },
+  giant_scorpion: { name: '거대 전갈', icon: '🦂', emoji: '🦂', power: 175, tier: 'epic', desc: '거대한 독전갈.' },
+  giant_spider: { name: '거대 거미', icon: '🕷️', emoji: '🕷️', power: 170, tier: 'epic', desc: '거대한 독거미.' },
+  giant_centipede: { name: '거대 지네', icon: '🐛', emoji: '🐛', power: 165, tier: 'epic', desc: '거대한 독지네.' },
+  giant_beetle: { name: '거대 풍뎅이', icon: '🪲', emoji: '🪲', power: 168, tier: 'epic', desc: '거대한 갑충.' },
+  hercules_beetle: { name: '헤라클레스 풍뎅이', icon: '🪲', emoji: '🪲', power: 175, tier: 'epic', desc: '뿔이 큰 풍뎅이.' },
+  giant_wasp: { name: '거대 말벌', icon: '🐝', emoji: '🐝', power: 170, tier: 'epic', desc: '거대한 독말벌.' },
+  giant_mantis: { name: '거대 사마귀', icon: '🦗', emoji: '🦗', power: 172, tier: 'epic', desc: '거대한 사냥 곤충.' },
+  cave_troll_small: { name: '작은 동굴 트롤', icon: '👹', emoji: '👹', power: 200, tier: 'epic', desc: '동굴에 사는 작은 거인.' },
+  forest_giant: { name: '숲의 거인', icon: '🌲', emoji: '🌲', power: 195, tier: 'epic', desc: '숲을 지키는 거인.' },
+  emerald_dragon: { name: '에메랄드 드래곤', icon: '🐉', emoji: '🐉', power: 360, tier: 'legendary', desc: '에메랄드빛 비늘의 용.' },
+  ruby_dragon: { name: '루비 드래곤', icon: '🐉', emoji: '🐉', power: 355, tier: 'legendary', desc: '루비빛 비늘의 용.' },
+  sapphire_dragon: { name: '사파이어 드래곤', icon: '🐉', emoji: '🐉', power: 350, tier: 'legendary', desc: '사파이어빛 비늘의 용.' },
+  amethyst_dragon: { name: '자수정 드래곤', icon: '🐉', emoji: '🐉', power: 358, tier: 'legendary', desc: '자수정빛 비늘의 용.' },
+  storm_dragon: { name: '폭풍의 용', icon: '🐉', emoji: '🐉', power: 365, tier: 'legendary', desc: '폭풍을 다스리는 용.' },
+  volcano_dragon: { name: '화산의 용', icon: '🐉', emoji: '🐉', power: 370, tier: 'legendary', desc: '용암을 뿜는 용.' },
+  thunder_phoenix: { name: '천둥의 불사조', icon: '🔥', emoji: '🔥', power: 340, tier: 'legendary', desc: '번개를 뿜는 불사조.' },
+  ice_phoenix: { name: '얼음의 불사조', icon: '🔥', emoji: '🔥', power: 335, tier: 'legendary', desc: '얼음에서 태어난 불사조.' },
+  shadow_phoenix: { name: '그림자 불사조', icon: '🔥', emoji: '🔥', power: 345, tier: 'legendary', desc: '어둠에서 깨어난 불사조.' },
+  starlight_griffin: { name: '별빛 그리핀', icon: '🦅', emoji: '🦅', power: 320, tier: 'legendary', desc: '별빛을 두른 그리핀.' },
+  moonlight_unicorn: { name: '달빛 유니콘', icon: '🦄', emoji: '🦄', power: 315, tier: 'legendary', desc: '달빛의 신성한 말.' },
+  rainbow_serpent: { name: '무지개 뱀', icon: '🐍', emoji: '🐍', power: 325, tier: 'legendary', desc: '무지개색 거대 뱀.' },
+  crystal_golem: { name: '크리스탈 골렘', icon: '🤖', emoji: '🤖', power: 330, tier: 'legendary', desc: '수정으로 만들어진 골렘.' },
+  lava_golem: { name: '용암 골렘', icon: '🌋', emoji: '🌋', power: 340, tier: 'legendary', desc: '용암으로 만들어진 골렘.' },
+  thunder_tiger: { name: '천둥 호랑이', icon: '🐅', emoji: '🐅', power: 305, tier: 'legendary', desc: '번개를 두른 호랑이.' },
+  void_wolf: { name: '공허의 늑대', icon: '🐺', emoji: '🐺', power: 310, tier: 'legendary', desc: '공허에서 온 늑대.' },
+  titan_frost: { name: '타이탄 프로스트', icon: '❄️', emoji: '❄️', power: 620, tier: 'mythic', desc: '얼음의 거인 타이탄.' },
+  ignis_lord: { name: '이그니스', icon: '🔥', emoji: '🔥', power: 610, tier: 'mythic', desc: '불의 군주.' },
+  gaia_mother: { name: '가이아', icon: '🌿', emoji: '🌿', power: 590, tier: 'mythic', desc: '대지의 여신.' },
+  zeus_king: { name: '제우스', icon: '⚡', emoji: '⚡', power: 615, tier: 'mythic', desc: '번개의 왕.' },
+  chronos: { name: '크로노스', icon: '⏳', emoji: '⏳', power: 595, tier: 'mythic', desc: '시간의 신.' },
 };
 
 // === 펫 아트 팔레트: 각 펫의 형태와 색상 데이터 ===
@@ -8114,6 +8448,291 @@ const PET_ART = {
   sleipnir:   { type: 'pegasus',  body: '#37474f', accent: '#fff',    dark: '#000',    eye: '#ffd700' },
   void_dragon:{ type: 'dragon',   body: '#000',    accent: '#311b92', dark: '#000',    eye: '#9c27b0' },
   cosmic_god: { type: 'demon',    body: '#311b92', accent: '#ffd700', dark: '#000',    eye: '#fff' },
+  mole_baby: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  shrew: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  vole: { type: 'rodent',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  lemming: { type: 'rodent',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  gerbil: { type: 'rodent',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  chipmunk_b: { type: 'rodent',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  dormouse: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  mole2: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  weasel_b: { type: 'weasel',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  marmot: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  mongoose_b: { type: 'weasel',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  cricket_b: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  grasshopper: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  katydid: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  mantis: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  ladybug2: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  firefly2: { type: 'beetle',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  caterpillar: { type: 'worm',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  worm_b: { type: 'worm',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  millipede: { type: 'worm',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  centipede: { type: 'worm',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  snail2: { type: 'crab',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  slug: { type: 'worm',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  moth: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  butterfly2: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  dragonfly: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  mayfly: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  mosquito: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  housefly: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  cockroach: { type: 'beetle',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  termite: { type: 'beetle',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  wasp: { type: 'beetle',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  hornet: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  aphid: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  flea: { type: 'beetle',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  tick: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  mite: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  woodlouse: { type: 'crab',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  sparrow2: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  swallow: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  finch: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  canary: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  robin: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  bluetit: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  wren: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  starling2: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  crow_baby: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  magpie: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  jay: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  cuckoo: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  dove: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  quail: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  pheasant: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  partridge: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  grouse: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  woodpecker_b: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  hummingbird: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  swift: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  martin: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  chickadee: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  warbler: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  catfish: { type: 'fish',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  trout: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  salmon: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  carp: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  goldfish: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  bass: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  pike: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  eel: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  sardine: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  herring: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  anchovy: { type: 'fish',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  mackerel: { type: 'fish',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  tuna_small: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  cod: { type: 'fish',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  flounder: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  sole: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  sardine_school: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  seahorse: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  starfish: { type: 'crab',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  seaurchin: { type: 'crab',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  anemone: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  coral: { type: 'crab',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  clam: { type: 'crab',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  mussel: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  scallop: { type: 'crab',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  squid_b: { type: 'octopus',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  cuttlefish: { type: 'octopus',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  jellyfish_s: { type: 'octopus',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  crab_small: { type: 'crab',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  hermit_crab: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  shrimp_b: { type: 'crab',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  lobster: { type: 'crab',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  crayfish: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  frog2: { type: 'frog',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  toad2: { type: 'frog',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  newt: { type: 'lizard',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  salamander: { type: 'lizard',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  axolotl: { type: 'lizard',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  gecko: { type: 'lizard',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  skink: { type: 'lizard',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  chameleon: { type: 'lizard',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  lizard_b: { type: 'lizard',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  horntoad: { type: 'frog',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  mud_skipper: { type: 'fish',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  puddle_fish: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  field_mouse: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  barn_owl: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  tree_frog: { type: 'frog',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  pond_frog: { type: 'frog',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  garden_snake: { type: 'snake',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  grass_snake: { type: 'snake',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  worm_lizard: { type: 'lizard',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  tortoise: { type: 'turtle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  terrapin: { type: 'turtle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  soft_turtle: { type: 'turtle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  field_rabbit: { type: 'rabbit',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  snowshoe: { type: 'rabbit',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
+  jackrabbit: { type: 'rabbit',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  cottontail: { type: 'rabbit',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  pika: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  shrew_b: { type: 'rodent',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  hedgehog_b: { type: 'rodent',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  porcupine_b: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  opossum: { type: 'rodent',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
+  aardvark_b: { type: 'boar',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  echidna: { type: 'rodent',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
+  platypus: { type: 'beaver',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
+  numbat: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  quokka: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
+  wallaby: { type: 'rodent',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  possum: { type: 'rodent',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  coypu: { type: 'beaver',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  chinchilla: { type: 'rodent',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  guinea_pig: { type: 'rodent',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  snow_leopard: { type: 'lion',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  clouded_leopard: { type: 'lion',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  caracal: { type: 'lion',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  serval: { type: 'lion',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  ocelot: { type: 'lion',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  margay: { type: 'lion',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  lynx_iberian: { type: 'lion',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  bobcat_b: { type: 'lion',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  dhole: { type: 'wolf',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  maned_wolf: { type: 'wolf',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  fennec: { type: 'fox',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  arctic_fox: { type: 'fox',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  red_fox: { type: 'fox',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  kit_fox: { type: 'fox',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  gray_fox: { type: 'fox',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  honey_badger: { type: 'weasel',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  wolverine: { type: 'weasel',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  tasmanian: { type: 'weasel',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  binturong: { type: 'weasel',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  coati: { type: 'weasel',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  genet: { type: 'lion',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  civet: { type: 'lion',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  fossa: { type: 'lion',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  gibbon: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  lemur: { type: 'monkey',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  aye_aye: { type: 'monkey',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  tarsier: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  mandrill: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  proboscis: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  capuchin: { type: 'monkey',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  howler: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  spider_monkey: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  marmoset: { type: 'monkey',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  tamarin: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  macaque: { type: 'monkey',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  baboon_b: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  gelada: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  langur: { type: 'monkey',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  macaw: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  cockatoo: { type: 'bird',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  toucan: { type: 'bird',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  lorikeet: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  hornbill: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  kingfisher: { type: 'bird',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  flamingo_b: { type: 'bird',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  crane: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  heron: { type: 'bird',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  stork: { type: 'bird',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  ibis: { type: 'bird',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  pelican_b: { type: 'bird',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  albatross_b: { type: 'bird',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  osprey: { type: 'hawk',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  kestrel: { type: 'hawk',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
+  harrier: { type: 'hawk',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  goshawk: { type: 'hawk',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  saker: { type: 'hawk',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  peregrine: { type: 'hawk',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  barn_owl_b: { type: 'owl',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  horned_owl: { type: 'owl',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  snowy_owl: { type: 'owl',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  elf_owl: { type: 'owl',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  bat_fruit: { type: 'bat',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  flying_fox: { type: 'bat',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  vampire_bat: { type: 'bat',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  horseshoe_bat: { type: 'bat',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  sea_otter: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  river_otter: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  giant_otter: { type: 'beaver',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  beaver_b: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  capybara_b: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  porcupine_giant: { type: 'rodent',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
+  quoll: { type: 'rodent',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
+  numbat_b: { type: 'rodent',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  bilby: { type: 'rodent',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  bandicoot: { type: 'rodent',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
+  cuscus: { type: 'rodent',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  sugar_glider: { type: 'squirrel',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  colugo: { type: 'squirrel',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
+  pangolin_b: { type: 'lizard',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  saber_tooth: { type: 'lion',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
+  cave_lion: { type: 'lion',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
+  cave_bear: { type: 'bear',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  dire_bear: { type: 'bear',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  great_wolf: { type: 'wolf',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  alpha_wolf: { type: 'wolf',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  thunder_wolf: { type: 'wolf',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  shadow_panther: { type: 'lion',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  jade_tiger: { type: 'lion',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  white_tiger: { type: 'lion',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  black_panther: { type: 'lion',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
+  golden_lion: { type: 'lion',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  mammoth: { type: 'elephant',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  mastodon: { type: 'elephant',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  elasmotherium: { type: 'rhino',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  rhino_armored: { type: 'rhino',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  giant_boar: { type: 'boar',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  terror_bird: { type: 'bird',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  giant_eagle: { type: 'hawk',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
+  thunderbird: { type: 'hawk',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  storm_petrel: { type: 'bird',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  giant_owl: { type: 'owl',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  snow_owl_great: { type: 'owl',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  giant_bat: { type: 'bat',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
+  dire_wolf: { type: 'wolf',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  hellhound: { type: 'wolf',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  giant_serpent: { type: 'snake',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  anaconda: { type: 'snake',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  king_cobra: { type: 'snake',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
+  giant_squid: { type: 'octopus',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  great_white: { type: 'fish',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  orca_great: { type: 'whale',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  killer_whale: { type: 'whale',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  giant_octopus: { type: 'octopus',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
+  plesiosaur: { type: 'dragon',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  mosasaur: { type: 'dragon',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  megalodon_baby: { type: 'fish',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
+  giant_lizard: { type: 'lizard',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  komodo: { type: 'lizard',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
+  giant_turtle: { type: 'turtle',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  giant_crab: { type: 'crab',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  giant_scorpion: { type: 'crab',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  giant_spider: { type: 'beetle',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  giant_centipede: { type: 'worm',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
+  giant_beetle: { type: 'beetle',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  hercules_beetle: { type: 'beetle',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
+  giant_wasp: { type: 'beetle',     body: '#43a047'   , accent: '#a5d6a7'   , dark: '#1b5e20'   , eye: '#ffeb3b' },
+  giant_mantis: { type: 'beetle',     body: '#e53935'   , accent: '#ef9a9a'   , dark: '#b71c1c'   , eye: '#fff' },
+  cave_troll_small: { type: 'demon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
+  forest_giant: { type: 'demon',     body: '#43a047'   , accent: '#a5d6a7'   , dark: '#1b5e20'   , eye: '#ffeb3b' },
+  emerald_dragon: { type: 'dragon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
+  ruby_dragon: { type: 'dragon',     body: '#1e88e5'   , accent: '#90caf9'   , dark: '#0d47a1'   , eye: '#fff' },
+  sapphire_dragon: { type: 'dragon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
+  amethyst_dragon: { type: 'dragon',     body: '#1e88e5'   , accent: '#90caf9'   , dark: '#0d47a1'   , eye: '#fff' },
+  storm_dragon: { type: 'dragon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
+  volcano_dragon: { type: 'dragon',     body: '#00acc1'   , accent: '#80deea'   , dark: '#006064'   , eye: '#fff' },
+  thunder_phoenix: { type: 'phoenix',     body: '#00acc1'   , accent: '#80deea'   , dark: '#006064'   , eye: '#fff' },
+  ice_phoenix: { type: 'phoenix',     body: '#ff9800'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
+  shadow_phoenix: { type: 'phoenix',     body: '#00acc1'   , accent: '#80deea'   , dark: '#006064'   , eye: '#fff' },
+  starlight_griffin: { type: 'hawk',     body: '#00acc1'   , accent: '#80deea'   , dark: '#006064'   , eye: '#fff' },
+  moonlight_unicorn: { type: 'pegasus',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
+  rainbow_serpent: { type: 'snake',     body: '#1565c0'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  crystal_golem: { type: 'demon',     body: '#1565c0'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  lava_golem: { type: 'demon',     body: '#1565c0'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  thunder_tiger: { type: 'lion',     body: '#1565c0'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  void_wolf: { type: 'wolf',     body: '#1565c0'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  titan_frost: { type: 'demon',     body: '#1565c0'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
+  ignis_lord: { type: 'demon',     body: '#d32f2f'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#ffeb3b' },
+  gaia_mother: { type: 'demon',     body: '#388e3c'   , accent: '#a5d6a7'   , dark: '#1b5e20'   , eye: '#ffeb3b' },
+  zeus_king: { type: 'demon',     body: '#fdd835'   , accent: '#fff59d'   , dark: '#f57f17'   , eye: '#fff' },
+  chronos: { type: 'demon',     body: '#5e35b1'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
 };
 
 // === 펫을 SVG 문자열로 그리기 (카드/UI용) ===
@@ -8456,6 +9075,810 @@ function premiumWorldgodSVG(size) {
 window.premiumDragonSVG = premiumDragonSVG;
 window.premiumWorldgodSVG = premiumWorldgodSVG;
 
+// === 🔥 프리미엄 불사조 (Legendary) ===
+function premiumPhoenixSVG(size) {
+  const s = size;
+  const uid = `ph${(Math.random() * 1e9) | 0}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="phGlow_${uid}" cx="50%" cy="55%" r="55%">
+        <stop offset="0%" stop-color="#ffeb3b" stop-opacity="0.6"/>
+        <stop offset="60%" stop-color="#ff6f00" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#bf360c" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="phBody_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffeb3b"/>
+        <stop offset="50%" stop-color="#ff6f00"/>
+        <stop offset="100%" stop-color="#bf360c"/>
+      </linearGradient>
+      <linearGradient id="phWing_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#fff59d"/>
+        <stop offset="40%" stop-color="#ff8c42"/>
+        <stop offset="100%" stop-color="#bf360c"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill="url(#phGlow_${uid})">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+    <!-- 불꽃 입자 위로 솟구침 -->
+    <g>
+      <circle cx="30" cy="70" r="1.5" fill="#ff6f00">
+        <animate attributeName="cy" values="70;15;70" dur="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0;1" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="70" cy="75" r="1.2" fill="#ffeb3b">
+        <animate attributeName="cy" values="75;20;75" dur="2.2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0;1" dur="2.2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="50" cy="85" r="1.8" fill="#ff8c42">
+        <animate attributeName="cy" values="85;10;85" dur="3s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0;1" dur="3s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="20" cy="80" r="1" fill="#fff59d">
+        <animate attributeName="cy" values="80;25;80" dur="2.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0;1" dur="2.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="80" cy="65" r="1.3" fill="#ff6f00">
+        <animate attributeName="cy" values="65;15;65" dur="2.3s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0;1" dur="2.3s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <ellipse cx="50" cy="94" rx="28" ry="4" fill="rgba(191,54,12,0.5)">
+      <animate attributeName="rx" values="28;22;28" dur="1.8s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 60px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-4;0,0" dur="1.8s" repeatCount="indefinite" additive="sum"/>
+      
+      <!-- 왼쪽 날개 (펄럭) -->
+      <g style="transform-origin: 38px 50px;">
+        <animateTransform attributeName="transform" type="rotate" values="-8;12;-8" dur="1s" repeatCount="indefinite"/>
+        <path d="M 38 50 Q 8 25 5 55 Q 10 40 18 50 Q 8 50 15 60 Q 25 55 35 60 Z" fill="url(#phWing_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+        <!-- 깃털 디테일 -->
+        <path d="M 20 40 L 12 35 M 22 45 L 14 42 M 24 50 L 16 50" stroke="#fff59d" stroke-width="0.8" opacity="0.7"/>
+      </g>
+      
+      <!-- 오른쪽 날개 -->
+      <g style="transform-origin: 62px 50px;">
+        <animateTransform attributeName="transform" type="rotate" values="8;-12;8" dur="1s" repeatCount="indefinite"/>
+        <path d="M 62 50 Q 92 25 95 55 Q 90 40 82 50 Q 92 50 85 60 Q 75 55 65 60 Z" fill="url(#phWing_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+        <path d="M 80 40 L 88 35 M 78 45 L 86 42 M 76 50 L 84 50" stroke="#fff59d" stroke-width="0.8" opacity="0.7"/>
+      </g>
+      
+      <!-- 몸 -->
+      <ellipse cx="50" cy="60" rx="13" ry="18" fill="url(#phBody_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+      
+      <!-- 가슴 깃털 -->
+      <path d="M 45 55 Q 50 60 55 55 M 44 62 Q 50 67 56 62 M 45 70 Q 50 74 55 70" stroke="#fff59d" stroke-width="0.7" fill="none" opacity="0.7"/>
+      
+      <!-- 머리 -->
+      <circle cx="50" cy="42" r="11" fill="url(#phBody_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+      
+      <!-- 머리 깃 (위로 솟은 불꽃) -->
+      <path d="M 45 32 Q 42 22 47 28 M 50 30 Q 48 18 52 25 M 55 32 Q 58 22 53 28" fill="#ffeb3b" stroke="#ff6f00" stroke-width="0.5">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1.2s" repeatCount="indefinite"/>
+      </path>
+      
+      <!-- 부리 -->
+      <polygon points="50,46 56,49 50,52" fill="#ffeb3b" stroke="#bf360c" stroke-width="0.4"/>
+      
+      <!-- 눈 -->
+      <circle cx="47" cy="40" r="2" fill="#fff"/>
+      <circle cx="47" cy="40" r="1.2" fill="#1a237e"/>
+      <circle cx="47.5" cy="39.5" r="0.4" fill="#fff"/>
+      
+      <!-- 꼬리 (긴 불꽃) -->
+      <path d="M 45 78 Q 30 90 25 95 Q 35 88 42 90 M 50 78 Q 50 95 48 100 M 55 78 Q 70 90 75 95 Q 65 88 58 90" fill="#ff8c42" stroke="#bf360c" stroke-width="0.4" opacity="0.85">
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.5s" repeatCount="indefinite"/>
+      </path>
+      
+      <!-- 발 -->
+      <path d="M 47 78 L 47 83 M 53 78 L 53 83" stroke="#bf360c" stroke-width="1.5"/>
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-4 1.2,-1.3 3.8,-1.3 1.6,0.5 2.7,3.2 0,1.4 -2.7,3.2 -1.6,0.5 -3.8,-1.3 -1.2,-1.3" fill="#ff9800" stroke="#fff" stroke-width="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+
+// === 🐺 프리미엄 늑대 (Epic) ===
+function premiumWolfSVG(size) {
+  const s = size;
+  const uid = `wf${(Math.random() * 1e9) | 0}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="wfGlow_${uid}" cx="50%" cy="55%" r="50%">
+        <stop offset="0%" stop-color="#9c27b0" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#9c27b0" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="wfBody_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#757575"/>
+        <stop offset="100%" stop-color="#212121"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="55" r="48" fill="url(#wfGlow_${uid})">
+      <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <ellipse cx="50" cy="94" rx="30" ry="4" fill="rgba(0,0,0,0.4)">
+      <animate attributeName="rx" values="30;25;30" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 70px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-3;0,0" dur="2s" repeatCount="indefinite" additive="sum"/>
+      <animateTransform attributeName="transform" type="rotate" values="-2 50 70;2 50 70;-2 50 70" dur="3s" repeatCount="indefinite" additive="sum"/>
+      
+      <!-- 꼬리 -->
+      <path d="M 25 65 Q 8 50 12 35 Q 18 40 22 55" fill="url(#wfBody_${uid})" stroke="#1a1a1a" stroke-width="0.5"/>
+      <ellipse cx="14" cy="38" rx="3" ry="2" fill="#eeeeee" opacity="0.7"/>
+      
+      <!-- 다리 4개 -->
+      <ellipse cx="35" cy="78" rx="4" ry="9" fill="#212121"/>
+      <ellipse cx="48" cy="80" rx="4" ry="9" fill="#212121"/>
+      <ellipse cx="58" cy="80" rx="4" ry="9" fill="#212121"/>
+      <ellipse cx="70" cy="78" rx="4" ry="9" fill="#212121"/>
+      <!-- 발 -->
+      <ellipse cx="35" cy="86" rx="5" ry="2" fill="#1a1a1a"/>
+      <ellipse cx="48" cy="88" rx="5" ry="2" fill="#1a1a1a"/>
+      <ellipse cx="58" cy="88" rx="5" ry="2" fill="#1a1a1a"/>
+      <ellipse cx="70" cy="86" rx="5" ry="2" fill="#1a1a1a"/>
+      <!-- 발톱 -->
+      <path d="M 32 88 L 31 90 M 35 89 L 35 91 M 38 88 L 39 90" stroke="#fff" stroke-width="0.5"/>
+      <path d="M 67 88 L 66 90 M 70 89 L 70 91 M 73 88 L 74 90" stroke="#fff" stroke-width="0.5"/>
+      
+      <!-- 몸 -->
+      <ellipse cx="50" cy="65" rx="22" ry="14" fill="url(#wfBody_${uid})" stroke="#1a1a1a" stroke-width="0.5"/>
+      
+      <!-- 배 (밝은 회색) -->
+      <ellipse cx="52" cy="70" rx="15" ry="7" fill="#eeeeee" opacity="0.6"/>
+      
+      <!-- 머리 -->
+      <circle cx="65" cy="48" r="14" fill="url(#wfBody_${uid})" stroke="#1a1a1a" stroke-width="0.5"/>
+      
+      <!-- 귀 (뾰족, 사나운) -->
+      <polygon points="56,38 53,28 60,36" fill="#1a1a1a" stroke="#000" stroke-width="0.3"/>
+      <polygon points="70,36 73,28 75,38" fill="#1a1a1a" stroke="#000" stroke-width="0.3"/>
+      <!-- 귀 안쪽 (붉은) -->
+      <polygon points="56,37 55,32 58,37" fill="#d84315"/>
+      <polygon points="72,37 74,32 75,37" fill="#d84315"/>
+      
+      <!-- 주둥이 -->
+      <ellipse cx="75" cy="52" rx="8" ry="5" fill="#616161"/>
+      <ellipse cx="75" cy="53" rx="7" ry="4" fill="#eeeeee"/>
+      
+      <!-- 코 -->
+      <ellipse cx="80" cy="50" rx="1.5" ry="1.2" fill="#1a1a1a"/>
+      
+      <!-- 송곳니 (사나운) -->
+      <polygon points="73,55 72,58 75,55" fill="#fff"/>
+      <polygon points="78,55 79,58 76,55" fill="#fff"/>
+      
+      <!-- 입 -->
+      <path d="M 73 56 Q 75 58 78 56" stroke="#1a1a1a" stroke-width="0.7" fill="none"/>
+      
+      <!-- 눈 (빛나는 노란) -->
+      <ellipse cx="62" cy="46" rx="2.5" ry="2" fill="#1a1a1a"/>
+      <ellipse cx="62" cy="46" rx="2" ry="1.6" fill="#ffeb3b">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="62" cy="46" rx="0.6" ry="1.3" fill="#1a1a1a"/>
+      <ellipse cx="68" cy="44" rx="2.5" ry="2" fill="#1a1a1a"/>
+      <ellipse cx="68" cy="44" rx="2" ry="1.6" fill="#ffeb3b">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="68" cy="44" rx="0.6" ry="1.3" fill="#1a1a1a"/>
+      
+      <!-- 눈썹 (찌푸린) -->
+      <path d="M 59 42 L 64 43 M 66 41 L 71 42" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>
+      
+      <!-- 이마 V무늬 -->
+      <polygon points="65,38 62,33 65,36 68,33" fill="#1a1a1a"/>
+      
+      <!-- 털 디테일 -->
+      <path d="M 32 60 L 30 56 M 42 56 L 40 52 M 55 55 L 55 50 M 64 60 L 66 55" stroke="#000" stroke-width="0.5"/>
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-3 0.9,-1 2.8,-1 1.2,0.4 2,2.4 0,1 -2,2.4 -1.2,0.4 -2.8,-1 -0.9,-1" fill="#9c27b0" stroke="#fff" stroke-width="0.4">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+
+// === 🐅 프리미엄 호랑이 (Epic) ===
+function premiumTigerSVG(size) {
+  const s = size;
+  const uid = `tg${(Math.random() * 1e9) | 0}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="tgGlow_${uid}" cx="50%" cy="55%" r="50%">
+        <stop offset="0%" stop-color="#ff6f00" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#ff6f00" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="tgBody_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffa726"/>
+        <stop offset="100%" stop-color="#e65100"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="55" r="48" fill="url(#tgGlow_${uid})">
+      <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <ellipse cx="50" cy="94" rx="30" ry="4" fill="rgba(0,0,0,0.4)">
+      <animate attributeName="rx" values="30;25;30" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 70px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-3;0,0" dur="2s" repeatCount="indefinite" additive="sum"/>
+      <animateTransform attributeName="transform" type="rotate" values="-2 50 70;2 50 70;-2 50 70" dur="3s" repeatCount="indefinite" additive="sum"/>
+      
+      <!-- 꼬리 (휘어진) -->
+      <path d="M 25 65 Q 10 60 8 45 Q 12 48 18 55 Q 22 58 25 65" fill="url(#tgBody_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+      <!-- 꼬리 줄무늬 -->
+      <path d="M 22 60 L 18 58 M 18 55 L 14 53 M 14 50 L 10 48" stroke="#000" stroke-width="1.2"/>
+      <!-- 꼬리 끝 (검정) -->
+      <circle cx="9" cy="44" r="2" fill="#000"/>
+      
+      <!-- 다리 4개 -->
+      <ellipse cx="36" cy="78" rx="4" ry="9" fill="url(#tgBody_${uid})"/>
+      <ellipse cx="48" cy="80" rx="4" ry="9" fill="url(#tgBody_${uid})"/>
+      <ellipse cx="58" cy="80" rx="4" ry="9" fill="url(#tgBody_${uid})"/>
+      <ellipse cx="70" cy="78" rx="4" ry="9" fill="url(#tgBody_${uid})"/>
+      <!-- 다리 줄무늬 -->
+      <path d="M 33 76 L 39 76 M 33 80 L 39 80" stroke="#000" stroke-width="0.8"/>
+      <path d="M 67 76 L 73 76 M 67 80 L 73 80" stroke="#000" stroke-width="0.8"/>
+      <!-- 발 -->
+      <ellipse cx="36" cy="86" rx="5" ry="2" fill="#bf360c"/>
+      <ellipse cx="48" cy="88" rx="5" ry="2" fill="#bf360c"/>
+      <ellipse cx="58" cy="88" rx="5" ry="2" fill="#bf360c"/>
+      <ellipse cx="70" cy="86" rx="5" ry="2" fill="#bf360c"/>
+      <!-- 발톱 -->
+      <path d="M 33 88 L 32 90 M 36 89 L 36 91 M 39 88 L 40 90" stroke="#fff" stroke-width="0.5"/>
+      <path d="M 67 88 L 66 90 M 70 89 L 70 91 M 73 88 L 74 90" stroke="#fff" stroke-width="0.5"/>
+      
+      <!-- 몸 -->
+      <ellipse cx="50" cy="65" rx="22" ry="14" fill="url(#tgBody_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+      
+      <!-- 몸 줄무늬 -->
+      <path d="M 32 58 Q 35 65 32 72 M 40 56 Q 43 65 40 74 M 50 55 Q 53 65 50 75 M 60 56 Q 63 65 60 74 M 68 58 Q 65 65 68 72" stroke="#000" stroke-width="1.5" fill="none" opacity="0.8"/>
+      
+      <!-- 배 (밝은) -->
+      <ellipse cx="50" cy="70" rx="14" ry="6" fill="#fff8e1" opacity="0.5"/>
+      
+      <!-- 머리 -->
+      <circle cx="65" cy="48" r="14" fill="url(#tgBody_${uid})" stroke="#bf360c" stroke-width="0.5"/>
+      
+      <!-- 머리 줄무늬 -->
+      <path d="M 60 38 L 58 33 M 65 36 L 65 30 M 70 38 L 72 33 M 56 45 L 53 43 M 74 45 L 77 43" stroke="#000" stroke-width="1.5" fill="none"/>
+      
+      <!-- 귀 (둥근) -->
+      <ellipse cx="56" cy="38" rx="3" ry="4" fill="url(#tgBody_${uid})" stroke="#bf360c" stroke-width="0.4"/>
+      <ellipse cx="74" cy="38" rx="3" ry="4" fill="url(#tgBody_${uid})" stroke="#bf360c" stroke-width="0.4"/>
+      <!-- 귀 안쪽 (분홍) -->
+      <ellipse cx="56" cy="39" rx="1.5" ry="2.5" fill="#f8bbd0"/>
+      <ellipse cx="74" cy="39" rx="1.5" ry="2.5" fill="#f8bbd0"/>
+      
+      <!-- 볼 (하얀 털) -->
+      <ellipse cx="58" cy="52" rx="5" ry="4" fill="#fff8e1"/>
+      <ellipse cx="72" cy="52" rx="5" ry="4" fill="#fff8e1"/>
+      
+      <!-- 주둥이 -->
+      <ellipse cx="65" cy="55" rx="6" ry="4" fill="#fff8e1"/>
+      
+      <!-- 코 -->
+      <ellipse cx="65" cy="52" rx="2" ry="1.5" fill="#000"/>
+      
+      <!-- 입 -->
+      <path d="M 65 54 L 65 56 M 65 56 Q 62 58 60 57 M 65 56 Q 68 58 70 57" stroke="#000" stroke-width="0.8" fill="none"/>
+      <!-- 송곳니 -->
+      <polygon points="63,56 62,59 64,56" fill="#fff"/>
+      <polygon points="67,56 68,59 66,56" fill="#fff"/>
+      
+      <!-- 눈 (사나운 노란) -->
+      <ellipse cx="61" cy="45" rx="2.5" ry="2" fill="#fff"/>
+      <ellipse cx="61" cy="45" rx="2" ry="1.6" fill="#43a047"/>
+      <ellipse cx="61" cy="45" rx="0.6" ry="1.4" fill="#000"/>
+      <ellipse cx="69" cy="45" rx="2.5" ry="2" fill="#fff"/>
+      <ellipse cx="69" cy="45" rx="2" ry="1.6" fill="#43a047"/>
+      <ellipse cx="69" cy="45" rx="0.6" ry="1.4" fill="#000"/>
+      
+      <!-- 수염 점 -->
+      <circle cx="60" cy="55" r="0.5" fill="#000"/>
+      <circle cx="62" cy="58" r="0.5" fill="#000"/>
+      <circle cx="70" cy="55" r="0.5" fill="#000"/>
+      <circle cx="68" cy="58" r="0.5" fill="#000"/>
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-3 0.9,-1 2.8,-1 1.2,0.4 2,2.4 0,1 -2,2.4 -1.2,0.4 -2.8,-1 -0.9,-1" fill="#9c27b0" stroke="#fff" stroke-width="0.4">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+
+// === 👹 프리미엄 악마 (Mythic) ===
+function premiumDemonSVG(size) {
+  const s = size;
+  const uid = `dm${(Math.random() * 1e9) | 0}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="dmGlow_${uid}" cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stop-color="#c62828" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="dmBody_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#c62828"/>
+        <stop offset="100%" stop-color="#3e0000"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill="url(#dmGlow_${uid})">
+      <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="8s" repeatCount="indefinite"/>
+    </circle>
+    <!-- 어둠 입자 -->
+    <g>
+      <circle cx="20" cy="30" r="1.5" fill="#7f0000">
+        <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="80" cy="30" r="1.5" fill="#7f0000">
+        <animate attributeName="opacity" values="1;0;1" dur="2.4s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="25" cy="75" r="1.2" fill="#ef5350">
+        <animate attributeName="opacity" values="0;1;0" dur="1.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="75" cy="75" r="1.2" fill="#ef5350">
+        <animate attributeName="opacity" values="1;0;1" dur="2.2s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <ellipse cx="50" cy="94" rx="30" ry="4" fill="rgba(127,0,0,0.6)">
+      <animate attributeName="rx" values="30;25;30" dur="1.6s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 60px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-4;0,0" dur="1.6s" repeatCount="indefinite" additive="sum"/>
+      <animateTransform attributeName="transform" type="rotate" values="-3 50 60;3 50 60;-3 50 60" dur="2.4s" repeatCount="indefinite" additive="sum"/>
+      
+      <!-- 날개 (박쥐형) 왼 -->
+      <g style="transform-origin: 35px 50px;">
+        <animateTransform attributeName="transform" type="rotate" values="-10;10;-10" dur="1.2s" repeatCount="indefinite"/>
+        <path d="M 35 50 Q 10 30 5 55 Q 12 50 18 60 L 22 50 L 28 58 Z" fill="#1a1a1a" stroke="#3e0000" stroke-width="0.5"/>
+        <path d="M 18 55 L 14 50 M 25 56 L 22 52" stroke="#7f0000" stroke-width="0.6"/>
+      </g>
+      <!-- 날개 오른 -->
+      <g style="transform-origin: 65px 50px;">
+        <animateTransform attributeName="transform" type="rotate" values="10;-10;10" dur="1.2s" repeatCount="indefinite"/>
+        <path d="M 65 50 Q 90 30 95 55 Q 88 50 82 60 L 78 50 L 72 58 Z" fill="#1a1a1a" stroke="#3e0000" stroke-width="0.5"/>
+        <path d="M 82 55 L 86 50 M 75 56 L 78 52" stroke="#7f0000" stroke-width="0.6"/>
+      </g>
+      
+      <!-- 몸 -->
+      <ellipse cx="50" cy="65" rx="14" ry="16" fill="url(#dmBody_${uid})" stroke="#3e0000" stroke-width="0.5"/>
+      
+      <!-- 다리 -->
+      <ellipse cx="44" cy="80" rx="3.5" ry="6" fill="#3e0000"/>
+      <ellipse cx="56" cy="80" rx="3.5" ry="6" fill="#3e0000"/>
+      <!-- 발톱 -->
+      <path d="M 41 84 L 40 87 M 44 85 L 44 88 M 47 84 L 48 87" stroke="#7f0000" stroke-width="0.5"/>
+      <path d="M 53 84 L 52 87 M 56 85 L 56 88 M 59 84 L 60 87" stroke="#7f0000" stroke-width="0.5"/>
+      
+      <!-- 머리 -->
+      <ellipse cx="50" cy="42" r="14" fill="url(#dmBody_${uid})" stroke="#3e0000" stroke-width="0.5"/>
+      
+      <!-- 뿔 (큰, 휘어진) -->
+      <path d="M 38 32 Q 32 18 28 22 Q 32 30 36 35 Z" fill="#1a1a1a" stroke="#7f0000" stroke-width="0.5"/>
+      <path d="M 62 32 Q 68 18 72 22 Q 68 30 64 35 Z" fill="#1a1a1a" stroke="#7f0000" stroke-width="0.5"/>
+      <!-- 뿔 광택 -->
+      <path d="M 32 24 L 34 26 M 66 24 L 68 26" stroke="#fff" stroke-width="0.5" opacity="0.6"/>
+      
+      <!-- 눈 (불타는 노란) -->
+      <ellipse cx="44" cy="42" rx="3" ry="2.5" fill="#fff"/>
+      <ellipse cx="44" cy="42" rx="2.5" ry="2" fill="#ffeb3b">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="44" cy="42" rx="0.6" ry="1.8" fill="#000"/>
+      
+      <ellipse cx="56" cy="42" rx="3" ry="2.5" fill="#fff"/>
+      <ellipse cx="56" cy="42" rx="2.5" ry="2" fill="#ffeb3b">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="56" cy="42" rx="0.6" ry="1.8" fill="#000"/>
+      
+      <!-- 눈썹 (사악한) -->
+      <path d="M 40 37 L 47 39 M 53 39 L 60 37" stroke="#000" stroke-width="1.8" stroke-linecap="round"/>
+      
+      <!-- 입 (사악한 미소) -->
+      <path d="M 42 50 Q 50 56 58 50" stroke="#000" stroke-width="1.2" fill="none"/>
+      <!-- 송곳니 -->
+      <polygon points="44,50 43,55 46,50" fill="#fff"/>
+      <polygon points="49,52 49,57 51,52" fill="#fff"/>
+      <polygon points="54,52 54,57 56,52" fill="#fff"/>
+      <polygon points="58,50 59,55 56,50" fill="#fff"/>
+      
+      <!-- 이마 마크 -->
+      <polygon points="50,30 48,25 52,25" fill="#ffeb3b" opacity="0.7"/>
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-4 1.2,-1.3 3.8,-1.3 1.6,0.5 2.7,3.2 0,1.4 -2.7,3.2 -1.6,0.5 -3.8,-1.3 -1.2,-1.3" fill="#c62828" stroke="#fff" stroke-width="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+
+// === 👼 프리미엄 천사 (Mythic) ===
+function premiumAngelSVG(size) {
+  const s = size;
+  const uid = `an${(Math.random() * 1e9) | 0}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="anGlow_${uid}" cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stop-color="#fff59d" stop-opacity="0.6"/>
+        <stop offset="60%" stop-color="#ffd700" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#ffd700" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="anWing_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#fff"/>
+        <stop offset="100%" stop-color="#fff8e1"/>
+      </linearGradient>
+      <linearGradient id="anRobe_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#fff"/>
+        <stop offset="100%" stop-color="#fff8e1"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill="url(#anGlow_${uid})">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <!-- 빛 입자 -->
+    <g>
+      <circle cx="20" cy="25" r="1.5" fill="#ffd700">
+        <animate attributeName="opacity" values="0.4;1;0.4" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="cy" values="25;15;25" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="80" cy="30" r="1.2" fill="#fff">
+        <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
+        <animate attributeName="cy" values="30;20;30" dur="2.4s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="15" cy="65" r="1" fill="#fff59d">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2.2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="85" cy="65" r="1.3" fill="#ffd700">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1.8s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <ellipse cx="50" cy="94" rx="28" ry="4" fill="rgba(255,215,0,0.3)">
+      <animate attributeName="rx" values="28;22;28" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 60px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-3;0,0" dur="2s" repeatCount="indefinite" additive="sum"/>
+      
+      <!-- 후광 (회전) -->
+      <ellipse cx="50" cy="28" rx="16" ry="3" fill="none" stroke="#ffd700" stroke-width="1.5" opacity="0.9">
+        <animateTransform attributeName="transform" type="rotate" values="-10 50 28;10 50 28;-10 50 28" dur="3s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="50" cy="28" rx="13" ry="2.5" fill="none" stroke="#fff59d" stroke-width="1" opacity="0.8"/>
+      
+      <!-- 왼쪽 날개 (펄럭) -->
+      <g style="transform-origin: 40px 55px;">
+        <animateTransform attributeName="transform" type="rotate" values="-5;8;-5" dur="2s" repeatCount="indefinite"/>
+        <path d="M 40 55 Q 12 35 8 60 Q 15 50 22 60 Q 12 60 18 70 Q 25 62 30 65 Z" fill="url(#anWing_${uid})" stroke="#e0e0e0" stroke-width="0.5"/>
+        <!-- 깃털 -->
+        <path d="M 22 50 Q 22 47 25 49 M 25 54 Q 25 51 28 53 M 18 58 Q 18 55 21 57" stroke="#e0e0e0" stroke-width="0.6" fill="none"/>
+      </g>
+      
+      <!-- 오른쪽 날개 -->
+      <g style="transform-origin: 60px 55px;">
+        <animateTransform attributeName="transform" type="rotate" values="5;-8;5" dur="2s" repeatCount="indefinite"/>
+        <path d="M 60 55 Q 88 35 92 60 Q 85 50 78 60 Q 88 60 82 70 Q 75 62 70 65 Z" fill="url(#anWing_${uid})" stroke="#e0e0e0" stroke-width="0.5"/>
+        <path d="M 78 50 Q 78 47 75 49 M 75 54 Q 75 51 72 53 M 82 58 Q 82 55 79 57" stroke="#e0e0e0" stroke-width="0.6" fill="none"/>
+      </g>
+      
+      <!-- 몸 (가운) -->
+      <path d="M 40 55 Q 38 80 35 90 L 65 90 Q 62 80 60 55 Z" fill="url(#anRobe_${uid})" stroke="#e0e0e0" stroke-width="0.5"/>
+      
+      <!-- 가운 띠 (금) -->
+      <path d="M 38 68 L 62 68" stroke="#ffd700" stroke-width="1.2"/>
+      <circle cx="50" cy="68" r="1.5" fill="#ffd700"/>
+      
+      <!-- 머리 -->
+      <circle cx="50" cy="45" r="9" fill="#ffe0b2" stroke="#bf6f00" stroke-width="0.4"/>
+      
+      <!-- 머리카락 (금발) -->
+      <path d="M 41 40 Q 45 35 50 35 Q 55 35 59 40 Q 60 38 58 35 Q 50 30 42 35 Q 40 38 41 40 Z" fill="#ffeb3b" stroke="#f57f17" stroke-width="0.4"/>
+      <path d="M 41 41 Q 40 48 43 50 M 59 41 Q 60 48 57 50" fill="#ffeb3b" stroke="#f57f17" stroke-width="0.3"/>
+      
+      <!-- 눈 (평화로운) -->
+      <path d="M 45 45 Q 47 47 49 45" stroke="#1a237e" stroke-width="1.2" fill="none"/>
+      <path d="M 51 45 Q 53 47 55 45" stroke="#1a237e" stroke-width="1.2" fill="none"/>
+      
+      <!-- 볼 (분홍) -->
+      <ellipse cx="44" cy="48" rx="1.5" ry="1" fill="#ffcdd2" opacity="0.7"/>
+      <ellipse cx="56" cy="48" rx="1.5" ry="1" fill="#ffcdd2" opacity="0.7"/>
+      
+      <!-- 입 (미소) -->
+      <path d="M 47 50 Q 50 52 53 50" stroke="#bf360c" stroke-width="0.8" fill="none"/>
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-4 1.2,-1.3 3.8,-1.3 1.6,0.5 2.7,3.2 0,1.4 -2.7,3.2 -1.6,0.5 -3.8,-1.3 -1.2,-1.3" fill="#c62828" stroke="#fff" stroke-width="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+
+// === 🐘 프리미엄 베헤모스 (Mythic) ===
+function premiumBehemothSVG(size) {
+  const s = size;
+  const uid = `bh${(Math.random() * 1e9) | 0}`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="bhGlow_${uid}" cx="50%" cy="55%" r="55%">
+        <stop offset="0%" stop-color="#8d6e63" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#3e2723" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="bhBody_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#6d4c41"/>
+        <stop offset="100%" stop-color="#3e2723"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="55" r="50" fill="url(#bhGlow_${uid})">
+      <animate attributeName="opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <!-- 흙먼지 -->
+    <g>
+      <circle cx="20" cy="80" r="1.5" fill="#8d6e63" opacity="0.5">
+        <animate attributeName="cy" values="80;72;80" dur="2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0;0.5;0" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="80" cy="80" r="1.5" fill="#8d6e63" opacity="0.5">
+        <animate attributeName="cy" values="80;72;80" dur="2.4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0;0.5;0" dur="2.4s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <ellipse cx="50" cy="94" rx="38" ry="5" fill="rgba(0,0,0,0.5)">
+      <animate attributeName="rx" values="38;32;38" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 70px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-2;0,0" dur="2.5s" repeatCount="indefinite" additive="sum"/>
+      
+      <!-- 꼬리 -->
+      <path d="M 22 65 Q 8 65 10 50" stroke="#3e2723" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="10" cy="48" r="2.5" fill="#3e2723"/>
+      
+      <!-- 다리 (굵은, 4개) -->
+      <rect x="30" y="68" width="9" height="20" rx="2" fill="url(#bhBody_${uid})"/>
+      <rect x="44" y="70" width="9" height="20" rx="2" fill="url(#bhBody_${uid})"/>
+      <rect x="56" y="70" width="9" height="20" rx="2" fill="url(#bhBody_${uid})"/>
+      <rect x="68" y="68" width="9" height="20" rx="2" fill="url(#bhBody_${uid})"/>
+      <!-- 발굽 -->
+      <rect x="29" y="86" width="11" height="4" rx="1" fill="#1a1a1a"/>
+      <rect x="43" y="88" width="11" height="4" rx="1" fill="#1a1a1a"/>
+      <rect x="55" y="88" width="11" height="4" rx="1" fill="#1a1a1a"/>
+      <rect x="67" y="86" width="11" height="4" rx="1" fill="#1a1a1a"/>
+      
+      <!-- 거대 몸통 -->
+      <ellipse cx="50" cy="60" rx="32" ry="20" fill="url(#bhBody_${uid})" stroke="#1a1a1a" stroke-width="0.5"/>
+      
+      <!-- 몸 갑옷 판 -->
+      <path d="M 30 50 L 35 45 L 42 47 L 48 44 L 55 44 L 62 47 L 68 45 L 72 50" stroke="#1a1a1a" stroke-width="1" fill="none"/>
+      <path d="M 22 60 L 78 60" stroke="#5d4037" stroke-width="0.5" opacity="0.6"/>
+      
+      <!-- 등 가시 (큰) -->
+      <polygon points="35,42 38,30 41,42" fill="#fff" stroke="#3e2723" stroke-width="0.5"/>
+      <polygon points="45,40 48,26 51,40" fill="#fff" stroke="#3e2723" stroke-width="0.5"/>
+      <polygon points="55,40 58,26 61,40" fill="#fff" stroke="#3e2723" stroke-width="0.5"/>
+      <polygon points="65,42 68,30 71,42" fill="#fff" stroke="#3e2723" stroke-width="0.5"/>
+      
+      <!-- 머리 (큰) -->
+      <ellipse cx="78" cy="48" rx="14" ry="12" fill="url(#bhBody_${uid})" stroke="#1a1a1a" stroke-width="0.5"/>
+      
+      <!-- 뿔 (큰, 양쪽) -->
+      <path d="M 72 38 Q 65 25 70 22 Q 73 28 75 36" fill="#fff" stroke="#3e2723" stroke-width="0.5"/>
+      <path d="M 86 38 Q 92 25 87 22 Q 84 28 83 36" fill="#fff" stroke="#3e2723" stroke-width="0.5"/>
+      
+      <!-- 귀 (작은) -->
+      <ellipse cx="72" cy="42" rx="2.5" ry="3" fill="#3e2723"/>
+      <ellipse cx="86" cy="42" rx="2.5" ry="3" fill="#3e2723"/>
+      
+      <!-- 눈 (붉은 빛) -->
+      <ellipse cx="74" cy="48" rx="2" ry="1.5" fill="#1a1a1a"/>
+      <ellipse cx="74" cy="48" rx="1.5" ry="1.1" fill="#c62828">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <circle cx="74" cy="48" r="0.4" fill="#fff"/>
+      
+      <ellipse cx="84" cy="48" rx="2" ry="1.5" fill="#1a1a1a"/>
+      <ellipse cx="84" cy="48" rx="1.5" ry="1.1" fill="#c62828">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="1.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <circle cx="84" cy="48" r="0.4" fill="#fff"/>
+      
+      <!-- 코 (큰 콧구멍) -->
+      <ellipse cx="86" cy="53" rx="2.5" ry="1.5" fill="#1a1a1a"/>
+      <ellipse cx="85" cy="52" rx="0.6" ry="0.5" fill="#5d4037"/>
+      <ellipse cx="87" cy="52" rx="0.6" ry="0.5" fill="#5d4037"/>
+      
+      <!-- 송곳니 (아래쪽으로) -->
+      <polygon points="78,55 76,62 79,57" fill="#fff" stroke="#3e2723" stroke-width="0.3"/>
+      <polygon points="84,55 86,62 83,57" fill="#fff" stroke="#3e2723" stroke-width="0.3"/>
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-4 1.2,-1.3 3.8,-1.3 1.6,0.5 2.7,3.2 0,1.4 -2.7,3.2 -1.6,0.5 -3.8,-1.3 -1.2,-1.3" fill="#c62828" stroke="#fff" stroke-width="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+
+window.premiumPhoenixSVG = premiumPhoenixSVG;
+window.premiumWolfSVG = premiumWolfSVG;
+window.premiumTigerSVG = premiumTigerSVG;
+window.premiumDemonSVG = premiumDemonSVG;
+window.premiumAngelSVG = premiumAngelSVG;
+window.premiumBehemothSVG = premiumBehemothSVG;
+
+// === ✨ 통합 치비 스타일 SVG (게임 UI 스타일) ===
+function premiumChibiSVG(size, color, darkColor, type) {
+  const s = size;
+  const uid = `ch${(Math.random() * 1e9) | 0}`;
+  const shade = (hex, p) => {
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n >> 16) + p, g = (n >> 8 & 0xff) + p, b = (n & 0xff) + p;
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    return '#' + ((r << 16 | g << 8 | b).toString(16).padStart(6, '0'));
+  };
+  
+  let extra = '';
+  let body = '';
+  
+  if (type === 'cosmic') {
+    extra = `
+      <ellipse cx="50" cy="50" rx="40" ry="8" fill="none" stroke="${color}" stroke-width="0.8" opacity="0.6">
+        <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="6s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="50" cy="50" rx="38" ry="12" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.5" transform="rotate(45 50 50)">
+        <animateTransform attributeName="transform" type="rotate" from="45 50 50" to="405 50 50" dur="8s" repeatCount="indefinite"/>
+      </ellipse>
+      <circle cx="15" cy="20" r="0.8" fill="#fff"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/></circle>
+      <circle cx="85" cy="80" r="0.7" fill="#fff"><animate attributeName="opacity" values="1;0.3;1" dur="1.8s" repeatCount="indefinite"/></circle>
+      <circle cx="80" cy="15" r="0.6" fill="#fff"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.2s" repeatCount="indefinite"/></circle>`;
+    body = `
+      <ellipse cx="50" cy="60" rx="20" ry="22" fill="${darkColor}"/>
+      <ellipse cx="42" cy="50" rx="3" ry="4" fill="#fff"/><ellipse cx="58" cy="50" rx="3" ry="4" fill="#fff"/>
+      <ellipse cx="42" cy="50" rx="1.5" ry="2.5" fill="${color}"/><ellipse cx="58" cy="50" rx="1.5" ry="2.5" fill="${color}"/>
+      <circle cx="42" cy="49" r="0.6" fill="#fff"/><circle cx="58" cy="49" r="0.6" fill="#fff"/>
+      <ellipse cx="50" cy="75" rx="14" ry="6" fill="${shade(color,-20)}"/>
+      <polygon points="40,40 38,30 44,38" fill="${color}"/><polygon points="60,40 62,30 56,38" fill="${color}"/>
+      <circle cx="44" cy="28" r="1.5" fill="#ffd700"><animate attributeName="opacity" values="0.5;1;0.5" dur="1s" repeatCount="indefinite"/></circle>
+      <circle cx="56" cy="28" r="1.5" fill="#ffd700"><animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/></circle>`;
+  } else if (type === 'void') {
+    extra = `
+      <circle cx="20" cy="25" r="1" fill="${color}"><animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite"/></circle>
+      <circle cx="80" cy="25" r="1" fill="${color}"><animate attributeName="opacity" values="1;0;1" dur="2.2s" repeatCount="indefinite"/></circle>`;
+    body = `
+      <path d="M 25 55 Q 5 35 12 60 Q 18 55 25 65 Z" fill="#000"/>
+      <path d="M 75 55 Q 95 35 88 60 Q 82 55 75 65 Z" fill="#000"/>
+      <ellipse cx="50" cy="60" rx="20" ry="22" fill="#000"/>
+      <ellipse cx="48" cy="52" rx="2.5" ry="3" fill="${color}"><animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/></ellipse>
+      <ellipse cx="58" cy="52" rx="2.5" ry="3" fill="${color}"><animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/></ellipse>
+      <polygon points="40,38 35,25 45,35" fill="#000" stroke="${color}" stroke-width="0.4"/>
+      <polygon points="60,38 65,25 55,35" fill="#000" stroke="${color}" stroke-width="0.4"/>`;
+  } else if (type === 'ra') {
+    extra = `
+      <g style="transform-origin:50px 50px"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="20s" repeatCount="indefinite"/>
+        <line x1="50" y1="10" x2="50" y2="20" stroke="${color}" stroke-width="1.5"/>
+        <line x1="50" y1="80" x2="50" y2="90" stroke="${color}" stroke-width="1.5"/>
+        <line x1="10" y1="50" x2="20" y2="50" stroke="${color}" stroke-width="1.5"/>
+        <line x1="80" y1="50" x2="90" y2="50" stroke="${color}" stroke-width="1.5"/>
+        <line x1="22" y1="22" x2="29" y2="29" stroke="${color}" stroke-width="1.2"/>
+        <line x1="78" y1="22" x2="71" y2="29" stroke="${color}" stroke-width="1.2"/>
+        <line x1="22" y1="78" x2="29" y2="71" stroke="${color}" stroke-width="1.2"/>
+        <line x1="78" y1="78" x2="71" y2="71" stroke="${color}" stroke-width="1.2"/>
+      </g>
+      <circle cx="50" cy="50" r="24" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.6"/>`;
+    body = `
+      <ellipse cx="50" cy="60" rx="18" ry="20" fill="${color}"/>
+      <ellipse cx="50" cy="58" rx="14" ry="16" fill="#ffeb3b"/>
+      <circle cx="44" cy="55" r="2" fill="#fff"/><circle cx="56" cy="55" r="2" fill="#fff"/>
+      <circle cx="44" cy="55" r="1" fill="#000"/><circle cx="56" cy="55" r="1" fill="#000"/>
+      <path d="M 45 63 Q 50 66 55 63" stroke="#000" stroke-width="1" fill="none"/>`;
+  } else if (type === 'angel') {
+    extra = `
+      <ellipse cx="50" cy="28" rx="14" ry="2.5" fill="none" stroke="#ffd700" stroke-width="1.5">
+        <animateTransform attributeName="transform" type="rotate" values="-10 50 28;10 50 28;-10 50 28" dur="3s" repeatCount="indefinite"/>
+      </ellipse>`;
+    body = `
+      <g style="transform-origin:35px 55px"><animateTransform attributeName="transform" type="rotate" values="-5;8;-5" dur="2s" repeatCount="indefinite"/>
+        <path d="M 38 55 Q 15 40 12 60 Q 20 55 28 62 Z" fill="#fff"/>
+      </g>
+      <g style="transform-origin:65px 55px"><animateTransform attributeName="transform" type="rotate" values="5;-8;5" dur="2s" repeatCount="indefinite"/>
+        <path d="M 62 55 Q 85 40 88 60 Q 80 55 72 62 Z" fill="#fff"/>
+      </g>
+      <ellipse cx="50" cy="60" rx="18" ry="20" fill="#fff"/>
+      <ellipse cx="44" cy="56" rx="2.5" ry="3" fill="#000"/><ellipse cx="56" cy="56" rx="2.5" ry="3" fill="#000"/>
+      <circle cx="44.5" cy="55" r="0.8" fill="#fff"/><circle cx="56.5" cy="55" r="0.8" fill="#fff"/>
+      <path d="M 45 65 Q 50 67 55 65" stroke="#bf6f00" stroke-width="0.8" fill="none"/>
+      <ellipse cx="40" cy="62" rx="2" ry="1" fill="#ffcdd2" opacity="0.7"/>
+      <ellipse cx="60" cy="62" rx="2" ry="1" fill="#ffcdd2" opacity="0.7"/>`;
+  } else if (type === 'frost') {
+    body = `
+      <ellipse cx="50" cy="60" rx="20" ry="22" fill="${color}"/>
+      <polygon points="42,35 38,28 46,32" fill="#e1f5fe"/>
+      <polygon points="50,30 50,22 54,30" fill="#b3e5fc"/>
+      <polygon points="58,35 62,28 54,32" fill="#e1f5fe"/>
+      <polygon points="35,50 28,52 35,55" fill="#e1f5fe"/>
+      <polygon points="65,50 72,52 65,55" fill="#e1f5fe"/>
+      <ellipse cx="44" cy="52" rx="2.5" ry="3" fill="#fff"/><ellipse cx="56" cy="52" rx="2.5" ry="3" fill="#fff"/>
+      <ellipse cx="44" cy="52" rx="1.5" ry="2" fill="${darkColor}"/><ellipse cx="56" cy="52" rx="1.5" ry="2" fill="${darkColor}"/>
+      <ellipse cx="50" cy="65" rx="10" ry="4" fill="${darkColor}" opacity="0.5"/>`;
+  } else if (type === 'ignis') {
+    extra = `
+      <circle cx="20" cy="80" r="1.5" fill="#ff6f00"><animate attributeName="cy" values="80;20;80" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite"/></circle>
+      <circle cx="80" cy="80" r="1.3" fill="#ffeb3b"><animate attributeName="cy" values="80;25;80" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0;1" dur="2.4s" repeatCount="indefinite"/></circle>`;
+    body = `
+      <path d="M 45 30 Q 42 20 47 26 Q 50 18 50 30 Q 53 22 55 28 Q 58 22 56 32 Z" fill="#ffeb3b"><animate attributeName="opacity" values="0.8;1;0.8" dur="1s" repeatCount="indefinite"/></path>
+      <path d="M 30 50 Q 15 35 18 55 Q 25 50 30 58 Z" fill="#ff6f00"/>
+      <path d="M 70 50 Q 85 35 82 55 Q 75 50 70 58 Z" fill="#ff6f00"/>
+      <ellipse cx="50" cy="60" rx="18" ry="20" fill="${color}"/>
+      <polygon points="40,38 35,28 45,35" fill="#ff6f00"/><polygon points="60,38 65,28 55,35" fill="#ff6f00"/>
+      <ellipse cx="44" cy="54" rx="2.5" ry="3" fill="#fff"/><ellipse cx="56" cy="54" rx="2.5" ry="3" fill="#fff"/>
+      <ellipse cx="44" cy="54" rx="1.5" ry="2.2" fill="#000"/><ellipse cx="56" cy="54" rx="1.5" ry="2.2" fill="#000"/>
+      <path d="M 45 64 Q 50 67 55 64" stroke="#000" stroke-width="0.8" fill="none"/>`;
+  } else if (type === 'gaia') {
+    body = `
+      <path d="M 35 30 Q 30 20 38 25 Q 40 18 42 28 Q 36 25 35 30" fill="#388e3c"/>
+      <path d="M 65 30 Q 70 20 62 25 Q 60 18 58 28 Q 64 25 65 30" fill="#388e3c"/>
+      <ellipse cx="42" cy="32" rx="3" ry="5" fill="#43a047" transform="rotate(-30 42 32)"/>
+      <ellipse cx="58" cy="32" rx="3" ry="5" fill="#43a047" transform="rotate(30 58 32)"/>
+      <ellipse cx="50" cy="60" rx="20" ry="22" fill="${color}"/>
+      <circle cx="35" cy="70" r="2.5" fill="#fff" opacity="0.8"/><circle cx="35" cy="70" r="1.2" fill="#ec407a"/>
+      <circle cx="65" cy="68" r="2.5" fill="#fff" opacity="0.8"/><circle cx="65" cy="68" r="1.2" fill="#ec407a"/>
+      <ellipse cx="44" cy="54" rx="2.5" ry="3" fill="#fff"/><ellipse cx="56" cy="54" rx="2.5" ry="3" fill="#fff"/>
+      <ellipse cx="44" cy="54" rx="1.5" ry="2" fill="${darkColor}"/><ellipse cx="56" cy="54" rx="1.5" ry="2" fill="${darkColor}"/>
+      <path d="M 45 63 Q 50 66 55 63" stroke="${darkColor}" stroke-width="0.8" fill="none"/>`;
+  } else if (type === 'zeus') {
+    body = `
+      <polygon points="50,25 45,35 50,32 48,40 53,32 50,25" fill="#fff59d" stroke="#fff" stroke-width="0.5"><animate attributeName="opacity" values="0.7;1;0.7" dur="0.6s" repeatCount="indefinite"/></polygon>
+      <ellipse cx="50" cy="60" rx="20" ry="22" fill="${color}"/>
+      <polygon points="38,40 32,30 42,38" fill="#fff59d"/>
+      <polygon points="62,40 68,30 58,38" fill="#fff59d"/>
+      <ellipse cx="44" cy="54" rx="2.5" ry="3" fill="#fff"/><ellipse cx="56" cy="54" rx="2.5" ry="3" fill="#fff"/>
+      <ellipse cx="44" cy="54" rx="1.5" ry="2.2" fill="#5d4037"/><ellipse cx="56" cy="54" rx="1.5" ry="2.2" fill="#5d4037"/>
+      <path d="M 45 64 Q 50 67 55 64" stroke="#5d4037" stroke-width="0.8" fill="none"/>
+      <polygon points="30,60 24,55 28,58 22,52" fill="#fff59d" opacity="0.8"/>
+      <polygon points="70,60 76,55 72,58 78,52" fill="#fff59d" opacity="0.8"/>`;
+  }
+  
+  return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:inline-block; overflow:visible;">
+    <defs>
+      <radialGradient id="ch_${uid}" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#ch_${uid})">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    ${extra}
+    <ellipse cx="50" cy="94" rx="28" ry="4" fill="rgba(0,0,0,0.4)">
+      <animate attributeName="rx" values="28;22;28" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+    <g style="transform-origin: 50px 55px;">
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-3;0,0" dur="2s" repeatCount="indefinite"/>
+      ${body}
+    </g>
+    <g transform="translate(85, 15)">
+      <polygon points="0,-4 1.2,-1.3 3.8,-1.3 1.6,0.5 2.7,3.2 0,1.4 -2.7,3.2 -1.6,0.5 -3.8,-1.3 -1.2,-1.3" fill="#c62828" stroke="#fff" stroke-width="0.5">
+        <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </svg>`;
+}
+window.premiumChibiSVG = premiumChibiSVG;
+
 function petSVG(def, size) {
   const key = Object.keys(PETS).find(k => PETS[k] === def);
   // === 🖼 이미지 에셋 우선 사용 (PET_IMAGES에 매핑되어 있고 로딩 실패 안 했으면) ===
@@ -8472,9 +9895,23 @@ function petSVG(def, size) {
     </span>`;
   }
 
-  // === 🐉 고품질 특별 SVG (dragon, worldgod) ===
+  // === 🐉 고품질 특별 SVG ===
   if (key === 'dragon') return premiumDragonSVG(size);
   if (key === 'worldgod') return premiumWorldgodSVG(size);
+  if (key === 'phoenix') return premiumPhoenixSVG(size);
+  if (key === 'wolf') return premiumWolfSVG(size);
+  if (key === 'tigercub') return premiumTigerSVG(size);
+  if (key === 'demon') return premiumDemonSVG(size);
+  if (key === 'angel') return premiumAngelSVG(size);
+  if (key === 'behemoth') return premiumBehemothSVG(size);
+  if (key === 'ra') return premiumChibiSVG(size, '#ffd700', '#ff9800', 'ra');
+  if (key === 'amaterasu') return premiumChibiSVG(size, '#fff8e1', '#ffd700', 'angel');
+  if (key === 'ymir') return premiumChibiSVG(size, '#03a9f4', '#01579b', 'frost');
+  if (key === 'ifrit') return premiumChibiSVG(size, '#f44336', '#bf360c', 'ignis');
+  if (key === 'void_dragon') return premiumChibiSVG(size, '#7b1fa2', '#4a148c', 'void');
+  if (key === 'cosmic_god') return premiumChibiSVG(size, '#9c27b0', '#4a148c', 'cosmic');
+  if (key === 'susanoo') return premiumChibiSVG(size, '#ffc107', '#ff6f00', 'zeus');
+  if (key === 'jormungandr') return premiumChibiSVG(size, '#4caf50', '#1b5e20', 'gaia');
 
   const art = PET_ART[key] || PET_ART.boar;
   const s = size;
@@ -10192,7 +11629,7 @@ const PET_TIER_NAMES = {
   common: '일반', rare: '희귀', epic: '영웅', legendary: '전설', mythic: '신화',
 };
 const PET_TIER_WEIGHTS = {
-  common: 60, rare: 25, epic: 12, legendary: 3, mythic: 0.5,
+  common: 75, rare: 19, epic: 5, legendary: 0.85, mythic: 0.15,
 };
 
 // ============================================================================
@@ -13791,10 +15228,30 @@ const RANKING_REWARDS = [
 function claimRankingReward() {
   const now = Date.now();
   const lastClaim = game.lastRankingClaim || 0;
-  const cooldown = 24 * 60 * 60 * 1000;
-  if (now - lastClaim < cooldown) {
-    const remaining = Math.ceil((cooldown - (now - lastClaim)) / (60 * 60 * 1000));
-    showToast(`보상은 ${remaining}시간 후 다시 받을 수 있어요`, 'warn');
+  // === 매일 오전 10시(KST) 초기화 시스템 ===
+  // KST = UTC+9. 오전 10시 KST = UTC 01:00
+  // 마지막 보상 받은 시각 이후로 "다음 10시"가 지났는지 확인
+  function getNextResetTime(fromTime) {
+    const d = new Date(fromTime);
+    const utcHour = d.getUTCHours();
+    const utcMin = d.getUTCMinutes();
+    // 오전 10시 KST = UTC 01:00
+    // 다음 UTC 01:00 시각 계산
+    const next = new Date(d);
+    if (utcHour >= 1) {
+      // 오늘 01:00은 지났음 → 내일 01:00
+      next.setUTCDate(d.getUTCDate() + 1);
+    }
+    next.setUTCHours(1, 0, 0, 0);
+    return next.getTime();
+  }
+  const nextResetSinceLastClaim = getNextResetTime(lastClaim);
+  if (lastClaim > 0 && now < nextResetSinceLastClaim) {
+    // 아직 다음 초기화 시각 안 됨
+    const remaining = nextResetSinceLastClaim - now;
+    const hours = Math.floor(remaining / (60 * 60 * 1000));
+    const mins = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+    showToast(`보상은 매일 오전 10시 초기화! ${hours}시간 ${mins}분 남음`, 'warn');
     return;
   }
   // 현재 랭킹 계산
@@ -26436,13 +27893,16 @@ function tick(now) {
   // day cycle
   game.dayTimer += dt;
 
-  // === 🌅 시간대 진행 (dayTimer 0~90초 → gameHour 0~24) ===
-  game.gameHour = (game.dayTimer / game.dayLength) * 24;
-  // 시간대 결정
+  // === 🌅 시간대 — 현실 시간 기반 (KST) ===
+  // 실제 한국 시간으로 낮/밤 결정
+  const realNow = new Date();
+  // KST = UTC+9
+  const kstHour = (realNow.getUTCHours() + 9) % 24;
+  game.gameHour = kstHour;
   let newTimeOfDay;
-  if (game.gameHour >= 5 && game.gameHour < 7) newTimeOfDay = 'dawn';
-  else if (game.gameHour >= 7 && game.gameHour < 17) newTimeOfDay = 'day';
-  else if (game.gameHour >= 17 && game.gameHour < 19) newTimeOfDay = 'sunset';
+  if (kstHour >= 5 && kstHour < 7) newTimeOfDay = 'dawn';
+  else if (kstHour >= 7 && kstHour < 17) newTimeOfDay = 'day';
+  else if (kstHour >= 17 && kstHour < 19) newTimeOfDay = 'sunset';
   else newTimeOfDay = 'night';
   // 시간대 변경 시 1회만 알림
   if (game.timeOfDay !== newTimeOfDay) {

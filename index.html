@@ -50,18 +50,28 @@
 
   /* === PORTRAIT (세로 모드) OPTIMIZATION === */
   @media (max-aspect-ratio: 3/4) {
-    /* 자원 바: 모바일 세로 — 작게해서 1줄에 다 들어가게 시도 */
-    .topbar { gap: 3px; padding: 0 3px; row-gap: 30px; }  /* 줄바꿈 시 두번째 줄 간격 ↑ (VIP 뱃지와 안 겹치게) */
-    .resource {
-      padding: 2px 6px 2px 2px;
-      min-height: 26px;
-      font-size: 11px;
-      border-width: 2px;
-      box-shadow: 0 2px 0 var(--wood-dark);
+    /* 자원 바: 모바일 세로 — 무조건 한 줄에 다 보이게 */
+    .topbar {
+      gap: 2px; padding: 0 2px;
+      flex-wrap: nowrap !important;  /* 줄바꿈 금지 */
+      overflow: hidden;
+      align-items: center;
     }
-    .resource .icon { width: 20px; height: 20px; font-size: 12px; border-width: 1.5px; }
-    .level-box { width: 36px; height: 36px; font-size: 14px; }
-    .level-box .lv-text { font-size: 7px; }
+    .resource {
+      padding: 1px 4px 1px 1px;
+      min-height: 22px;
+      font-size: 9.5px;
+      border-width: 1.5px;
+      border-radius: 12px;
+      box-shadow: 0 1px 0 var(--wood-dark);
+      gap: 2px;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .resource .icon { width: 16px; height: 16px; font-size: 10px; border-width: 1px; }
+    .resource .val { min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 50px; }
+    .level-box { width: 32px; height: 32px; font-size: 12px; flex-shrink: 0; }
+    .level-box .lv-text { font-size: 6px; }
 
     /* 사이드 버튼들을 더 작게 (세로 화면은 폭이 좁음) + 스크롤 */
     .side-btns { 
@@ -104,9 +114,11 @@
 
   /* 매우 좁은 화면 (작은 폰) */
   @media (max-width: 380px) {
-    .resource { padding: 2px 6px 2px 2px; font-size: 11px; min-height: 28px; }
-    .resource .icon { width: 20px; height: 20px; font-size: 12px; }
-    .resource .val { min-width: 24px; }
+    .resource { padding: 1px 3px 1px 1px; font-size: 9px; min-height: 20px; }
+    .resource .icon { width: 14px; height: 14px; font-size: 9px; }
+    .resource .val { min-width: 0; max-width: 42px; }
+    .level-box { width: 28px; height: 28px; font-size: 11px; }
+    .level-box .lv-text { font-size: 6px; }
     .icon-btn { width: 40px; height: 40px; font-size: 16px; }
     .build-card { width: 56px; }
     .build-card .preview { font-size: 22px; }
@@ -607,21 +619,22 @@
   /* VIP 뱃지: 경험치바 아래쪽 */
   .vip-badge-hud {
     position: absolute;
-    /* level-box 바로 아래 (자원바와 겹치지 않게 위치 조정) */
-    top: calc(100% + 4px);
+    /* level-box 바로 아래 (자원바 위쪽으로 살짝 빠지게) */
+    top: calc(100% + 2px);
     left: 50%;
     transform: translateX(-50%);
     background: linear-gradient(135deg, #ffd700, #f57c00);
     color: #3e2723;
-    border: 2px solid #3e2723;
-    border-radius: 8px;
-    padding: 0px 5px;
-    font-size: 9px;
+    border: 1.5px solid #3e2723;
+    border-radius: 6px;
+    padding: 0px 4px;
+    font-size: 8px;
     font-weight: bold;
     white-space: nowrap;
     box-shadow: 0 1px 0 #3e2723;
     z-index: 5;
     pointer-events: none;
+    line-height: 1.2;
   }
   .exp-bar-fill {
     height: 100%;
@@ -10831,13 +10844,23 @@ function updateHUD() {
   game._lastHudUpdate = _now;
   // res 안전성
   if (!game.res) game.res = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
-  // 자원 숫자 축약 (1만 이상은 K, 100만 이상은 M, 10억 이상은 B)
+  // 자원 숫자 매우 짧게 (한 줄에 다 들어가게)
+  // 1,000+ → K, 1,000,000+ → M, 1,000,000,000+ → B (소수점 1자리)
   function fmtRes(n) {
     n = Math.floor(n || 0);
-    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B';
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
-    if (n >= 10_000) return (n / 1_000).toFixed(1) + 'K';
-    return n.toLocaleString();
+    if (n >= 1_000_000_000) {
+      const v = n / 1_000_000_000;
+      return (v >= 10 ? Math.floor(v) : v.toFixed(1)) + 'B';
+    }
+    if (n >= 1_000_000) {
+      const v = n / 1_000_000;
+      return (v >= 10 ? Math.floor(v) : v.toFixed(1)) + 'M';
+    }
+    if (n >= 1_000) {
+      const v = n / 1_000;
+      return (v >= 10 ? Math.floor(v) : v.toFixed(1)) + 'K';
+    }
+    return String(n);
   }
   try {
     document.getElementById('res-gold').textContent = fmtRes(game.res.gold);

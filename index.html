@@ -1359,7 +1359,7 @@
     <div class="icon-btn" id="btn-battles">🛡<div class="label">전투</div><div class="badge" id="battle-badge" style="display:none">!</div></div>
     <div class="icon-btn" id="btn-friends">👥<div class="label">친구</div><div class="badge" id="friends-badge" style="display:none">!</div></div>
     <div class="icon-btn" id="btn-attendance">📅<div class="label">출석</div><div class="badge" id="att-badge" style="display:none">!</div></div>
-    <div class="icon-btn" id="btn-event">🎁<div class="label">이벤트</div></div>
+    <div class="icon-btn" id="btn-event">🎁<div class="label">이벤트</div><div class="badge" id="event-badge" style="display:none">!</div></div>
     <div class="icon-btn" id="btn-settings">⚙<div class="label">설정</div></div>
     <div class="icon-btn cheat-btn" id="btn-cheat">💎<div class="label">치트</div></div>
   </div>
@@ -14705,36 +14705,73 @@ function openFriends() {
 
   // === 🔱 운영자라면 글로벌 유저들 자동으로 친구에 추가 ===
   (async () => {
-    if (typeof isAdmin === 'function' && isAdmin() && typeof isOnlineMode === 'function' && isOnlineMode()) {
+    if (!(typeof isAdmin === 'function' && isAdmin())) return;
+    if (!(typeof isOnlineMode === 'function' && isOnlineMode())) {
+      try { showToast('⚠ 온라인 모드가 아니어서 자동 친구 추가 불가', 'warn'); } catch (e) {}
+      return;
+    }
+    try {
+      console.log('[Admin Auto-Friend] 시작...');
+      // Firebase에서 모든 플레이어 데이터 직접 가져오기
+      let allPlayers = [];
       try {
-        const allPlayers = await fetchGlobalRanking(100);  // 최대 100명
-        if (allPlayers && allPlayers.length > 0) {
-          const myNick = game.player && game.player.nickname;
-          let added = 0;
-          for (const p of allPlayers) {
-            if (!p.name || p.name === myNick) continue;
-            // 이미 친구면 스킵
-            if (game.friends.some(f => f.nickname === p.name)) continue;
-            // 친구로 자동 추가
-            game.friends.push({
-              nickname: p.name,
-              level: p.level || 1,
-              power: p.totalPower || 0,
-              petCount: p.petCount || 0,
-              avatar: p.avatar || '⛺',
-              pets: {},
-              addedAt: Date.now(),
-              autoAdded: true,  // 자동 추가 표시
-            });
-            added++;
-          }
-          if (added > 0) {
-            try { showToast(`🔱 운영자 권한: 자동으로 ${added}명 친구 추가됨`, 'gain'); } catch (e) {}
-            try { saveGame(); } catch (e) {}
-            renderFriendsTab('list');  // 다시 렌더
-          }
+        const snap = await _firebaseDB.ref('players').once('value');
+        if (snap.exists()) {
+          snap.forEach(child => {
+            const data = child.val();
+            if (data && (data.nickname || data.name)) {
+              allPlayers.push(data);
+            }
+          });
         }
-      } catch (e) { console.warn('admin auto friend failed', e); }
+        console.log('[Admin Auto-Friend] DB에서', allPlayers.length, '명 가져옴');
+      } catch (e) {
+        console.warn('[Admin Auto-Friend] DB 직접 조회 실패, fetchGlobalRanking 사용', e);
+        allPlayers = await fetchGlobalRanking(100);
+      }
+
+      if (!allPlayers || allPlayers.length === 0) {
+        try { showToast('⚠ 서버에 다른 유저가 없어요', 'warn'); } catch (e) {}
+        return;
+      }
+
+      const myNick = game.player && game.player.nickname;
+      let added = 0;
+      for (const p of allPlayers) {
+        // 양쪽 필드명 모두 지원 (nickname 우선)
+        const nick = p.nickname || p.name;
+        if (!nick || nick === myNick) continue;
+        // 이미 친구면 스킵
+        if (game.friends.some(f => f.nickname === nick)) continue;
+        // 친구로 자동 추가
+        game.friends.push({
+          nickname: nick,
+          level: p.level || 1,
+          power: p.power || p.totalPower || 0,
+          petCount: p.petCount || 0,
+          avatar: p.avatar || '⛺',
+          vipLevel: p.vipLevel || 0,
+          pets: {},
+          addedAt: Date.now(),
+          autoAdded: true,
+        });
+        added++;
+      }
+      console.log(`[Admin Auto-Friend] ${added}명 추가됨 (전체 ${allPlayers.length}명 중)`);
+      if (added > 0) {
+        try { showToast(`🔱 운영자 권한: ${added}명 자동 친구 추가!`, 'gain'); } catch (e) {}
+        try { saveGame(); } catch (e) {}
+        if (typeof uploadCloudSave === 'function') { try { uploadCloudSave(true); } catch (e) {} }
+        // 친구 탭 다시 렌더
+        const listTab = document.querySelector('.friends-tab[data-tab="list"]');
+        if (listTab) listTab.textContent = `친구 (${game.friends.length})`;
+        renderFriendsTab('list');
+      } else if (allPlayers.length > 0) {
+        try { showToast('ℹ 새로 추가할 유저 없음 (이미 모두 친구)', ''); } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('[Admin Auto-Friend] 실패', e);
+      try { showToast('❌ 자동 친구 추가 실패: ' + e.message, 'warn'); } catch (ee) {}
     }
   })();
 
@@ -25893,7 +25930,18 @@ function tick(now) {
   if (game.dayTimer >= game.dayLength) {
     game.dayTimer = 0;
     game.day++;
-    if (game.day % 3 === 0 && Math.random() < 0.7) openEvent();
+    // ❌ 이벤트 자동 팝업 제거 — 사용자가 🎁 이벤트 버튼 클릭할 때만 표시
+    // (이전: if (game.day % 3 === 0 && Math.random() < 0.7) openEvent();)
+    // 대신 새 이벤트 있으면 뱃지로 알림
+    if (game.day % 3 === 0) {
+      try {
+        const eventBadge = document.getElementById('event-badge');
+        if (eventBadge) {
+          eventBadge.style.display = 'flex';
+          eventBadge.textContent = '!';
+        }
+      } catch (e) {}
+    }
     resetDailyFriendGifts();
     // 점령 세금: 내 마을이 점령당한 상태면 매일 자원이 빠져나감
     if (game.occupiedByMe && game.occupiedBy) {
@@ -27269,7 +27317,12 @@ async function _initImpl() {
   }
   document.getElementById('btn-friends').onclick = openFriends;
   document.getElementById('btn-attendance').onclick = openAttendance;
-  document.getElementById('btn-event').onclick = () => openEvent();
+  document.getElementById('btn-event').onclick = () => {
+    openEvent();
+    // 클릭 시 뱃지 제거
+    const eventBadge = document.getElementById('event-badge');
+    if (eventBadge) eventBadge.style.display = 'none';
+  };
   document.getElementById('btn-settings').onclick = openSettings;
   document.getElementById('btn-cheat').onclick = openCheat;
   // 운영자 닉네임만 치트 표시

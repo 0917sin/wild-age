@@ -15374,8 +15374,8 @@ function renderFriendsTab(tab) {
       <div class="fc-avatar">${f.avatar || '🏕️'}</div>
       <div class="fc-info">
         <div class="fc-name" style="${ADMIN_NICKNAMES.includes(f.nickname) ? 'color:#c62828; text-shadow: 1px 1px 0 #000;' : ''}">${f.nickname}${ADMIN_NICKNAMES.includes(f.nickname) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 6px; border-radius:6px; border:1px solid #000; font-weight:bold; box-shadow:0 0 4px rgba(198,40,40,0.6);">⚜ ADMIN</span>' : ''} ${f.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; border:1px solid #3e2723; font-weight:bold;">👑 VIP ${f.vipLevel}</span>` : ''} ${f.isOnline ? '<span style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px;">🌐 ONLINE</span>' : ''} ${f.conquered ? '<span class="conquered-flag">🚩점령됨</span>' : ''} ${f.occupiedByEnemy ? '<span style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; animation:pulse 1.5s infinite;">⚠️ 침략당함</span>' : ''}</div>
-        <div class="fc-meta">Lv.${f.level || '?'} · ${f.tribe || '부족'} · ⚔${f.power || '?'}</div>
-        <div class="fc-code">#${f.code}</div>
+        <div class="fc-meta">Lv.${f.level || 1} · ⚔${(f.power || 0).toLocaleString()}${f.petCount ? ' · 🦁' + f.petCount : ''}</div>
+        ${f.code ? `<div class="fc-code">#${f.code}</div>` : (f.autoAdded ? '<div class="fc-code" style="color:#c62828;">🔱 운영자 자동 추가</div>' : '')}
         ${f.conquered && f.conquerData ? `
           <div style="font-size:9px; color:var(--gold); font-weight:bold; margin-top:2px;">
             점령 중 · 잔여⚔${f.conquerData.myRemainingPower || 0} · 누적세금💰${f.conquerData.taxCollected || 0}
@@ -17746,7 +17746,7 @@ window.renderPetArenaTab = renderPetArenaTab;
 // ============================================================================
 // 🏟 펫 투기장 - 포켓몬 마스터즈 스타일 (3명 자동 매칭)
 // ============================================================================
-const ARENA_FREE_DAILY = 5;  // 하루 무료 횟수
+const ARENA_FREE_DAILY = 99999;  // 무제한 (사용자 요청)
 const ARENA_RESET_COST = 100;  // 리셋 보석 비용
 
 // AI 봇 생성용 (실제 유저 부족 시 채움)
@@ -22170,14 +22170,14 @@ function renderArenaModal() {
           🔄 리셋 (💎${ARENA_RESET_COST})
         </button>
         <div style="font-size:11px; color:#3e2723; font-weight:bold;">
-          오늘 무료: <b style="color:${freeLeft > 0 ? '#2e7d32' : '#c62828'};">${freeLeft}/${ARENA_FREE_DAILY}</b>
+          🔓 <b style="color:#2e7d32;">무제한 도전</b>
         </div>
       </div>
     </div>
 
     <!-- 안내 -->
     <div style="font-size:10px; color:#8d6e63; text-align:center; padding:6px;">
-      💡 비슷한 전투력의 상대 3명이 자동 매칭됩니다. 무료 횟수 소진 시 리셋으로 새 상대 가능.
+      💡 비슷한 전투력의 상대 3명이 자동 매칭됩니다. 🔄 리셋으로 새 상대 매칭 가능.
     </div>
   `;
 
@@ -22300,16 +22300,7 @@ async function arenaChallenge(idx) {
     return;
   }
 
-  const freeLeft = Math.max(0, ARENA_FREE_DAILY - (game.arena.freeUsed || 0));
-  if (freeLeft <= 0) {
-    showConfirmDialog(
-      '⏰ 무료 횟수 소진',
-      '오늘 무료 횟수를 모두 사용했어요!\n\n🔄 리셋(💎' + ARENA_RESET_COST + ')으로 새 상대를 매칭하거나\n내일 다시 도전하세요.',
-      () => {}
-    );
-    return;
-  }
-
+  // 🔓 횟수 제한 제거 - 무제한 도전 가능
   // 도전 진행
   game.arena.freeUsed = (game.arena.freeUsed || 0) + 1;
   game.arena.totalMatches = (game.arena.totalMatches || 0) + 1;

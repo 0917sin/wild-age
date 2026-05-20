@@ -9879,8 +9879,18 @@ function premiumChibiSVG(size, color, darkColor, type) {
 }
 window.premiumChibiSVG = premiumChibiSVG;
 
+// === 🚀 PETS 키 역참조 캐시 (defObj → key) — petSVG 성능 최적화 ===
+const _PET_DEF_TO_KEY = new WeakMap();
+(function buildPetDefCache() {
+  for (const k in PETS) {
+    if (Object.prototype.hasOwnProperty.call(PETS, k)) {
+      _PET_DEF_TO_KEY.set(PETS[k], k);
+    }
+  }
+})();
+
 function petSVG(def, size) {
-  const key = Object.keys(PETS).find(k => PETS[k] === def);
+  const key = _PET_DEF_TO_KEY.get(def) || Object.keys(PETS).find(k => PETS[k] === def);
   // === 🖼 이미지 에셋 우선 사용 (PET_IMAGES에 매핑되어 있고 로딩 실패 안 했으면) ===
   if (key && PET_IMAGES[key] && IMG_LOAD_STATUS[`pets/${PET_IMAGES[key]}`] !== 'failed') {
     const tierColor = PET_TIER_COLORS[def.tier] || '#999';
@@ -14020,17 +14030,66 @@ async function renderAdminUsers() {
   const c = document.getElementById('admin-content');
   if (!c) return;
   c.innerHTML = `
-    <div style="display:flex; gap:6px; margin-bottom:10px;">
+    <div style="display:flex; gap:6px; margin-bottom:8px;">
       <input id="admin-user-search" type="text" placeholder="닉네임 검색 (빈칸=전체)" style="flex:1; padding:8px; border:2px solid var(--wood); border-radius:6px; font-family:inherit; font-size:12px;">
       <button id="admin-search-btn" style="background:linear-gradient(to bottom, #42a5f5, #1565c0); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">🔍</button>
       <button id="admin-search-all" style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">전체</button>
     </div>
-    <div id="admin-user-list" style="max-height:60vh; overflow-y:auto;"></div>
+    <div style="display:flex; gap:6px; margin-bottom:10px;">
+      <button id="admin-refresh-all-btn" style="flex:1; background:linear-gradient(to bottom, #ffa726, #ef6c00); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">🔄 유저 정보 일괄 갱신</button>
+      <button id="admin-reset-all-btn" style="flex:1; background:linear-gradient(to bottom, #ef5350, #b71c1c); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">⚠ 전체 유저 초기화</button>
+    </div>
+    <div id="admin-user-list" style="max-height:55vh; overflow-y:auto;"></div>
   `;
   document.getElementById('admin-search-btn').onclick = () => loadAdminUsers(document.getElementById('admin-user-search').value.trim());
   document.getElementById('admin-search-all').onclick = () => loadAdminUsers('');
   document.getElementById('admin-user-search').onkeypress = (e) => {
     if (e.key === 'Enter') loadAdminUsers(document.getElementById('admin-user-search').value.trim());
+  };
+  // 일괄 갱신 버튼
+  document.getElementById('admin-refresh-all-btn').onclick = async () => {
+    if (!confirm('🔄 모든 유저의 최신 정보를 Firebase에서 다시 불러올까요?')) return;
+    showToast('🔄 유저 정보 갱신 중...', '');
+    await loadAdminUsers(document.getElementById('admin-user-search').value.trim());
+    showToast('✅ 유저 정보 갱신 완료!', 'gain');
+  };
+  // 전체 유저 초기화 버튼 (3중 확인)
+  document.getElementById('admin-reset-all-btn').onclick = async () => {
+    if (!confirm('⚠ 경고: 모든 유저(본인 제외)의 데이터를 초기화합니다.\n\n이 작업은 되돌릴 수 없습니다.\n계속하시겠어요?')) return;
+    if (!confirm('⚠⚠ 정말로 모든 유저를 초기화하시겠습니까?\n\n수백 명의 유저 데이터가 삭제됩니다.')) return;
+    const confirmText = prompt('마지막 확인: "RESET ALL"을 정확히 입력하세요');
+    if (confirmText !== 'RESET ALL') {
+      showToast('❌ 취소됨', 'warn');
+      return;
+    }
+    if (!isOnlineMode || !isOnlineMode()) {
+      showToast('📴 오프라인 모드에서는 사용 불가', 'warn');
+      return;
+    }
+    try {
+      const myNick = game.player && game.player.nickname;
+      const snap = await _firebaseDB.ref('players').once('value');
+      const players = snap.val() || {};
+      const total = Object.keys(players).length;
+      let removed = 0;
+      const promises = [];
+      for (const encodedNick of Object.keys(players)) {
+        const decoded = decodeNick(encodedNick);
+        if (decoded === myNick) continue;  // 본인 보호
+        if (ADMIN_NICKNAMES.includes(decoded)) continue;  // 다른 운영자 보호
+        promises.push(_firebaseDB.ref('players/' + encodedNick).remove());
+        promises.push(_firebaseDB.ref('saves/' + encodedNick).remove());
+        promises.push(_firebaseDB.ref('accounts/' + encodedNick).remove());
+        removed++;
+      }
+      showToast(`⚠ ${removed}/${total}명 초기화 중...`, '');
+      await Promise.all(promises);
+      showToast(`✅ 전체 유저 초기화 완료 (${removed}명)`, 'gain');
+      await loadAdminUsers('');
+    } catch (e) {
+      console.error('reset all failed', e);
+      showToast('❌ 초기화 실패: ' + e.message, 'warn');
+    }
   };
   loadAdminUsers('');
 }
@@ -24117,10 +24176,18 @@ async function arenaChallenge(idx) {
   const oppRoll = oppPow * (0.85 + Math.random() * 0.3);
   const won = myRoll > oppRoll;
 
-  // 점수 변동
-  const expectedWin = myPow / (myPow + oppPow);
-  const K = 32;
-  const scoreChange = Math.round(K * ((won ? 1 : 0) - expectedWin));
+  // === 🏟 점수 변동 (승리 +, 패배 -) ===
+  // 상대 전투력 비율에 따라 가감 (강자 잡으면 더 많이 얻고, 약자 잡으면 적게)
+  let scoreChange;
+  if (won) {
+    // 승리: 기본 +20, 상대가 강할수록 더 많이 (+15 ~ +40)
+    const powRatio = oppPow / (myPow + 1);
+    scoreChange = Math.max(15, Math.min(40, Math.round(20 * (0.5 + powRatio))));
+  } else {
+    // 패배: 기본 -15, 상대가 약할수록 더 많이 잃음 (-10 ~ -30)
+    const powRatio = myPow / (oppPow + 1);
+    scoreChange = -Math.max(10, Math.min(30, Math.round(15 * (0.5 + powRatio))));
+  }
   game.arena.score = Math.max(0, (game.arena.score || 1000) + scoreChange);
 
   // 승패 카운트 (game.arena + petArenaStats 양쪽 동기화)
@@ -26176,6 +26243,7 @@ function renderPetCatalogTab(tab) {
         e.stopPropagation();
         if (!game.settings) game.settings = {};
         game.settings.petSortMode = btn.dataset.sort;
+        game._mineTabPage = 0;  // 페이지 리셋
         renderPetCatalogTab('mine');  // 다시 렌더
       };
     });
@@ -27955,22 +28023,6 @@ function tick(now) {
     if (game._autoEvolveTimer >= 30) {
       game._autoEvolveTimer = 0;
       try { if (typeof runAutoEvolveAndEnhance === 'function') runAutoEvolveAndEnhance(); } catch (e) {}
-    }
-
-    // === 🏟 투기장 포인트 자동 증가 (60초마다 +1) ===
-    if (!game._arenaPointTimer) game._arenaPointTimer = 0;
-    game._arenaPointTimer += dt;
-    if (game._arenaPointTimer >= 60) {
-      game._arenaPointTimer = 0;
-      if (!game.arena) game.arena = {};
-      if (typeof game.arena.score !== 'number') game.arena.score = 1000;
-      // 전투력 기반 자동 증가 (전투력이 높을수록 더 빨리 올라감)
-      const myPower = game.totalPower || 100;
-      // 기본 +1, 추가로 전투력 100당 +0.5
-      const gain = 1 + Math.floor(myPower / 200);
-      game.arena.score += gain;
-      // 캐시 무효화
-      if (game._arenaScoreCache) game._arenaScoreCache = null;
     }
 
     // === 퀘스트/업적/칭호 체크 (5초마다만 — 매 초 호출 시 버벅임 발생) ===

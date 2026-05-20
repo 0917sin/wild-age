@@ -1412,6 +1412,8 @@
     <div class="icon-btn" id="btn-shop">🏪<div class="label">상점</div></div>
     <div class="icon-btn" id="btn-pets">🦁<div class="label">펫</div></div>
     <div class="icon-btn" id="btn-arena" title="펫 투기장">🏟<div class="label">투기장</div></div>
+    <div class="icon-btn" id="btn-pvp" title="PvP 실시간 매칭" style="background:linear-gradient(135deg,#ef5350,#c62828); border-color:#fff;">⚔<div class="label" style="color:#fff;">PvP</div></div>
+    <div class="icon-btn" id="btn-raid" title="일일 협동 레이드" style="background:linear-gradient(135deg,#7b1fa2,#4a148c); border-color:#fff;">🐲<div class="label" style="color:#fff;">레이드</div></div>
     <div class="icon-btn" id="btn-dungeon" title="던전 탐험">🗝<div class="label">던전</div></div>
     <div class="icon-btn" id="btn-roulette" title="일일 룰렛">🎰<div class="label">룰렛</div></div>
     <div class="icon-btn" id="btn-notifications" title="알림함" style="position:relative;">🔔<div class="label">알림</div></div>
@@ -13269,6 +13271,9 @@ function saveGame() {
     autoEnhance: game.autoEnhance || false,
     buildingMigratedV1: true,  // 마이그레이션 완료 표시
     shopDailyCount: game.shopDailyCount || {},
+    pvp: game.pvp || null,
+    raidDailyDamage: game.raidDailyDamage || null,
+    raidRewardClaimed: game.raidRewardClaimed || null,
     vipLevel: game.vipLevel || 0,
     vipExpiry: game.vipExpiry || 0,
     notifications: (game.notifications || []).slice(-30),  // 최근 30개만 저장
@@ -13353,6 +13358,9 @@ function loadGame() {
     game.autoEvolve = d.autoEvolve || false;
     game.autoEnhance = d.autoEnhance || false;
     game.shopDailyCount = d.shopDailyCount || {};
+    game.pvp = d.pvp || null;
+    game.raidDailyDamage = d.raidDailyDamage || null;
+    game.raidRewardClaimed = d.raidRewardClaimed || null;
     game.vipLevel = d.vipLevel || 0;
     game.vipExpiry = d.vipExpiry || 0;
     game.notifications = d.notifications || [];
@@ -25020,6 +25028,630 @@ async function arenaChallenge(idx) {
 }
 window.arenaChallenge = arenaChallenge;
 
+// ============================================================================
+// 🏟️ PvP 실시간 매칭 + 시즌 랭킹 시스템
+// ============================================================================
+const PVP_TIERS = [
+  { id: 'bronze',    name: '브론즈',     icon: '🥉', minRating: 0,    color: '#cd7f32' },
+  { id: 'silver',    name: '실버',       icon: '🥈', minRating: 1200, color: '#c0c0c0' },
+  { id: 'gold',      name: '골드',       icon: '🥇', minRating: 1500, color: '#ffd700' },
+  { id: 'platinum',  name: '플래티넘',   icon: '💠', minRating: 1800, color: '#00bcd4' },
+  { id: 'diamond',   name: '다이아',     icon: '💎', minRating: 2100, color: '#42a5f5' },
+  { id: 'master',    name: '마스터',     icon: '👑', minRating: 2400, color: '#ab47bc' },
+  { id: 'grandmaster', name: '그랜드마스터', icon: '⚜', minRating: 2700, color: '#ef5350' },
+];
+
+function getPvpTier(rating) {
+  let tier = PVP_TIERS[0];
+  for (const t of PVP_TIERS) {
+    if (rating >= t.minRating) tier = t;
+  }
+  return tier;
+}
+window.getPvpTier = getPvpTier;
+
+function getCurrentSeason() {
+  // 매주 월요일 00:00 KST 시즌 리셋
+  const now = Date.now();
+  const epoch = new Date('2025-01-06T00:00:00+09:00').getTime();  // 시즌 1 시작
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  return Math.floor((now - epoch) / weekMs) + 1;
+}
+window.getCurrentSeason = getCurrentSeason;
+
+function getSeasonEndTime() {
+  const season = getCurrentSeason();
+  const epoch = new Date('2025-01-06T00:00:00+09:00').getTime();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  return epoch + season * weekMs;
+}
+
+// PvP 데이터 초기화
+function initPvpData() {
+  if (!game.pvp) {
+    game.pvp = {
+      rating: 1000,
+      wins: 0,
+      losses: 0,
+      season: getCurrentSeason(),
+      weekWins: 0,
+      bestRating: 1000,
+    };
+  }
+  // 시즌 변경 확인
+  const curSeason = getCurrentSeason();
+  if (game.pvp.season !== curSeason) {
+    // 이전 시즌 보상 (rating 기반)
+    const prevTier = getPvpTier(game.pvp.rating);
+    game._lastSeasonReward = {
+      season: game.pvp.season,
+      tier: prevTier,
+      rating: game.pvp.rating,
+      claimed: false,
+    };
+    // 새 시즌 시작 - rating 부분 리셋 (소프트 리셋: 75%)
+    game.pvp.rating = Math.max(1000, Math.floor(game.pvp.rating * 0.75));
+    game.pvp.weekWins = 0;
+    game.pvp.season = curSeason;
+  }
+}
+window.initPvpData = initPvpData;
+
+async function findPvpMatch() {
+  initPvpData();
+  if (!isOnlineMode || !isOnlineMode()) {
+    showToast('🌐 온라인 모드에서만 가능', 'warn');
+    return null;
+  }
+  showToast('🔍 매칭 중... (실제/AI 상대 검색)', '');
+  // 1. 실제 유저 매칭 시도 (rating 비슷한 유저)
+  try {
+    const myRating = game.pvp.rating;
+    const snap = await _firebaseDB.ref('pvp_queue').once('value');
+    const queue = snap.val() || {};
+    const candidates = [];
+    for (const [nick, data] of Object.entries(queue)) {
+      const decoded = decodeURIComponent(nick);
+      if (decoded === game.player.nickname) continue;
+      // rating 차이 ±300 이내
+      if (Math.abs((data.rating || 1000) - myRating) > 300) continue;
+      // 최근 1분 이내 큐 등록
+      if (!data.timestamp || Date.now() - data.timestamp > 60000) continue;
+      candidates.push({ ...data, nickname: decoded });
+    }
+    if (candidates.length > 0) {
+      // 가장 가까운 rating 매칭
+      candidates.sort((a, b) => Math.abs((a.rating||1000) - myRating) - Math.abs((b.rating||1000) - myRating));
+      return candidates[0];
+    }
+  } catch (e) {
+    console.warn('PvP queue search failed', e);
+  }
+  // 2. 매칭 없으면 AI 상대 생성
+  const aiUsers = (typeof generateAIUsers === 'function') ? generateAIUsers(game.totalPower, game.pvp.rating * 10) : [];
+  if (aiUsers.length > 0) {
+    const ai = aiUsers[Math.floor(Math.random() * aiUsers.length)];
+    return {
+      nickname: ai.nickname,
+      rating: game.pvp.rating + Math.floor((Math.random() - 0.5) * 200),
+      power: ai.score,
+      isAI: true,
+      avatar: '🤖',
+    };
+  }
+  return null;
+}
+window.findPvpMatch = findPvpMatch;
+
+async function executePvpMatch(opponent) {
+  if (!opponent) return;
+  initPvpData();
+  // 전투: 내 펫 5마리 vs 상대 펫 5마리
+  const myPower = game.totalPower || 100;
+  const oppPower = opponent.power || opponent.totalPower || 1000;
+  // 운 요소 ±20%
+  const myRoll = myPower * (0.8 + Math.random() * 0.4);
+  const oppRoll = oppPower * (0.8 + Math.random() * 0.4);
+  const won = myRoll > oppRoll;
+  // ELO 점수 계산
+  const K = 32;
+  const expectedWin = 1 / (1 + Math.pow(10, (opponent.rating - game.pvp.rating) / 400));
+  const ratingChange = Math.round(K * ((won ? 1 : 0) - expectedWin));
+  const oldRating = game.pvp.rating;
+  game.pvp.rating = Math.max(0, game.pvp.rating + ratingChange);
+  if (game.pvp.rating > game.pvp.bestRating) game.pvp.bestRating = game.pvp.rating;
+  if (won) {
+    game.pvp.wins = (game.pvp.wins || 0) + 1;
+    game.pvp.weekWins = (game.pvp.weekWins || 0) + 1;
+    // 승리 보상
+    addRes('gold', 1000 + ratingChange * 50);
+    addRes('gem', 5);
+  } else {
+    game.pvp.losses = (game.pvp.losses || 0) + 1;
+    // 패배 위로금
+    addRes('gold', 200);
+  }
+  try { saveGame(); } catch (e) {}
+  if (isOnlineMode && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+  return { won, ratingChange, oldRating, newRating: game.pvp.rating, opponent };
+}
+window.executePvpMatch = executePvpMatch;
+
+function openPvpModal() {
+  initPvpData();
+  const existing = document.getElementById('pvp-modal');
+  if (existing) existing.remove();
+
+  const tier = getPvpTier(game.pvp.rating);
+  const season = game.pvp.season;
+  const seasonEnd = getSeasonEndTime();
+  const daysLeft = Math.ceil((seasonEnd - Date.now()) / (24 * 60 * 60 * 1000));
+
+  const modal = document.createElement('div');
+  modal.id = 'pvp-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  modal.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0a0518,#1a0a2e,#0a0518); border-radius:16px; padding:18px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto; border:3px solid ${tier.color}; box-shadow:0 0 30px ${tier.color}aa;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="font-size:20px; font-weight:bold; background:linear-gradient(90deg,#ffd700,#ff9800); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">⚔ PvP 매칭</div>
+        <button id="pvp-close" style="background:#c62828; color:#fff; border:none; border-radius:50%; width:28px; height:28px; font-size:14px; cursor:pointer;">✕</button>
+      </div>
+      <div style="background:rgba(0,0,0,0.5); border:2px solid ${tier.color}; border-radius:12px; padding:12px; margin-bottom:12px; text-align:center; box-shadow:inset 0 0 14px ${tier.color}55;">
+        <div style="font-size:48px; line-height:1;">${tier.icon}</div>
+        <div style="font-size:18px; font-weight:bold; color:${tier.color}; text-shadow:0 0 6px ${tier.color}aa; margin-top:4px;">${tier.name}</div>
+        <div style="font-size:28px; font-weight:bold; color:#ffd700; margin-top:4px;">${game.pvp.rating}</div>
+        <div style="font-size:11px; color:#bbb; margin-top:2px;">레이팅 (최고: ${game.pvp.bestRating})</div>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <div style="flex:1; background:rgba(0,0,0,0.4); border:1.5px solid #43a047; border-radius:10px; padding:8px; text-align:center;">
+          <div style="font-size:10px; color:#a5d6a7;">시즌 ${season}</div>
+          <div style="font-size:16px; font-weight:bold; color:#43a047;">🗓 ${daysLeft}일 남음</div>
+        </div>
+        <div style="flex:1; background:rgba(0,0,0,0.4); border:1.5px solid #42a5f5; border-radius:10px; padding:8px; text-align:center;">
+          <div style="font-size:10px; color:#90caf9;">전적</div>
+          <div style="font-size:16px; font-weight:bold; color:#fff;"><span style="color:#43a047;">${game.pvp.wins}</span>승 <span style="color:#ef5350;">${game.pvp.losses}</span>패</div>
+        </div>
+        <div style="flex:1; background:rgba(0,0,0,0.4); border:1.5px solid #ffd700; border-radius:10px; padding:8px; text-align:center;">
+          <div style="font-size:10px; color:#fff59d;">이번 주</div>
+          <div style="font-size:16px; font-weight:bold; color:#ffd700;">${game.pvp.weekWins}승</div>
+        </div>
+      </div>
+      <div style="background:rgba(0,0,0,0.4); border-radius:10px; padding:10px; margin-bottom:12px;">
+        <div style="font-size:11px; color:#ce93d8; font-weight:bold; margin-bottom:6px;">🏆 티어 보상 (시즌 종료 시):</div>
+        <div style="font-size:10px; color:#bbb; line-height:1.6;">
+          🥉 브론즈: 💎10 / 🥈 실버: 💎30 / 🥇 골드: 💎70<br>
+          💠 플래티넘: 💎150 / 💎 다이아: 💎300<br>
+          👑 마스터: 💎600 + 칭호 / ⚜ 그랜드마스터: 💎1000 + 한정 펫
+        </div>
+      </div>
+      <button id="pvp-start-match" style="width:100%; padding:12px; background:linear-gradient(135deg,#ef5350,#c62828); color:#fff; border:2px solid #fff; border-radius:12px; font-family:inherit; font-size:16px; font-weight:bold; cursor:pointer; box-shadow:0 0 16px rgba(239,83,80,0.6);">⚔ 매칭 시작!</button>
+      <div style="margin-top:10px; text-align:center;">
+        <button id="pvp-leaderboard" style="background:linear-gradient(135deg,#ffd700,#ff9800); color:#3e2723; border:1.5px solid #f57f17; border-radius:8px; padding:6px 14px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">🏆 시즌 랭킹 보기</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#pvp-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.querySelector('#pvp-start-match').onclick = async () => {
+    const btn = modal.querySelector('#pvp-start-match');
+    btn.disabled = true;
+    btn.textContent = '🔍 매칭 중...';
+    const opp = await findPvpMatch();
+    if (!opp) {
+      showToast('❌ 매칭 실패', 'warn');
+      btn.disabled = false;
+      btn.textContent = '⚔ 매칭 시작!';
+      return;
+    }
+    modal.remove();
+    showPvpBattle(opp);
+  };
+  modal.querySelector('#pvp-leaderboard').onclick = () => {
+    modal.remove();
+    openPvpLeaderboard();
+  };
+}
+window.openPvpModal = openPvpModal;
+
+function showPvpBattle(opponent) {
+  const battleOverlay = document.createElement('div');
+  battleOverlay.id = 'pvp-battle';
+  battleOverlay.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  battleOverlay.innerHTML = `
+    <div style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e); border-radius:16px; padding:20px; max-width:480px; width:100%; border:3px solid #ffd700; box-shadow:0 0 30px rgba(255,215,0,0.6); text-align:center;">
+      <div style="font-size:22px; font-weight:bold; color:#ffd700; margin-bottom:14px;">⚔ PvP 전투 ⚔</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="flex:1; background:rgba(0,0,0,0.5); border:2px solid #43a047; border-radius:12px; padding:12px;">
+          <div style="font-size:36px;">${game.player.avatar || '⛺'}</div>
+          <div style="font-size:13px; font-weight:bold; color:#43a047; margin-top:4px;">${game.player.nickname}</div>
+          <div style="font-size:11px; color:#a5d6a7; margin-top:2px;">⚔ ${(game.totalPower || 0).toLocaleString()}</div>
+          <div style="font-size:10px; color:#fff59d;">${game.pvp.rating}</div>
+        </div>
+        <div style="font-size:24px; color:#fff;">⚡</div>
+        <div style="flex:1; background:rgba(0,0,0,0.5); border:2px solid ${opponent.isAI ? '#9e9e9e' : '#ef5350'}; border-radius:12px; padding:12px;">
+          <div style="font-size:36px;">${opponent.avatar || '⛺'}</div>
+          <div style="font-size:13px; font-weight:bold; color:${opponent.isAI ? '#9e9e9e' : '#ef5350'}; margin-top:4px;">${opponent.nickname}${opponent.isAI ? ' 🤖' : ''}</div>
+          <div style="font-size:11px; color:#ffab91; margin-top:2px;">⚔ ${(opponent.power || opponent.totalPower || 0).toLocaleString()}</div>
+          <div style="font-size:10px; color:#fff59d;">${opponent.rating || 1000}</div>
+        </div>
+      </div>
+      <div id="pvp-battle-status" style="margin-top:14px; padding:12px; background:rgba(0,0,0,0.6); border-radius:8px; min-height:60px; font-size:14px; color:#fff;">⚡ 전투 시작...</div>
+    </div>
+  `;
+  document.body.appendChild(battleOverlay);
+
+  // 전투 진행
+  const statusEl = battleOverlay.querySelector('#pvp-battle-status');
+  let msgIdx = 0;
+  const messages = ['⚡ 양측 펫 출격!', '🔥 격렬한 전투!', '⚔ 결투의 순간!'];
+  const interval = setInterval(() => {
+    statusEl.textContent = messages[msgIdx++ % messages.length];
+  }, 700);
+
+  setTimeout(async () => {
+    clearInterval(interval);
+    const result = await executePvpMatch(opponent);
+    if (!result) {
+      battleOverlay.remove();
+      return;
+    }
+    const { won, ratingChange, newRating } = result;
+    statusEl.innerHTML = `
+      <div style="font-size:24px; font-weight:bold; color:${won ? '#43a047' : '#ef5350'}; margin-bottom:8px;">
+        ${won ? '🏆 승리!' : '💔 패배...'}
+      </div>
+      <div style="font-size:13px; color:#fff;">
+        레이팅: ${result.oldRating} → <b style="color:${ratingChange > 0 ? '#43a047' : '#ef5350'};">${newRating}</b> (${ratingChange > 0 ? '+' : ''}${ratingChange})
+      </div>
+      ${won ? `<div style="font-size:11px; color:#ffd700; margin-top:4px;">🪙 +${(1000 + ratingChange * 50).toLocaleString()} 💎 +5</div>` : `<div style="font-size:11px; color:#ce93d8; margin-top:4px;">위로금: 🪙 +200</div>`}
+      <button onclick="this.closest('#pvp-battle').remove(); openPvpModal();" style="margin-top:10px; padding:6px 16px; background:linear-gradient(135deg,#42a5f5,#1565c0); color:#fff; border:none; border-radius:8px; font-family:inherit; font-weight:bold; cursor:pointer;">🔄 한 번 더</button>
+    `;
+  }, 2500);
+}
+window.showPvpBattle = showPvpBattle;
+
+async function openPvpLeaderboard() {
+  const existing = document.getElementById('pvp-leaderboard-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'pvp-leaderboard-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  modal.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0a0518,#1a0a2e); border-radius:16px; padding:18px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto; border:3px solid #ffd700;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="font-size:18px; font-weight:bold; color:#ffd700;">🏆 시즌 ${getCurrentSeason()} 랭킹</div>
+        <button id="pvp-lb-close" style="background:#c62828; color:#fff; border:none; border-radius:50%; width:28px; height:28px; font-size:14px; cursor:pointer;">✕</button>
+      </div>
+      <div id="pvp-lb-list">⏳ 로딩 중...</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector('#pvp-lb-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  // 랭킹 로드
+  const listEl = modal.querySelector('#pvp-lb-list');
+  if (isOnlineMode && isOnlineMode()) {
+    try {
+      // 모든 유저의 pvp 데이터
+      const snap = await _firebaseDB.ref('saves').once('value');
+      const players = [];
+      if (snap.exists()) {
+        snap.forEach(child => {
+          const v = child.val();
+          if (v && v.pvp && v.pvp.season === getCurrentSeason()) {
+            players.push({
+              nickname: decodeURIComponent(child.key),
+              rating: v.pvp.rating || 0,
+              wins: v.pvp.wins || 0,
+              losses: v.pvp.losses || 0,
+              avatar: v.player ? v.player.avatar : '⛺',
+            });
+          }
+        });
+      }
+      // AI 50명 추가
+      const aiUsers = (typeof generateAIUsers === 'function') ? generateAIUsers(1000, 1500) : [];
+      for (const ai of aiUsers) {
+        players.push({
+          nickname: ai.nickname,
+          rating: 1000 + Math.floor((Math.random() * 2000)),
+          wins: Math.floor(Math.random() * 50),
+          losses: Math.floor(Math.random() * 30),
+          avatar: '🤖',
+          isAI: true,
+        });
+      }
+      players.sort((a, b) => b.rating - a.rating);
+      const myNick = game.player.nickname;
+      let html = '<div style="display:flex; flex-direction:column; gap:4px;">';
+      players.slice(0, 50).forEach((p, i) => {
+        const tier = getPvpTier(p.rating);
+        const isMe = p.nickname === myNick;
+        const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+        html += `
+          <div style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:${isMe ? 'rgba(255,215,0,0.2)' : 'rgba(0,0,0,0.4)'}; border:1.5px solid ${isMe ? '#ffd700' : tier.color}55; border-radius:8px;">
+            <div style="font-size:14px; font-weight:bold; color:${tier.color}; min-width:30px;">${rankIcon}</div>
+            <div style="font-size:18px;">${p.avatar}</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:bold; color:${isMe ? '#ffd700' : '#fff'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nickname}${p.isAI ? ' 🤖' : ''}${isMe ? ' (나)' : ''}</div>
+              <div style="font-size:9px; color:#bbb;">${tier.icon} ${tier.name} · ${p.wins}승 ${p.losses}패</div>
+            </div>
+            <div style="font-size:14px; font-weight:bold; color:${tier.color}; text-shadow:0 0 4px ${tier.color}aa;">${p.rating}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      listEl.innerHTML = html;
+    } catch (e) {
+      listEl.innerHTML = '<div style="color:#ef5350;">❌ 로딩 실패</div>';
+    }
+  } else {
+    listEl.innerHTML = '<div style="color:#bbb;">📴 온라인 모드에서만 가능</div>';
+  }
+}
+window.openPvpLeaderboard = openPvpLeaderboard;
+
+// ============================================================================
+// 🐲 레이드 시스템 (8명 협동 보스)
+// ============================================================================
+const RAID_BOSSES = [
+  { id: 'kraken',    name: '심해의 크라켄',    icon: '🐙', hp: 100_000_000,  reward: { gold: 50000, gem: 200, exp: 5000 }, color: '#1565c0' },
+  { id: 'dragon',    name: '고대 용왕',        icon: '🐉', hp: 200_000_000,  reward: { gold: 100000, gem: 400, exp: 10000 }, color: '#c62828' },
+  { id: 'titan',     name: '얼음의 타이탄',    icon: '❄️', hp: 500_000_000,  reward: { gold: 200000, gem: 800, exp: 20000 }, color: '#0288d1' },
+  { id: 'phoenix',   name: '불멸의 불사조',    icon: '🔥', hp: 1_000_000_000, reward: { gold: 500000, gem: 1500, exp: 50000 }, color: '#ff5722' },
+  { id: 'voidlord',  name: '공허의 군주',      icon: '🌌', hp: 5_000_000_000, reward: { gold: 1000000, gem: 3000, exp: 100000 }, color: '#7b1fa2' },
+];
+
+function getCurrentRaidBoss() {
+  // 매일 다른 보스 (5개 순환)
+  const day = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return RAID_BOSSES[day % RAID_BOSSES.length];
+}
+window.getCurrentRaidBoss = getCurrentRaidBoss;
+
+async function joinRaid() {
+  if (!isOnlineMode || !isOnlineMode()) {
+    showToast('🌐 온라인 모드에서만 가능', 'warn');
+    return;
+  }
+  const boss = getCurrentRaidBoss();
+  const today = new Date().toISOString().split('T')[0];
+  const raidId = `raid_${today}_${boss.id}`;
+  try {
+    const raidRef = _firebaseDB.ref('raids/' + raidId);
+    const snap = await raidRef.once('value');
+    let raidData = snap.val();
+    if (!raidData) {
+      // 새 레이드 시작
+      raidData = {
+        bossId: boss.id,
+        bossName: boss.name,
+        totalHp: boss.hp,
+        remainingHp: boss.hp,
+        attackers: {},
+        startedAt: Date.now(),
+        defeated: false,
+      };
+      await raidRef.set(raidData);
+    }
+    return { raidData, boss, raidId };
+  } catch (e) {
+    console.warn('raid join failed', e);
+    return null;
+  }
+}
+window.joinRaid = joinRaid;
+
+async function attackRaid(damage) {
+  const boss = getCurrentRaidBoss();
+  const today = new Date().toISOString().split('T')[0];
+  const raidId = `raid_${today}_${boss.id}`;
+  try {
+    const raidRef = _firebaseDB.ref('raids/' + raidId);
+    const snap = await raidRef.once('value');
+    let raidData = snap.val();
+    if (!raidData) {
+      const res = await joinRaid();
+      if (!res) return null;
+      raidData = res.raidData;
+    }
+    if (raidData.defeated) {
+      showToast('🏆 이미 처치된 보스입니다!', 'warn');
+      return raidData;
+    }
+    // 데미지 적용
+    const myNick = encodeURIComponent(game.player.nickname);
+    const updates = {};
+    const newHp = Math.max(0, raidData.remainingHp - damage);
+    updates['remainingHp'] = newHp;
+    const myDamage = (raidData.attackers && raidData.attackers[myNick] && raidData.attackers[myNick].damage) || 0;
+    updates[`attackers/${myNick}`] = {
+      nickname: game.player.nickname,
+      damage: myDamage + damage,
+      lastAttack: Date.now(),
+      avatar: game.player.avatar || '⛺',
+    };
+    if (newHp === 0 && !raidData.defeated) {
+      updates['defeated'] = true;
+      updates['defeatedAt'] = Date.now();
+    }
+    await raidRef.update(updates);
+    // 보상
+    if (!game.raidDailyDamage) game.raidDailyDamage = {};
+    if (game.raidDailyDamage.date !== today) game.raidDailyDamage = { date: today, damage: 0, claimed: false };
+    game.raidDailyDamage.damage += damage;
+    // 즉시 보상 (데미지 기여도 비례)
+    const instantReward = Math.floor(damage / 1000);
+    addRes('gold', instantReward);
+    showToast(`⚔ 보스에게 ${damage.toLocaleString()} 데미지! 🪙+${instantReward}`, 'gain');
+    try { saveGame(); } catch (e) {}
+    return { ...raidData, ...updates };
+  } catch (e) {
+    console.warn('raid attack failed', e);
+    showToast('❌ 공격 실패', 'warn');
+    return null;
+  }
+}
+window.attackRaid = attackRaid;
+
+function openRaidModal() {
+  const existing = document.getElementById('raid-modal');
+  if (existing) existing.remove();
+
+  const boss = getCurrentRaidBoss();
+  const modal = document.createElement('div');
+  modal.id = 'raid-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  modal.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0a0518,#1a0a2e); border-radius:16px; padding:18px; max-width:460px; width:100%; max-height:90vh; overflow-y:auto; border:3px solid ${boss.color}; box-shadow:0 0 30px ${boss.color}aa;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="font-size:20px; font-weight:bold; background:linear-gradient(90deg,#ffd700,${boss.color}); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">🐲 일일 레이드</div>
+        <button id="raid-close" style="background:#c62828; color:#fff; border:none; border-radius:50%; width:28px; height:28px; font-size:14px; cursor:pointer;">✕</button>
+      </div>
+      <div id="raid-content" style="text-align:center;">⏳ 로딩 중...</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector('#raid-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+  loadRaidContent();
+  // 5초마다 자동 업데이트
+  if (game._raidPollTimer) clearInterval(game._raidPollTimer);
+  game._raidPollTimer = setInterval(() => {
+    if (!document.getElementById('raid-modal')) {
+      clearInterval(game._raidPollTimer);
+      game._raidPollTimer = null;
+      return;
+    }
+    loadRaidContent();
+  }, 5000);
+}
+window.openRaidModal = openRaidModal;
+
+async function loadRaidContent() {
+  const c = document.getElementById('raid-content');
+  if (!c) return;
+  const boss = getCurrentRaidBoss();
+  const res = await joinRaid();
+  if (!res) {
+    c.innerHTML = '<div style="color:#ef5350;">❌ 레이드 로드 실패</div>';
+    return;
+  }
+  const { raidData } = res;
+  const hpPercent = Math.max(0, (raidData.remainingHp / raidData.totalHp) * 100);
+  const attackers = raidData.attackers || {};
+  const attackerList = Object.values(attackers).sort((a, b) => (b.damage || 0) - (a.damage || 0));
+  // 내 데미지 비율
+  const myAttacker = attackers[encodeURIComponent(game.player.nickname)];
+  const myDamage = myAttacker ? myAttacker.damage : 0;
+  const totalDamage = raidData.totalHp - raidData.remainingHp;
+  const myContribution = totalDamage > 0 ? (myDamage / totalDamage * 100) : 0;
+  // 공격력 (내 totalPower의 5%)
+  const myAttackDamage = Math.floor((game.totalPower || 100) * 0.05);
+  c.innerHTML = `
+    <div style="background:rgba(0,0,0,0.6); border:2px solid ${boss.color}; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:inset 0 0 14px ${boss.color}44;">
+      <div style="font-size:64px; line-height:1;">${boss.icon}</div>
+      <div style="font-size:18px; font-weight:bold; color:${boss.color}; text-shadow:0 0 6px ${boss.color}aa; margin-top:6px;">${boss.name}</div>
+      <div style="background:rgba(0,0,0,0.7); border-radius:10px; padding:8px; margin-top:8px; border:1px solid ${boss.color};">
+        <div style="display:flex; justify-content:space-between; font-size:10px; color:#fff; margin-bottom:3px;">
+          <span>HP</span>
+          <span>${raidData.remainingHp.toLocaleString()} / ${raidData.totalHp.toLocaleString()}</span>
+        </div>
+        <div style="background:#3e2723; border-radius:6px; height:20px; overflow:hidden; border:1px solid #000;">
+          <div style="height:100%; background:linear-gradient(to right, #c62828, #ef5350); width:${hpPercent}%; transition: width 0.5s; box-shadow:inset 0 0 8px rgba(255,255,255,0.3);"></div>
+        </div>
+        <div style="font-size:14px; font-weight:bold; color:#ffd700; margin-top:4px;">${hpPercent.toFixed(2)}%</div>
+      </div>
+      ${raidData.defeated ? `
+        <div style="font-size:20px; font-weight:bold; color:#43a047; margin-top:10px;">🏆 처치됨!</div>
+      ` : ''}
+    </div>
+    <div style="background:rgba(0,0,0,0.4); border-radius:10px; padding:10px; margin-bottom:12px;">
+      <div style="font-size:11px; color:#ce93d8; font-weight:bold; margin-bottom:6px;">📊 내 기여도:</div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:#fff;">
+        <span>내 데미지: <b style="color:#ffd700;">${myDamage.toLocaleString()}</b></span>
+        <span>비중: <b style="color:#42a5f5;">${myContribution.toFixed(1)}%</b></span>
+      </div>
+    </div>
+    ${!raidData.defeated ? `
+      <button id="raid-attack-btn" style="width:100%; padding:14px; background:linear-gradient(135deg,${boss.color},#3e2723); color:#fff; border:2px solid #ffd700; border-radius:12px; font-family:inherit; font-size:16px; font-weight:bold; cursor:pointer; box-shadow:0 0 16px ${boss.color}aa;">⚔ 공격! (${myAttackDamage.toLocaleString()} 데미지)</button>
+    ` : `
+      <div style="background:rgba(67,160,71,0.2); border:2px solid #43a047; border-radius:10px; padding:12px; text-align:center; margin-bottom:8px;">
+        <div style="font-size:14px; font-weight:bold; color:#43a047;">🎉 보상 분배 중!</div>
+        <div style="font-size:11px; color:#a5d6a7; margin-top:4px;">데미지 비율에 따라 분배: 🪙${Math.floor(boss.reward.gold * myContribution / 100).toLocaleString()} 💎${Math.floor(boss.reward.gem * myContribution / 100)}</div>
+        <button id="raid-claim-btn" style="margin-top:8px; padding:8px 16px; background:linear-gradient(135deg,#ffd700,#ff9800); color:#3e2723; border:2px solid #f57f17; border-radius:8px; font-family:inherit; font-weight:bold; cursor:pointer;">🎁 보상 받기</button>
+      </div>
+    `}
+    <div style="background:rgba(0,0,0,0.4); border-radius:10px; padding:10px;">
+      <div style="font-size:11px; color:#ce93d8; font-weight:bold; margin-bottom:6px;">🏆 공격자 랭킹 (${attackerList.length}명):</div>
+      <div style="max-height:150px; overflow-y:auto;">
+        ${attackerList.slice(0, 10).map((a, i) => `
+          <div style="display:flex; align-items:center; gap:6px; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:6px; margin-bottom:3px;">
+            <div style="font-size:11px; font-weight:bold; color:#ffd700; min-width:20px;">${i+1}.</div>
+            <div style="font-size:14px;">${a.avatar || '⛺'}</div>
+            <div style="flex:1; font-size:10px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.nickname}</div>
+            <div style="font-size:10px; color:#ef5350; font-weight:bold;">⚔${(a.damage || 0).toLocaleString()}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  // 공격 버튼
+  const attackBtn = c.querySelector('#raid-attack-btn');
+  if (attackBtn) {
+    attackBtn.onclick = async () => {
+      attackBtn.disabled = true;
+      attackBtn.textContent = '⚔ 공격 중...';
+      await attackRaid(myAttackDamage);
+      // 폴링이 갱신해줌
+      setTimeout(() => { loadRaidContent(); }, 300);
+    };
+  }
+  // 보상 받기
+  const claimBtn = c.querySelector('#raid-claim-btn');
+  if (claimBtn) {
+    claimBtn.onclick = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      if (game.raidRewardClaimed === today) {
+        showToast('🎁 오늘 보상 이미 받음', 'warn');
+        return;
+      }
+      const goldReward = Math.floor(boss.reward.gold * myContribution / 100);
+      const gemReward = Math.floor(boss.reward.gem * myContribution / 100);
+      const expReward = Math.floor(boss.reward.exp * myContribution / 100);
+      addRes('gold', goldReward);
+      addRes('gem', gemReward);
+      game.exp = (game.exp || 0) + expReward;
+      try { checkLevelUp(); } catch (e) {}
+      game.raidRewardClaimed = today;
+      showToast(`🎁 레이드 보상: 🪙${goldReward.toLocaleString()} 💎${gemReward} ✨${expReward}`, 'gain');
+      claimBtn.disabled = true;
+      claimBtn.textContent = '✅ 받음';
+      try { saveGame(); } catch (e) {}
+    };
+  }
+}
+window.loadRaidContent = loadRaidContent;
+
 // === 🎬 전투 애니메이션 ===
 function playBattleAnimation(myPetKey, opp, won) {
   return new Promise(resolve => {
@@ -30209,6 +30841,10 @@ async function _initImpl() {
   document.getElementById('btn-pets').onclick = openPetDex;
   const btnArena = document.getElementById('btn-arena');
   if (btnArena) btnArena.onclick = openArena;
+  const btnPvp = document.getElementById('btn-pvp');
+  if (btnPvp) btnPvp.onclick = openPvpModal;
+  const btnRaid = document.getElementById('btn-raid');
+  if (btnRaid) btnRaid.onclick = openRaidModal;
   const btnDungeon = document.getElementById('btn-dungeon');
   if (btnDungeon) btnDungeon.onclick = openDungeon;
   const btnRoulette = document.getElementById('btn-roulette');

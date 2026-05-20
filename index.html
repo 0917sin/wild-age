@@ -18187,11 +18187,10 @@ function renderFriendsTab(tab) {
         ${(() => {
           if (!f.rescuedAt || f.occupiedByEnemy) return '';
           const elapsed = Date.now() - f.rescuedAt;
-          const remaining = 2 * 60 * 60 * 1000 - elapsed;
+          const remaining = 30 * 60 * 1000 - elapsed;  // 🛡 30분 안전 기간
           if (remaining <= 0) return '';
           const mins = Math.ceil(remaining / 60000);
-          const timeStr = mins >= 60 ? `${Math.floor(mins/60)}시간 ${mins%60}분` : `${mins}분`;
-          return `<div style="font-size:9px; color:#2e7d32; font-weight:bold; margin-top:2px; background:#e8f5e9; padding:2px 5px; border-radius:3px; display:inline-block;">🛡 안전 보장 ${timeStr} 남음</div>`;
+          return `<div style="font-size:9px; color:#2e7d32; font-weight:bold; margin-top:2px; background:#e8f5e9; padding:2px 5px; border-radius:3px; display:inline-block;">🛡 안전 보장 ${mins}분 남음</div>`;
         })()}
       </div>
       <div class="fc-actions">
@@ -18408,15 +18407,16 @@ function liberateFriend(nickname) {
   }
   showConfirmDialog(
     '🕊 점령 해제',
-    `${nickname}님을 자비로 해방하시겠어요?\n점령 종료 + 우정 +3 + 💰 500 감사금`,
+    `${nickname}님을 자비로 해방하시겠어요?\n점령 종료 + 우정 +3 + 💰 500 감사금\n🛡 해방 후 30분간 안전 보장`,
     () => {
       f.conquered = false;
       f.conquerData = null;
       f.conqueredAt = null;
+      f.liberatedAt = Date.now();  // 🛡 30분 안전 보장
       f.friendship = (f.friendship || 0) + 3;
       addRes('gold', 500);
       addRes('gem', 1);
-      showToast(`🕊 ${nickname}님을 해방했어요!`, 'gain');
+      showToast(`🕊 ${nickname}님을 해방했어요! (30분간 안전)`, 'gain');
       try { checkQuestProgress('liberate', 1); } catch (e) {}
       try { openFriends(); } catch (e) {}
       updateHUD();
@@ -18444,14 +18444,15 @@ function maybeFriendOccupation() {
   if (occupiedCount >= 2) return;
 
   const now = Date.now();
-  const IMMUNITY_MS = 2 * 60 * 60 * 1000;  // 2시간 면역
+  const IMMUNITY_MS = 30 * 60 * 1000;  // 🛡 30분 안전 기간
 
   // 점령 대상 후보: 점령 안된 친구들 + 면역 시간 만료된 친구들
   const candidates = game.friends.filter(f => {
     if (f.occupiedByEnemy) return false;
     if (f.conquered) return false;
-    // 최근 구출된 친구는 2시간 면역
+    // 최근 구출/해제된 친구는 30분 면역
     if (f.rescuedAt && (now - f.rescuedAt) < IMMUNITY_MS) return false;
+    if (f.liberatedAt && (now - f.liberatedAt) < IMMUNITY_MS) return false;
     return true;
   });
   if (candidates.length === 0) return;
@@ -18657,7 +18658,7 @@ function executeRescue(friend, reward, winChance) {
     friend.occupiedByEnemyData = null;
     friend.friendship = (friend.friendship || 0) + reward.friendship;
     friend.timesSaved = (friend.timesSaved || 0) + 1;
-    friend.rescuedAt = Date.now();  // ✨ 2시간 면역 시간 기록
+    friend.rescuedAt = Date.now();  // 🛡 30분 안전 보장
     // 보상
     addRes('gold', reward.gold);
     addRes('gem', reward.gem);
@@ -18774,7 +18775,7 @@ function maybeFriendLiberation() {
       if (elapsed > 2 * 60 * 60 * 1000) {
         f.occupiedByEnemy = false;
         f.occupiedByEnemyData = null;
-        f.rescuedAt = now;  // 자동 해방도 2시간 면역
+        f.rescuedAt = now;  // 🛡 자동 해방 후 30분 안전 보장
       }
     }
   }
@@ -19663,7 +19664,9 @@ function _resolveBattleImpl(bctx, didWin) {
           if (game.occupiedBy.attackerRemainingPower <= 0) {
             game.occupiedByMe = false;
             game.occupiedBy = null;
-            conqMsg = '<b style="color:var(--green-ok);">마을을 되찾았습니다!</b>';
+            // 🛡 점령 해제 후 30분 안전 보장
+            game.shieldUntil = Math.max(game.shieldUntil || 0, Date.now() + 30 * 60 * 1000);
+            conqMsg = '<b style="color:var(--green-ok);">마을을 되찾았습니다! 🛡 30분간 안전 보장</b>';
             // === 해방 애니메이션 ===
             if (game.home) {
               try { playLiberationAnimation(game.home.x, game.home.y); } catch (e) {}
@@ -19874,7 +19877,7 @@ function applyOccupationTax() {
 window.applyOccupationTax = applyOccupationTax;
 
 // ----- 점령한 친구 마을에서 세금 걷기 (수동, 쿨다운 있음) -----
-function collectTaxFromFriend(f) {
+async function collectTaxFromFriend(f) {
   if (!f || !f.conquered || !f.conquerData) {
     showToast('점령한 마을이 아니에요', 'warn');
     return;
@@ -19888,21 +19891,67 @@ function collectTaxFromFriend(f) {
     return;
   }
   const lvl = f.level || 1;
-  const tax = {
-    gold: 50 + Math.floor(lvl * 5 + Math.random() * 30),
-    food: 15 + Math.floor(lvl * 2),
-    wood: 10 + Math.floor(lvl * 1.5),
-    stone: 8 + Math.floor(lvl),
+  // 🔧 세금 50배 증가
+  let tax = {
+    gold: (50 + Math.floor(lvl * 5 + Math.random() * 30)) * 50,
+    food: (15 + Math.floor(lvl * 2)) * 50,
+    wood: (10 + Math.floor(lvl * 1.5)) * 50,
+    stone: (8 + Math.floor(lvl)) * 50,
   };
+  // === 🌐 실제 유저인 경우 Firebase에서 재화 차감 ===
+  const isRealUser = !f.isAI && (typeof isOnlineMode === 'function') && isOnlineMode();
+  if (isRealUser && _firebaseDB) {
+    try {
+      const ref = _firebaseDB.ref('saves/' + encodeURIComponent(f.nickname));
+      const snap = await ref.once('value');
+      if (snap.exists()) {
+        const friendSave = snap.val();
+        const friendRes = friendSave.res || {};
+        // 친구가 가진 만큼만 차감 (없으면 가능한 만큼)
+        const actualTax = {
+          gold: Math.min(tax.gold, friendRes.gold || 0),
+          food: Math.min(tax.food, friendRes.food || 0),
+          wood: Math.min(tax.wood, friendRes.wood || 0),
+          stone: Math.min(tax.stone, friendRes.stone || 0),
+        };
+        // Firebase에 친구 재화 업데이트
+        const updates = {};
+        updates['res/gold'] = Math.max(0, (friendRes.gold || 0) - actualTax.gold);
+        updates['res/food'] = Math.max(0, (friendRes.food || 0) - actualTax.food);
+        updates['res/wood'] = Math.max(0, (friendRes.wood || 0) - actualTax.wood);
+        updates['res/stone'] = Math.max(0, (friendRes.stone || 0) - actualTax.stone);
+        await ref.update(updates);
+        // 실제 차감된 만큼만 내가 받음
+        tax = actualTax;
+        // 친구에게 알림 추가 (mailbox)
+        try {
+          const mailRef = _firebaseDB.ref('mailbox/' + encodeURIComponent(f.nickname)).push();
+          await mailRef.set({
+            type: 'tax',
+            from: game.player.nickname,
+            amount: tax,
+            timestamp: now,
+            message: `⚠ ${game.player.nickname}님이 세금을 징수했어요!`
+          });
+        } catch (e) {}
+        showToast(`💰 실제 유저 재화 약탈! +${tax.gold}🪙`, 'gain');
+      } else {
+        showToast('⚠ 친구 데이터 없음, 표준 세금 적용', 'warn');
+      }
+    } catch (e) {
+      console.warn('real tax failed', e);
+      showToast('⚠ 서버 통신 실패, 표준 세금', 'warn');
+    }
+  }
   for (const [k, v] of Object.entries(tax)) addRes(k, v);
   f.conquerData.taxCollected = (f.conquerData.taxCollected || 0) + tax.gold;
   f.conquerData.lastTaxAt = now;
 
-  showToast(`💰 세금 +${tax.gold} 🍖+${tax.food} 🪵+${tax.wood} 🪨+${tax.stone}`, 'gain');
-  // FX — 화면 중앙에서 골드 컨페티
+  showToast(`💰 세금 🪙+${tax.gold.toLocaleString()} 🍖+${tax.food.toLocaleString()} 🪵+${tax.wood.toLocaleString()} 🪨+${tax.stone.toLocaleString()}`, 'gain');
+  // FX — 화면 중앙에서 골드 컨페티 (50배라서 파티클도 많이)
   const cx = (canvas.logicalW || canvas.width) / 2;
   const cy = (canvas.logicalH || canvas.height) / 2;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     spawnParticle({
       x: game.camX + cx / game.zoom,
       y: game.camY + cy / game.zoom,
@@ -19916,8 +19965,9 @@ function collectTaxFromFriend(f) {
       gravity: 200,
     });
   }
-  triggerShake(3, 0.2);
+  triggerShake(5, 0.3);
   updateHUD();
+  try { saveGame(); } catch (e) {}
 }
 window.collectTaxFromFriend = collectTaxFromFriend;
 

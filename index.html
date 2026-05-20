@@ -643,10 +643,21 @@
     background: linear-gradient(to bottom, #fff, #ffcdd2);
     border: 3px solid var(--wood-dark);
     border-radius: 12px;
-    padding: 4px 10px;
+    padding: 3px 10px;
     font-size: 12px; font-weight: bold;
     text-align: center;
     color: var(--red);
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 2px 0 var(--wood-dark);
+  }
+  .power-display:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--wood-dark);
+  }
+  .power-display:hover {
+    background: linear-gradient(to bottom, #fff, #ffb3b3);
   }
   .power-display b { color: var(--red); font-size: 14px; }
 
@@ -1284,7 +1295,7 @@
   </div>
 
   <div class="day-display">Day <b id="day-num">1</b> <span id="time-of-day" style="margin-left:4px;">☀️</span> <span id="time-hour" style="font-size:9px; opacity:0.8;">06:00</span></div>
-  <div class="power-display" id="power-display">⚔ <b id="total-power">0</b><div id="power-breakdown" style="font-size:9px; color:#666; margin-top:2px; line-height:1.2;">대기 중...</div></div>
+  <div class="power-display" id="power-display" title="전투력 상세 보기" style="cursor:pointer;">⚔ <b id="total-power">0</b></div>
 
   <div class="cam-controls">
     <div class="cam-btn" id="cam-zoom-in" title="확대">＋</div>
@@ -1520,6 +1531,13 @@
   <div class="modal">
     <div class="modal-header">📬 메일함 <button class="modal-close" data-close>✕</button></div>
     <div class="modal-body" id="mailbox-body"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="m-power-detail">
+  <div class="modal">
+    <div class="modal-header">⚔ 전투력 상세 <button class="modal-close" data-close>✕</button></div>
+    <div class="modal-body" id="power-detail-body"></div>
   </div>
 </div>
 
@@ -3150,6 +3168,232 @@ function incrementTutorialTap() {
   game._tutorialTaps++;
 }
 window.incrementTutorialTap = incrementTutorialTap;
+
+// ============================================================================
+// ⚔ 전투력 상세 모달 — 펫/군대/칭호/부족 등 모든 요소 분석
+// ============================================================================
+function openPowerDetail() {
+  document.getElementById('m-power-detail').classList.add('show');
+  renderPowerDetail();
+}
+window.openPowerDetail = openPowerDetail;
+
+function renderPowerDetail() {
+  const body = document.getElementById('power-detail-body');
+  if (!body) return;
+
+  // === 펫 전투력 계산 ===
+  let petBasePower = 0;
+  let petCount = 0;
+  let evolvedCount = 0;
+  for (const [k, count] of Object.entries(game.pets || {})) {
+    if (PETS[k]) {
+      const evoLv = (game.petEvolutions || {})[k] || 0;
+      petBasePower += Math.floor(PETS[k].power * count * (1 + evoLv * 0.5));
+      petCount += count;
+      if (evoLv > 0) evolvedCount++;
+    }
+  }
+
+  // === 군대 전투력 ===
+  const armyPower = (typeof getTotalArmyPower === 'function') ? getTotalArmyPower() : 0;
+  const armySoldiers = Object.values(game.army || {}).reduce((a, b) => a + b, 0);
+
+  // === 레벨 보너스 ===
+  const lv = game.level || 1;
+  const levelPower = Math.floor(lv * 50 + lv * lv * 0.5);
+
+  // === 건물 보너스 ===
+  let buildingBonusFlat = 0;
+  let buildingPetBonus = 0;
+  let buildingNames = [];
+  for (const b of (game.buildings || [])) {
+    if (b.state === 'complete' && b.def) {
+      if (b.def.bonusPower) {
+        buildingBonusFlat += b.def.bonusPower;
+        buildingNames.push(`${b.def.icon || ''} ${b.def.name} (+${b.def.bonusPower})`);
+      }
+      if (b.def.petBonus) {
+        buildingPetBonus += b.def.petBonus;
+      }
+    }
+  }
+
+  // === 상점 영구 보너스 ===
+  const shopBonus = game.bonusPower || 0;
+  const shopPetBonus = game.petPowerBonus || 0;
+
+  // === 칭호 효과 ===
+  let titlePct = 0, titleName = '';
+  let titleFlatPow = 0, titleFlatPet = 0;
+  try {
+    if (game.equippedTitle) {
+      const title = TITLES.find(t => t.id === game.equippedTitle);
+      if (title) {
+        titleName = title.name;
+        if (title.effect) {
+          if (title.effect.power) titlePct = title.effect.power * 100;
+          if (title.effect.flatPower) titleFlatPow = title.effect.flatPower;
+          if (title.effect.flatPetDamage) titleFlatPet = title.effect.flatPetDamage;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // === 테두리 효과 ===
+  let borderPct = 0, borderName = '';
+  try {
+    if (game.equippedBorder) {
+      const border = BORDERS.find(b => b.id === game.equippedBorder);
+      if (border) {
+        borderName = border.name;
+        if (border.effect && border.effect.power) borderPct = border.effect.power * 100;
+      }
+    }
+  } catch (e) {}
+
+  // === 부족 보너스 ===
+  let tribePct = 0, tribeUpgradePct = 0, tribeName = '';
+  if (game._myTribeCache) {
+    tribePct = (game._myTribeCache.level || 0) * 2;
+    tribeName = game._myTribeCache.name || '';
+    const ub = game._myTribeCache.upgradeBonuses;
+    if (ub && ub.powerPct) tribeUpgradePct = ub.powerPct * 100;
+  }
+
+  // === 총 합산 ===
+  const total = game.totalPower || 0;
+
+  // === HTML 렌더 ===
+  body.innerHTML = `
+    <div style="background:linear-gradient(135deg, #c62828, #6a1b1b); color:white; padding:14px; border-radius:12px; text-align:center; margin-bottom:12px; border:3px solid var(--wood-dark); box-shadow:0 4px 0 var(--wood-dark);">
+      <div style="font-size:11px; opacity:0.85;">⚔ 총 전투력</div>
+      <div style="font-size:32px; font-weight:bold; margin-top:2px;">${total.toLocaleString()}</div>
+    </div>
+
+    <!-- 1. 펫 -->
+    <div class="pd-section" style="background:linear-gradient(to bottom, #fff8e1, #ffe082); border:2px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold; color:#bf6f00; font-size:13px;">🦁 펫 전투력</div>
+        <div style="font-weight:bold; color:var(--red); font-size:14px;">${petBasePower.toLocaleString()}</div>
+      </div>
+      <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">
+        보유 펫: <b>${petCount}마리</b> · 진화 펫: <b>${evolvedCount}종</b>
+        ${titleFlatPet > 0 ? `<br>🔱 운영자 칭호: <b style="color:#c62828;">+${titleFlatPet.toLocaleString()}</b>` : ''}
+      </div>
+    </div>
+
+    <!-- 2. 군대 -->
+    <div class="pd-section" style="background:linear-gradient(to bottom, #ffebee, #ffcdd2); border:2px solid #c62828; border-radius:10px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold; color:#b71c1c; font-size:13px;">⚔ 군대 전투력</div>
+        <div style="font-weight:bold; color:var(--red); font-size:14px;">${armyPower.toLocaleString()}</div>
+      </div>
+      <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">
+        총 병력: <b>${armySoldiers}명</b>
+      </div>
+    </div>
+
+    <!-- 3. 레벨 -->
+    <div class="pd-section" style="background:linear-gradient(to bottom, #e8f5e9, #c8e6c9); border:2px solid #43a047; border-radius:10px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:bold; color:#1b5e20; font-size:13px;">📈 레벨 보너스</div>
+        <div style="font-weight:bold; color:var(--red); font-size:14px;">+${levelPower.toLocaleString()}</div>
+      </div>
+      <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">
+        Lv.${lv} 기준 (lv × 50 + lv² × 0.5)
+      </div>
+    </div>
+
+    <!-- 4. 건물 보너스 -->
+    ${buildingBonusFlat > 0 || buildingPetBonus > 0 ? `
+      <div class="pd-section" style="background:linear-gradient(to bottom, #fff3e0, #ffe0b2); border:2px solid #ef6c00; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold; color:#bf360c; font-size:13px;">🏛 건물 보너스</div>
+          <div style="font-weight:bold; color:var(--red); font-size:14px;">${buildingBonusFlat > 0 ? '+' + buildingBonusFlat.toLocaleString() : ''}${buildingPetBonus > 0 ? ' · 🦁+' + (buildingPetBonus * 100).toFixed(0) + '%' : ''}</div>
+        </div>
+        ${buildingNames.length > 0 ? `<div style="font-size:9px; color:var(--wood-dark); margin-top:4px; line-height:1.5;">${buildingNames.slice(0, 5).join(' · ')}${buildingNames.length > 5 ? ` · 외 ${buildingNames.length - 5}개` : ''}</div>` : ''}
+      </div>
+    ` : ''}
+
+    <!-- 5. 상점 영구 보너스 -->
+    ${shopBonus > 0 || shopPetBonus > 0 ? `
+      <div class="pd-section" style="background:linear-gradient(to bottom, #ede7f6, #d1c4e9); border:2px solid #7b1fa2; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold; color:#4a148c; font-size:13px;">🛒 상점 영구 강화</div>
+          <div style="font-weight:bold; color:var(--red); font-size:14px;">${shopBonus > 0 ? '+' + shopBonus.toLocaleString() : ''}${shopPetBonus > 0 ? ' · 🦁+' + (shopPetBonus * 100).toFixed(0) + '%' : ''}</div>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- 6. 칭호 -->
+    ${titleName ? `
+      <div class="pd-section" style="background:linear-gradient(to bottom, #fff3e0, #ffd54f); border:2px solid #ef6c00; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold; color:#bf6f00; font-size:13px;">👑 칭호</div>
+          <div style="font-weight:bold; color:var(--red); font-size:14px;">${titlePct > 0 ? '+' + titlePct.toFixed(0) + '%' : ''}${titleFlatPow > 0 ? ' · +' + titleFlatPow.toLocaleString() : ''}</div>
+        </div>
+        <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">${titleName}</div>
+      </div>
+    ` : `
+      <div class="pd-section" style="background:rgba(0,0,0,0.04); border:2px dashed var(--wood); border-radius:10px; padding:8px; margin-bottom:8px; text-align:center; font-size:11px; color:#888;">
+        👑 칭호 미장착 — 장착하면 전투력 % 보너스
+      </div>
+    `}
+
+    <!-- 7. 테두리 -->
+    ${borderName ? `
+      <div class="pd-section" style="background:linear-gradient(to bottom, #e1f5fe, #b3e5fc); border:2px solid #0288d1; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold; color:#01579b; font-size:13px;">🖼 테두리</div>
+          <div style="font-weight:bold; color:var(--red); font-size:14px;">${borderPct > 0 ? '+' + borderPct.toFixed(0) + '%' : ''}</div>
+        </div>
+        <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">${borderName}</div>
+      </div>
+    ` : `
+      <div class="pd-section" style="background:rgba(0,0,0,0.04); border:2px dashed var(--wood); border-radius:10px; padding:8px; margin-bottom:8px; text-align:center; font-size:11px; color:#888;">
+        🖼 테두리 미장착
+      </div>
+    `}
+
+    <!-- 8. 부족 -->
+    ${tribeName ? `
+      <div class="pd-section" style="background:linear-gradient(to bottom, #f3e5f5, #e1bee7); border:2px solid #8e24aa; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold; color:#4a148c; font-size:13px;">👥 부족 보너스</div>
+          <div style="font-weight:bold; color:var(--red); font-size:14px;">+${tribePct}%${tribeUpgradePct > 0 ? ' · +' + tribeUpgradePct + '%' : ''}</div>
+        </div>
+        <div style="font-size:10px; color:var(--wood-dark); margin-top:4px;">
+          ${tribeName} (Lv.${game._myTribeCache.level || 1})
+          ${tribeUpgradePct > 0 ? `<br>⚒ 전투 훈련소: +${tribeUpgradePct}%` : ''}
+        </div>
+      </div>
+    ` : `
+      <div class="pd-section" style="background:rgba(0,0,0,0.04); border:2px dashed var(--wood); border-radius:10px; padding:8px; margin-bottom:8px; text-align:center; font-size:11px; color:#888;">
+        👥 부족 미가입 — 부족 가입 시 레벨당 +2% 전투력
+      </div>
+    `}
+
+    <!-- 9. 운영자 -->
+    ${(titleFlatPow > 0 || titleFlatPet > 0) ? `
+      <div class="pd-section" style="background:linear-gradient(135deg, #c62828, #6a1b1b); color:white; border:3px solid #ff5252; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:bold; font-size:13px;">⚜ 운영자 전용 효과</div>
+          <div style="font-weight:bold; font-size:14px;">${titleFlatPow > 0 ? '+' + titleFlatPow.toLocaleString() : ''}${titleFlatPow > 0 && titleFlatPet > 0 ? ' · ' : ''}${titleFlatPet > 0 ? '🦁+' + titleFlatPet.toLocaleString() : ''}</div>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- 계산 공식 안내 -->
+    <div style="background:#fafafa; border:2px solid #bdbdbd; border-radius:10px; padding:10px; margin-top:12px; font-size:10px; color:#666; line-height:1.6;">
+      <b>📐 계산 공식</b><br>
+      • <b>기본</b> = 펫 + 군대 + 레벨 + 건물 + 상점<br>
+      • <b>%보너스</b> = (1 + 칭호% + 테두리%) × (1 + 부족%) × (1 + 부족 업그레이드%)<br>
+      • <b>운영자 효과</b>는 마지막에 고정값으로 추가됨
+    </div>
+  `;
+}
+window.renderPowerDetail = renderPowerDetail;
 
 
 function updateFriendRequestBadge(count) {
@@ -10497,43 +10741,22 @@ function updateHUD() {
       hourEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     }
   } catch (e) {}
-  // === 전투력 실시간 표시 (펫 + 군대 + 칭호 등 합산) - 변화 시에만 DOM 갱신 ===
+  // === 전투력 실시간 표시 (총 전투력만) — 변화 시에만 DOM 갱신 ===
   const powerEl = document.getElementById('power-display');
   if (powerEl) {
     powerEl.style.display = 'block';
     const total = game.totalPower || 0;
-    // 캐시 비교: total + petCount + level만 빠르게 비교
-    const cacheKey = `${total}|${Object.keys(game.pets || {}).length}|${game.level}|${game.vipLevel}|${game.equippedTitle}|${game.equippedBorder}|${game._myTribeCache?.level || 0}`;
+    // 캐시 비교
+    const cacheKey = `${total}`;
     if (game._powerDisplayCache !== cacheKey) {
       game._powerDisplayCache = cacheKey;
-      // 펫 전투력 계산 (DOM 갱신 필요할 때만)
-      let petPower = 0;
-      for (const [k, count] of Object.entries(game.pets || {})) {
-        if (PETS[k]) {
-          const evoLv = (game.petEvolutions || {})[k] || 0;
-          petPower += Math.floor(PETS[k].power * count * (1 + evoLv * 0.5));
-        }
-      }
-      const armyPow = (typeof getTotalArmyPower === 'function') ? getTotalArmyPower() : 0;
-      const lv = game.level || 1;
-      const levelPow = Math.floor(lv * 50 + lv * lv * 0.5);
-      let titlePct = 0;
-      let adminFlatPow = 0;
-      let adminFlatPet = 0;
-      try {
-        const eff = getEquippedEffects ? getEquippedEffects() : {};
-        if (eff.power) titlePct = Math.round(eff.power * 100);
-        if (eff.flatPower) adminFlatPow = eff.flatPower;
-        if (eff.flatPetDamage) adminFlatPet = eff.flatPetDamage;
-      } catch (e) {}
-      const tribePct = (game._myTribeCache && game._myTribeCache.level) ? (game._myTribeCache.level * 2) : 0;
-      document.getElementById('total-power').textContent = total.toLocaleString();
-      const bd = document.getElementById('power-breakdown');
-      if (bd) {
-        const adminLine = (adminFlatPow > 0 || adminFlatPet > 0)
-          ? `<div style="color:#c62828; font-weight:bold; font-size:9px; margin-top:2px;">⚜ ${adminFlatPow > 0 ? '+' + adminFlatPow.toLocaleString() : ''}${adminFlatPow > 0 && adminFlatPet > 0 ? ' · ' : ''}${adminFlatPet > 0 ? '🦁+' + adminFlatPet.toLocaleString() : ''}</div>`
-          : '';
-        bd.innerHTML = `🦁${petPower.toLocaleString()} · ⚔${armyPow.toLocaleString()} · 📈${levelPow.toLocaleString()}${titlePct ? ' · 👑+' + titlePct + '%' : ''}${tribePct ? ' · 👥+' + tribePct + '%' : ''}${adminLine}`;
+      // 큰 숫자는 K/M/B로 축약 (자리수 절약)
+      const totalEl = document.getElementById('total-power');
+      if (totalEl) {
+        if (total >= 1_000_000_000) totalEl.textContent = (total / 1_000_000_000).toFixed(2) + 'B';
+        else if (total >= 1_000_000) totalEl.textContent = (total / 1_000_000).toFixed(2) + 'M';
+        else if (total >= 10_000) totalEl.textContent = (total / 1_000).toFixed(1) + 'K';
+        else totalEl.textContent = total.toLocaleString();
       }
     }
   }
@@ -26042,6 +26265,9 @@ async function _initImpl() {
   if (btnSeasonPass) btnSeasonPass.onclick = openSeasonPass;
   const btnMailbox = document.getElementById('btn-mailbox');
   if (btnMailbox) btnMailbox.onclick = openMailbox;
+  // 전투력 클릭 → 상세 모달
+  const powerDisplay = document.getElementById('power-display');
+  if (powerDisplay) powerDisplay.onclick = openPowerDetail;
   // 사운드 토글 버튼
   const btnSound = document.getElementById('btn-sound');
   if (btnSound) {

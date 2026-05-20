@@ -12418,6 +12418,11 @@ const game = {
 
   // pets — { petKey: count }
   pets: {},
+  petEvolutions: {},  // { petKey: 0~3 } 진화 단계 (3성 max)
+  petLevels: {},      // { petKey: 1~10 } 강화 레벨 (10 max)
+  petFavorites: {},   // { petKey: true } 즐겨찾기
+  autoEvolve: false,  // 자동 진화 토글
+  autoEnhance: false, // 자동 강화 토글 (골드만 사용)
   summonedPet: null,          // 현재 마을에 소환된 펫 key (null이면 아무도 안 나옴)
 
   // === 원시 군대 시스템 ===
@@ -12596,6 +12601,10 @@ function saveGame() {
     worldSeed: game.worldSeed,
     bossRaid: game.bossRaid || null,
     petEvolutions: game.petEvolutions || {},
+    petLevels: game.petLevels || {},
+    petFavorites: game.petFavorites || {},
+    autoEvolve: game.autoEvolve || false,
+    autoEnhance: game.autoEnhance || false,
     vipLevel: game.vipLevel || 0,
     vipExpiry: game.vipExpiry || 0,
     notifications: (game.notifications || []).slice(-30),  // 최근 30개만 저장
@@ -12675,6 +12684,10 @@ function loadGame() {
     game.worldSeed = (d.worldSeed !== undefined && d.worldSeed !== null) ? d.worldSeed : null;
     game.bossRaid = d.bossRaid || null;
     game.petEvolutions = d.petEvolutions || {};
+    game.petLevels = d.petLevels || {};
+    game.petFavorites = d.petFavorites || {};
+    game.autoEvolve = d.autoEvolve || false;
+    game.autoEnhance = d.autoEnhance || false;
     game.vipLevel = d.vipLevel || 0;
     game.vipExpiry = d.vipExpiry || 0;
     game.notifications = d.notifications || [];
@@ -16789,35 +16802,7 @@ function openFriends() {
   // 친구 요청 리스너 시작
   try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {}
 
-  // === 친구 정보 자동 새로고침 (모달 열 때마다) ===
-  const online = (typeof isOnlineMode === 'function') && isOnlineMode();
-  if (online && game.friends && game.friends.length > 0) {
-    (async () => {
-      try {
-        let updated = 0;
-        for (const f of game.friends) {
-          try {
-            const profile = await searchPlayer(f.nickname);
-            if (profile) {
-              f.level = profile.level || f.level;
-              f.power = profile.power || f.power;
-              f.avatar = profile.avatar || f.avatar;
-              f.petCount = profile.petCount || f.petCount;
-              f.vipLevel = profile.vipLevel || 0;
-              updated++;
-            }
-          } catch (e) {}
-        }
-        // 업데이트 결과를 현재 list 탭에만 다시 그리기 (다른 탭은 건드리지 않음)
-        const active = body.querySelector('.friends-tab.active');
-        if (active && active.dataset.tab === 'list' && updated > 0) {
-          renderFriendsTab('list');
-        }
-      } catch (e) {
-        console.warn('friends auto refresh failed', e);
-      }
-    })();
-  }
+  // 자동 새로고침 제거 — 수동 새로고침 버튼만 사용 (중복 새로고침 방지)
 }
 
 function renderFriendsTab(tab) {
@@ -17204,6 +17189,7 @@ function renderFriendsTab(tab) {
   }
 
   // list (default)
+  c.innerHTML = '';  // 🔧 미러링 버그 수정: 기존 내용 클리어
   if (game.friends.length === 0) {
     c.innerHTML = `
       <div style="text-align:center; padding:24px 12px; color:var(--wood-dark);">
@@ -19436,10 +19422,13 @@ function recomputePower() {
   let total = 0;
   for (const [key, count] of Object.entries(game.pets)) {
     if (PETS[key]) {
-      // 진화 보너스: 별 1개당 +50% 전투력
+      // 진화 보너스: 1단계 +50%, 2단계 +120%, 3단계 +250%
       const evoLevel = (game.petEvolutions || {})[key] || 0;
-      const evoBonus = 1 + evoLevel * 0.5;
-      total += PETS[key].power * count * evoBonus;
+      const evoMult = [1, 1.5, 2.2, 3.5][evoLevel] || 1;
+      // 강화 레벨 보너스: 1레벨당 +10%
+      const petLv = (game.petLevels || {})[key] || 1;
+      const lvMult = 1 + (petLv - 1) * 0.10;
+      total += PETS[key].power * count * evoMult * lvMult;
     }
   }
   // 펫 전투력 보너스 (상점 + 연구)
@@ -19977,601 +19966,6 @@ function openDungeon() {
 window.openDungeon = openDungeon;
 
 
-// ============================================================================
-// 🔔 통합 알림함 시스템
-// ============================================================================
-function addNotification(type, message, icon) {
-  if (!game.notifications) game.notifications = [];
-  game.notifications.push({
-    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-    type, message, icon: icon || '🔔',
-    at: Date.now(),
-    seen: false,
-  });
-  // 최대 50개 유지
-  if (game.notifications.length > 50) {
-    game.notifications = game.notifications.slice(-50);
-  }
-  updateNotificationBadge();
-  // 알림 사운드
-  try { playSound('notification'); } catch (e) {}
-}
-window.addNotification = addNotification;
-
-function updateNotificationBadge() {
-  const btn = document.getElementById('btn-notifications');
-  if (!btn) return;
-  const unseenCount = (game.notifications || []).filter(n => !n.seen).length;
-  // 침략당한 친구 수도 포함
-  const invadedCount = (game.friends || []).filter(f => f.occupiedByEnemy).length;
-  const totalCount = unseenCount + invadedCount;
-
-  let badge = btn.querySelector('.notif-badge');
-  if (totalCount > 0) {
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.className = 'notif-badge';
-      badge.style.cssText = `
-        position: absolute; top: -4px; right: -4px;
-        background: #ef5350; color: white;
-        border: 2px solid #fff; border-radius: 50%;
-        width: 22px; height: 22px;
-        font-size: 11px; font-weight: bold;
-        display: flex; align-items: center; justify-content: center;
-        z-index: 5; animation: pulse 1.5s infinite;
-      `;
-      btn.appendChild(badge);
-    }
-    badge.textContent = totalCount > 9 ? '9+' : totalCount;
-  } else if (badge) {
-    badge.remove();
-  }
-}
-window.updateNotificationBadge = updateNotificationBadge;
-
-function openNotifications() {
-  const modal = document.getElementById('m-notifications');
-  if (!modal) return;
-  modal.classList.add('show');
-  renderNotificationsModal();
-}
-window.openNotifications = openNotifications;
-
-function renderNotificationsModal() {
-  const body = document.getElementById('notifications-body');
-  if (!body) return;
-
-  // 친구 침략 알림 우선 표시
-  const invadedFriends = (game.friends || []).filter(f => f.occupiedByEnemy);
-  // 받은 친구 요청
-  const friendRequests = window.__pendingFriendRequests || 0;
-  // 받은 선물
-  const giftsAvailable = (game.friends || []).filter(f => f.giftClaimed === false).length;
-  // 일반 알림
-  const notifs = (game.notifications || []).slice().reverse();
-
-  let html = `
-    <div style="background:linear-gradient(135deg, #4527a0, #1a237e); border:3px solid #ffd54f; border-radius:14px; padding:12px; margin-bottom:12px; color:white; text-align:center;">
-      <div style="font-size:30px;">🔔</div>
-      <div style="font-size:14px; font-weight:bold; color:#ffd54f;">알림함</div>
-    </div>
-  `;
-
-  // 긴급 알림 (침략당한 친구)
-  if (invadedFriends.length > 0) {
-    html += `
-      <div style="background:linear-gradient(to bottom, #ffcdd2, #ef9a9a); border:3px solid #c62828; border-radius:10px; padding:10px; margin-bottom:10px;">
-        <div style="font-weight:bold; color:#b71c1c; text-align:center; margin-bottom:6px;">⚠️ 긴급: 침략당한 친구 ${invadedFriends.length}명</div>
-    `;
-    invadedFriends.forEach(f => {
-      const data = f.occupiedByEnemyData || {};
-      html += `
-        <div style="background:#fff; border:1px solid #c62828; border-radius:6px; padding:6px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
-          <div style="font-size:24px;">${f.avatar || '⛺'} → ${data.enemyIcon || '🦴'}</div>
-          <div style="flex:1; font-size:11px;">
-            <div style="font-weight:bold;">${f.nickname}</div>
-            <div style="color:#888; font-size:10px;">${data.enemyName || '적'}에게 점령됨</div>
-          </div>
-          <button class="notif-rescue-btn" data-nick="${f.nickname}" style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; border:2px solid #3e2723; border-radius:6px; padding:5px 10px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer;">⚔ 구출</button>
-        </div>
-      `;
-    });
-    html += `</div>`;
-  }
-
-  // 친구 요청
-  if (friendRequests > 0) {
-    html += `
-      <div style="background:linear-gradient(to bottom, #fff3e0, #ffe0b2); border:2px solid #fb8c00; border-radius:8px; padding:8px; margin-bottom:8px; cursor:pointer;" id="notif-friend-req">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <div style="font-size:24px;">📨</div>
-          <div style="flex:1;">
-            <div style="font-weight:bold; color:#e65100;">친구 요청 ${friendRequests}건</div>
-            <div style="font-size:10px; color:var(--wood-dark);">친구 탭에서 확인</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // 받은 선물
-  if (giftsAvailable > 0) {
-    html += `
-      <div style="background:linear-gradient(to bottom, #c8e6c9, #a5d6a7); border:2px solid #2e7d32; border-radius:8px; padding:8px; margin-bottom:8px; cursor:pointer;" id="notif-gifts">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <div style="font-size:24px;">🎁</div>
-          <div style="flex:1;">
-            <div style="font-weight:bold; color:#1b5e20;">받은 선물 ${giftsAvailable}건</div>
-            <div style="font-size:10px; color:var(--wood-dark);">친구 목록에서 받기</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // 일반 알림
-  if (notifs.length > 0) {
-    html += `
-      <div style="background:rgba(255,255,255,0.5); border:2px solid var(--wood); border-radius:10px; padding:10px; margin-bottom:8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <div style="font-weight:bold; color:var(--wood-dark);">📋 알림 기록</div>
-          <button id="clear-all-notifs" style="background:linear-gradient(to bottom, #90a4ae, #455a64); color:white; border:1px solid var(--wood-dark); border-radius:4px; padding:4px 8px; font-family:inherit; font-size:10px; cursor:pointer;">모두 지우기</button>
-        </div>
-    `;
-    for (const n of notifs.slice(0, 20)) {
-      const diff = Date.now() - n.at;
-      const ago = diff < 60000 ? '방금' : diff < 3600000 ? `${Math.floor(diff/60000)}분 전` : diff < 86400000 ? `${Math.floor(diff/3600000)}시간 전` : `${Math.floor(diff/86400000)}일 전`;
-      html += `
-        <div style="background:#fff; border:1px solid ${n.seen ? '#ddd' : '#ffd54f'}; border-radius:6px; padding:6px 8px; margin-bottom:4px; display:flex; align-items:center; gap:8px; ${n.seen ? 'opacity:0.7;' : ''}">
-          <div style="font-size:18px;">${n.icon || '🔔'}</div>
-          <div style="flex:1; font-size:11px;">
-            <div>${n.message}</div>
-            <div style="color:#888; font-size:9px;">${ago}</div>
-          </div>
-          ${!n.seen ? '<div style="width:8px; height:8px; background:#ef5350; border-radius:50%;"></div>' : ''}
-        </div>
-      `;
-    }
-    html += `</div>`;
-  }
-
-  if (invadedFriends.length === 0 && friendRequests === 0 && giftsAvailable === 0 && notifs.length === 0) {
-    html += `
-      <div style="text-align:center; padding:30px; color:var(--wood-dark);">
-        <div style="font-size:48px;">📭</div>
-        <div style="font-size:14px; margin-top:8px;">알림이 없습니다</div>
-      </div>
-    `;
-  }
-
-  body.innerHTML = html;
-
-  // 핸들러
-  body.querySelectorAll('.notif-rescue-btn').forEach(btn => {
-    btn.onclick = () => {
-      const nick = btn.dataset.nick;
-      document.getElementById('m-notifications').classList.remove('show');
-      try { rescueFriend(nick); } catch (e) {}
-    };
-  });
-  const friendReqEl = document.getElementById('notif-friend-req');
-  if (friendReqEl) friendReqEl.onclick = () => {
-    document.getElementById('m-notifications').classList.remove('show');
-    openFriends();
-    setTimeout(() => { try { renderFriendsTab('requests'); } catch (e) {} }, 100);
-  };
-  const giftsEl = document.getElementById('notif-gifts');
-  if (giftsEl) giftsEl.onclick = () => {
-    document.getElementById('m-notifications').classList.remove('show');
-    openFriends();
-  };
-  const clearAllBtn = document.getElementById('clear-all-notifs');
-  if (clearAllBtn) clearAllBtn.onclick = () => {
-    if (game.notifications) {
-      for (const n of game.notifications) n.seen = true;
-    }
-    showToast('알림을 모두 읽음 처리했어요', 'gain');
-    renderNotificationsModal();
-    updateNotificationBadge();
-  };
-
-  // 모두 본 것으로 표시
-  if (game.notifications) {
-    for (const n of game.notifications) n.seen = true;
-  }
-  updateNotificationBadge();
-}
-window.renderNotificationsModal = renderNotificationsModal;
-
-// ============================================================================
-// 📊 개인 통계 (내 기록)
-// ============================================================================
-function openStats() {
-  const modal = document.getElementById('m-stats');
-  if (!modal) return;
-  modal.classList.add('show');
-  renderStatsModal();
-}
-window.openStats = openStats;
-
-// ============================================================================
-// 🏆 마을 평가 시스템
-// ============================================================================
-function calculateVillageScore() {
-  const stats = game.stats || {};
-  const res = game.res || {};
-
-  // 1. 발전도 - 레벨, 전투력
-  const levelScore = Math.min(20, (game.level || 0) * 0.4);
-  const powerScore = Math.min(30, Math.log10((game.totalPower || 1)) * 6);
-
-  // 2. 마을 규모
-  const buildings = (game.buildings || []).filter(b => b.state === 'complete');
-  const generalBuildings = buildings.filter(b => !b.def.decoration).length;
-  const decorations = buildings.filter(b => b.def.decoration && !b.def.isPath).length;
-  const paths = buildings.filter(b => b.def.isPath).length;
-  const buildingScore = Math.min(20, generalBuildings * 0.8);
-  const decorationScore = Math.min(15, decorations * 0.75);
-  const pathScore = Math.min(5, paths * 0.1);
-
-  // 3. 콜렉션
-  const totalPetsOwned = Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]).length;
-  const totalPetsAvailable = Object.keys(PETS).length;
-  const petScore = Math.min(25, (totalPetsOwned / totalPetsAvailable) * 25);
-  const achievementCount = Object.keys(game.achievements || {}).filter(k => game.achievements[k]?.claimed).length;
-  const achievementScore = Math.min(10, achievementCount * 0.4);
-  const titleCount = Object.keys(game.titles || {}).length;
-  const titleScore = Math.min(5, titleCount * 0.5);
-
-  // 4. 활동
-  const totalFriends = (game.friends || []).length;
-  const socialScore = Math.min(15, totalFriends * 1.5);
-  const battleWins = stats.battleWins || 0;
-  const arenaWins = stats.arenaWins || 0;
-  const combatScore = Math.min(15, (battleWins + arenaWins) * 0.3);
-  const dungeons = stats.dungeonsCleared || 0;
-  const dungeonScore = Math.min(10, dungeons * 0.5);
-
-  // 5. 부
-  const wealthValue = (res.gold || 0) + (res.gem || 0) * 100;
-  const wealthScore = Math.min(30, Math.log10(wealthValue + 1) * 5);
-
-  const totalScore = Math.floor(
-    levelScore + powerScore +
-    buildingScore + decorationScore + pathScore +
-    petScore + achievementScore + titleScore +
-    socialScore + combatScore + dungeonScore +
-    wealthScore
-  );
-
-  return {
-    total: totalScore,
-    levelScore: Math.floor(levelScore),
-    powerScore: Math.floor(powerScore),
-    buildingScore: Math.floor(buildingScore),
-    decorationScore: Math.floor(decorationScore),
-    pathScore: Math.floor(pathScore),
-    petScore: Math.floor(petScore),
-    achievementScore: Math.floor(achievementScore),
-    titleScore: Math.floor(titleScore),
-    socialScore: Math.floor(socialScore),
-    combatScore: Math.floor(combatScore),
-    dungeonScore: Math.floor(dungeonScore),
-    wealthScore: Math.floor(wealthScore),
-  };
-}
-window.calculateVillageScore = calculateVillageScore;
-
-function getVillageGrade(score) {
-  if (score >= 180) return { grade: 'SSS', color: '#ff1744', desc: '🌟 전설의 도시', glow: '#ff1744' };
-  if (score >= 150) return { grade: 'SS',  color: '#d50000', desc: '💎 신화의 도시', glow: '#d50000' };
-  if (score >= 130) return { grade: 'S',   color: '#ff6f00', desc: '🏆 전설 부족장', glow: '#ff6f00' };
-  if (score >= 110) return { grade: 'A+',  color: '#f57c00', desc: '⭐ 위대한 마을', glow: '#f57c00' };
-  if (score >= 90)  return { grade: 'A',   color: '#7b1fa2', desc: '✨ 번영하는 마을', glow: '#7b1fa2' };
-  if (score >= 70)  return { grade: 'B+',  color: '#1976d2', desc: '🛡 강력한 부족', glow: '#1976d2' };
-  if (score >= 50)  return { grade: 'B',   color: '#0288d1', desc: '🏘 안정된 마을', glow: '#0288d1' };
-  if (score >= 30)  return { grade: 'C+',  color: '#388e3c', desc: '🌿 성장하는 마을', glow: '#388e3c' };
-  if (score >= 15)  return { grade: 'C',   color: '#689f38', desc: '🌱 발전 중', glow: '#689f38' };
-  return            { grade: 'D',   color: '#9e9e9e', desc: '🏕 시작 부족', glow: '#9e9e9e' };
-}
-window.getVillageGrade = getVillageGrade;
-
-function renderStatsModal() {
-  const body = document.getElementById('stats-body');
-  if (!body) return;
-
-  const stats = game.stats || {};
-  const player = game.player || {};
-  const createdAt = player.createdAt || Date.now();
-  const daysPlayed = Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000));
-
-  // 펫 통계
-  const ownedPets = Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
-  const totalPets = ownedPets.length;
-  const totalPetsAvailable = Object.keys(PETS).length;
-  const petProgress = totalPetsAvailable > 0 ? Math.floor((totalPets / totalPetsAvailable) * 100) : 0;
-
-  // 등급별 펫
-  const tierCounts = { common: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 };
-  ownedPets.forEach(([k]) => { tierCounts[PETS[k].tier]++; });
-
-  // 건물 통계
-  const buildings = game.buildings || [];
-  const totalBuildings = buildings.filter(b => b.state === 'complete').length;
-
-  // 친구 통계
-  const totalFriends = (game.friends || []).length;
-  const onlineFriends = (game.friends || []).filter(f => f.isOnline).length;
-  const conqueredFriends = (game.friends || []).filter(f => f.conquered).length;
-
-  // 자원 총합
-  const res = game.res || {};
-  const totalResource = (res.gold || 0) + (res.food || 0) + (res.wood || 0) + (res.stone || 0) + (res.gem || 0) * 100;
-
-  // 업적
-  const achievementCount = Object.keys(game.achievements || {}).filter(k => game.achievements[k]?.claimed).length;
-  const totalAchievements = Object.keys(game.achievements || {}).length || 30;
-
-  // 칭호
-  const titleCount = Object.keys(game.titles || {}).length;
-  const equippedTitleName = game.equippedTitle ? (TITLES.find(t => t.id === game.equippedTitle)?.name || '없음') : '없음';
-
-  // === 마을 평가 점수 ===
-  const score = calculateVillageScore();
-  const grade = getVillageGrade(score.total);
-
-  body.innerHTML = `
-    <div style="background:linear-gradient(135deg, #1a237e, #4527a0); border:3px solid #ffd54f; border-radius:14px; padding:14px; margin-bottom:12px; color:white; text-align:center;">
-      <div style="font-size:48px;">📊</div>
-      <div style="font-size:18px; font-weight:bold; color:#ffd54f;">${player.nickname || '부족장'}님의 기록</div>
-      <div style="font-size:11px; color:#bbdefb; margin-top:4px;">🗓 플레이 ${daysPlayed}일째</div>
-    </div>
-
-    <!-- 🏆 마을 평가 등급 -->
-    <div style="background:linear-gradient(135deg, ${grade.color}, ${grade.color}88); border:4px solid #3e2723; border-radius:14px; padding:14px; margin-bottom:12px; text-align:center; color:white; box-shadow:0 0 24px ${grade.glow}66;">
-      <div style="font-size:11px; color:rgba(255,255,255,0.9);">🏆 마을 평가 등급</div>
-      <div style="font-size:48px; font-weight:bold; line-height:1; margin-top:4px; text-shadow:2px 2px 4px rgba(0,0,0,0.4);">${grade.grade}</div>
-      <div style="font-size:14px; font-weight:bold; margin-top:6px;">${grade.desc}</div>
-      <div style="margin-top:10px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px;">
-        <div style="font-size:11px; color:rgba(255,255,255,0.9);">총점</div>
-        <div style="font-size:32px; font-weight:bold; color:#ffd54f; line-height:1;">${score.total}</div>
-        <div style="font-size:10px; color:rgba(255,255,255,0.7); margin-top:2px;">/ 최대 200점</div>
-      </div>
-      <button id="show-score-detail" style="
-        margin-top:10px;
-        background: rgba(255,255,255,0.2);
-        color: white; border: 2px solid rgba(255,255,255,0.5); border-radius: 8px;
-        padding: 6px 16px; font-family: inherit; font-size: 11px;
-        font-weight: bold; cursor: pointer;
-      ">📊 점수 상세 보기</button>
-    </div>
-
-    <!-- 메인 통계 -->
-    <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-bottom:12px;">
-      <div style="background:linear-gradient(135deg, #c62828, #b71c1c); color:white; padding:10px; border-radius:8px; text-align:center;">
-        <div style="font-size:24px;">⭐</div>
-        <div style="font-size:18px; font-weight:bold;">Lv.${game.level}</div>
-        <div style="font-size:10px;">레벨</div>
-      </div>
-      <div style="background:linear-gradient(135deg, #1565c0, #0d47a1); color:white; padding:10px; border-radius:8px; text-align:center;">
-        <div style="font-size:24px;">⚔</div>
-        <div style="font-size:18px; font-weight:bold;">${(game.totalPower || 0).toLocaleString()}</div>
-        <div style="font-size:10px;">전투력</div>
-      </div>
-      <div style="background:linear-gradient(135deg, #f57c00, #e65100); color:white; padding:10px; border-radius:8px; text-align:center;">
-        <div style="font-size:24px;">📅</div>
-        <div style="font-size:18px; font-weight:bold;">Day ${game.day || 1}</div>
-        <div style="font-size:10px;">게임 일수</div>
-      </div>
-      <div style="background:linear-gradient(135deg, #2e7d32, #1b5e20); color:white; padding:10px; border-radius:8px; text-align:center;">
-        <div style="font-size:24px;">💰</div>
-        <div style="font-size:14px; font-weight:bold;">${totalResource.toLocaleString()}</div>
-        <div style="font-size:10px;">자원 총가치</div>
-      </div>
-    </div>
-
-    <!-- 펫 도감 -->
-    <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-bottom:10px;">
-      <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">🦁 펫 도감</div>
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-        <div style="flex:1; height:20px; background:#fff; border:2px solid var(--wood-dark); border-radius:10px; overflow:hidden;">
-          <div style="height:100%; width:${petProgress}%; background:linear-gradient(to right, #ffd54f, #f9a825); transition:width 0.5s;"></div>
-        </div>
-        <div style="font-weight:bold; color:var(--wood-dark); min-width:50px;">${totalPets}/${totalPetsAvailable}</div>
-      </div>
-      <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; font-size:10px; text-align:center;">
-        <div style="background:#fff; padding:4px; border-radius:4px;">
-          <div style="color:#9e9e9e;">⚪ 일반</div>
-          <div style="font-weight:bold;">${tierCounts.common}</div>
-        </div>
-        <div style="background:#fff; padding:4px; border-radius:4px;">
-          <div style="color:#1976d2;">🔵 희귀</div>
-          <div style="font-weight:bold;">${tierCounts.rare}</div>
-        </div>
-        <div style="background:#fff; padding:4px; border-radius:4px;">
-          <div style="color:#7b1fa2;">🟣 에픽</div>
-          <div style="font-weight:bold;">${tierCounts.epic}</div>
-        </div>
-        <div style="background:#fff; padding:4px; border-radius:4px;">
-          <div style="color:#f57c00;">🟠 전설</div>
-          <div style="font-weight:bold;">${tierCounts.legendary}</div>
-        </div>
-        <div style="background:#fff; padding:4px; border-radius:4px;">
-          <div style="color:#c62828;">🔴 신화</div>
-          <div style="font-weight:bold;">${tierCounts.mythic}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 전투 통계 -->
-    <div style="background:linear-gradient(to bottom, #ffebee, #ef9a9a); border:2px solid #c62828; border-radius:10px; padding:10px; margin-bottom:10px;">
-      <div style="font-weight:bold; color:#c62828; text-align:center; margin-bottom:6px;">⚔ 전투 기록</div>
-      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
-        <div>🏆 침략 승: <b>${stats.battleWins || 0}</b></div>
-        <div>💀 침략 패: <b>${stats.battleLosses || 0}</b></div>
-        <div>🏟 투기장 승: <b>${stats.arenaWins || 0}</b></div>
-        <div>⚔ 투기장 총: <b>${stats.arenaMatches || 0}</b></div>
-        <div>🕊 친구 구출: <b>${stats.friendsRescued || 0}</b></div>
-        <div>🚩 점령 중: <b>${conqueredFriends}</b></div>
-      </div>
-    </div>
-
-    <!-- 활동 통계 -->
-    <!-- 마을 영역 -->
-    <div style="background:linear-gradient(to bottom, #fff3e0, #ffe0b2); border:2px solid #e65100; border-radius:10px; padding:10px; margin-bottom:10px;">
-      <div style="font-weight:bold; color:#e65100; text-align:center; margin-bottom:6px;">🗺 마을 영역</div>
-      ${(() => {
-        const area = game._villageArea;
-        if (!area) return '<div style="text-align:center; font-size:11px; color:#888;">계산 중...</div>';
-        const widthTiles = Math.ceil(area.width / TILE);
-        const heightTiles = Math.ceil(area.height / TILE);
-        const totalTiles = widthTiles * heightTiles;
-        const decorations = (game.buildings || []).filter(b => b.def.decoration && !b.def.isPath && b.state === 'complete').length;
-        const paths = (game.buildings || []).filter(b => b.def.isPath && b.state === 'complete').length;
-        return `
-          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
-            <div>📐 가로: <b>${widthTiles}타일</b></div>
-            <div>📏 세로: <b>${heightTiles}타일</b></div>
-            <div>🏗 일반 건물: <b>${totalBuildings - decorations - paths}개</b></div>
-            <div>🎨 장식품: <b>${decorations}개</b></div>
-            <div>🛤 길/정원: <b>${paths}개</b></div>
-            <div>📊 총 시설: <b>${totalBuildings}개</b></div>
-          </div>
-        `;
-      })()}
-    </div>
-
-    <div style="background:linear-gradient(to bottom, #e3f2fd, #90caf9); border:2px solid #1565c0; border-radius:10px; padding:10px; margin-bottom:10px;">
-      <div style="font-weight:bold; color:#1565c0; text-align:center; margin-bottom:6px;">📈 활동 기록</div>
-      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
-        <div>👊 채집: <b>${(stats.tapCount || 0).toLocaleString()}</b></div>
-        <div>🌾 수확: <b>${stats.harvestCount || 0}</b></div>
-        <div>🏗 건물: <b>${totalBuildings}개</b></div>
-        <div>🗝 던전 클리어: <b>${stats.dungeonsCleared || 0}</b></div>
-        <div>🎰 룰렛: <b>${stats.rouletteSpins || 0}회</b></div>
-        <div>🦁 펫 소환: <b>${stats.petsSummoned || 0}회</b></div>
-      </div>
-    </div>
-
-    <!-- 소셜 -->
-    <div style="background:linear-gradient(to bottom, #c8e6c9, #a5d6a7); border:2px solid #2e7d32; border-radius:10px; padding:10px; margin-bottom:10px;">
-      <div style="font-weight:bold; color:#2e7d32; text-align:center; margin-bottom:6px;">👥 소셜</div>
-      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
-        <div>👥 친구: <b>${totalFriends}명</b></div>
-        <div>🌐 온라인: <b>${onlineFriends}명</b></div>
-        <div>🎁 선물 보냄: <b>${stats.giftsSent || 0}</b></div>
-        <div>🤝 원조: <b>${stats.aidsGiven || 0}</b></div>
-      </div>
-    </div>
-
-    <!-- 업적 / 칭호 -->
-    <div style="background:linear-gradient(to bottom, #f3e5f5, #ce93d8); border:2px solid #7b1fa2; border-radius:10px; padding:10px;">
-      <div style="font-weight:bold; color:#7b1fa2; text-align:center; margin-bottom:6px;">🏆 명예</div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:11px;">
-        <div>🏅 업적: <b>${achievementCount}/${totalAchievements}</b></div>
-        <div>👑 칭호: <b>${titleCount}개</b></div>
-        <div style="grid-column:1/-1; padding-top:4px; border-top:1px dashed #7b1fa2;">
-          현재 칭호: <b style="color:#7b1fa2;">${equippedTitleName}</b>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // 점수 상세 보기 버튼
-  const scoreDetailBtn = document.getElementById('show-score-detail');
-  if (scoreDetailBtn) {
-    scoreDetailBtn.onclick = () => showScoreDetail();
-  }
-}
-window.renderStatsModal = renderStatsModal;
-
-// === 점수 상세 모달 ===
-function showScoreDetail() {
-  const existing = document.getElementById('score-detail-modal');
-  if (existing) existing.remove();
-
-  const score = calculateVillageScore();
-  const grade = getVillageGrade(score.total);
-
-  const categories = [
-    { name: '⭐ 레벨', value: score.levelScore, max: 20, desc: `Lv.${game.level}` },
-    { name: '⚔ 전투력', value: score.powerScore, max: 30, desc: `${(game.totalPower || 0).toLocaleString()}` },
-    { name: '🏗 건물', value: score.buildingScore, max: 20, desc: `일반 건물 ${(game.buildings || []).filter(b => b.state === 'complete' && !b.def.decoration).length}개` },
-    { name: '🎨 장식품', value: score.decorationScore, max: 15, desc: `장식 ${(game.buildings || []).filter(b => b.state === 'complete' && b.def.decoration && !b.def.isPath).length}개` },
-    { name: '🛤 길/정원', value: score.pathScore, max: 5, desc: `${(game.buildings || []).filter(b => b.state === 'complete' && b.def.isPath).length}개` },
-    { name: '🦁 펫 콜렉션', value: score.petScore, max: 25, desc: `${Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]).length}/${Object.keys(PETS).length}` },
-    { name: '🏅 업적', value: score.achievementScore, max: 10, desc: `${Object.keys(game.achievements || {}).filter(k => game.achievements[k]?.claimed).length}개` },
-    { name: '👑 칭호', value: score.titleScore, max: 5, desc: `${Object.keys(game.titles || {}).length}개` },
-    { name: '👥 친구', value: score.socialScore, max: 15, desc: `${(game.friends || []).length}명` },
-    { name: '🏆 전투 승', value: score.combatScore, max: 15, desc: `${(game.stats?.battleWins || 0) + (game.stats?.arenaWins || 0)}승` },
-    { name: '🗝 던전', value: score.dungeonScore, max: 10, desc: `${game.stats?.dungeonsCleared || 0}회` },
-    { name: '💰 부', value: score.wealthScore, max: 30, desc: `자원 ${((game.res?.gold || 0) + (game.res?.gem || 0) * 100).toLocaleString()}` },
-  ];
-
-  const modal = document.createElement('div');
-  modal.id = 'score-detail-modal';
-  modal.style.cssText = `
-    position: fixed; inset: 0; z-index: 9999;
-    background: rgba(0,0,0,0.85);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px; box-sizing: border-box;
-  `;
-
-  let categoryHTML = '';
-  for (const cat of categories) {
-    const pct = (cat.value / cat.max) * 100;
-    const barColor = pct >= 90 ? '#ffd700' : pct >= 60 ? '#66bb6a' : pct >= 30 ? '#42a5f5' : '#bdbdbd';
-    categoryHTML += `
-      <div style="margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.8); border-radius: 8px; border:1px solid var(--wood);">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-          <div style="font-weight:bold; color:var(--wood-dark);">${cat.name}</div>
-          <div style="font-weight:bold; color:${barColor};">${cat.value} / ${cat.max}</div>
-        </div>
-        <div style="height:8px; background:#eee; border-radius:4px; margin-top:4px; overflow:hidden;">
-          <div style="height:100%; width:${pct}%; background:linear-gradient(to right, ${barColor}, ${barColor}cc); transition:width 0.5s;"></div>
-        </div>
-        <div style="font-size:10px; color:#888; margin-top:2px;">${cat.desc}</div>
-      </div>
-    `;
-  }
-
-  modal.innerHTML = `
-    <div style="
-      background: linear-gradient(to bottom, #f5e6c8, #e0c896);
-      border: 5px solid #3e2723;
-      border-radius: 18px;
-      padding: 20px;
-      max-width: 380px; width: 100%;
-      max-height: 85vh;
-      overflow-y: auto;
-    ">
-      <div style="text-align:center; margin-bottom:14px;">
-        <div style="font-size: 14px; color: var(--wood-dark);">🏆 마을 평가 점수</div>
-        <div style="font-size: 36px; font-weight: bold; color: ${grade.color}; line-height:1; margin-top:4px;">${grade.grade}</div>
-        <div style="font-size: 18px; font-weight: bold; color: var(--wood-dark); margin-top: 4px;">${score.total}점</div>
-        <div style="font-size: 11px; color: var(--wood-dark);">${grade.desc}</div>
-      </div>
-      <div style="background:rgba(255,255,255,0.4); border:2px dashed var(--wood-dark); border-radius:8px; padding:10px; margin-bottom:12px; font-size:10px; color:var(--wood-dark); line-height:1.5;">
-        <b>등급:</b> D → C → C+ → B → B+ → A → A+ → S → SS → SSS<br>
-        <b>총점 산정:</b> 발전도, 마을 규모, 콜렉션, 활동, 부 종합
-      </div>
-      ${categoryHTML}
-      <button id="score-detail-close" style="
-        width: 100%; margin-top: 14px;
-        background: linear-gradient(to bottom, #ffd54f, #f9a825);
-        color: #3e2723; border: 3px solid #3e2723; border-radius: 12px;
-        padding: 10px; font-family: inherit; font-size: 14px;
-        cursor: pointer; font-weight: bold;
-        box-shadow: 0 3px 0 #3e2723;
-      ">✕ 닫기</button>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  document.getElementById('score-detail-close').onclick = () => modal.remove();
-  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-}
-window.showScoreDetail = showScoreDetail;
 
 // ============================================================================
 // 🐲 주간 보스 레이드 시스템
@@ -22811,10 +22205,15 @@ document.head.appendChild(flashStyleEl);
 // ============================================================================
 // 🌟 펫 진화 시스템
 // ============================================================================
+// === 🌟 펫 진화 시스템 (3단계 max) ===
+const MAX_EVOLUTION = 3;
+const MAX_PET_LEVEL = 10;
+
 function canEvolvePet(petKey) {
   const def = PETS[petKey];
   if (!def) return false;
-  if (def.tier === 'mythic') return false;  // 최고 등급은 진화 불가
+  const evoLevel = (game.petEvolutions || {})[petKey] || 0;
+  if (evoLevel >= MAX_EVOLUTION) return false;  // 3단계 max
   const count = game.pets[petKey] || 0;
   return count >= 3;  // 같은 펫 3마리 필요
 }
@@ -22823,38 +22222,361 @@ window.canEvolvePet = canEvolvePet;
 function getEvolvedStats(petKey) {
   const def = PETS[petKey];
   if (!def) return null;
-  // 진화 시 파워 1.5배, 이름 앞에 ★ 추가
+  const evoLv = (game.petEvolutions || {})[petKey] || 0;
+  const petLv = (game.petLevels || {})[petKey] || 1;
+  // 진화: 1단계 +50%, 2단계 +120%, 3단계 +250%
+  const evoMult = [1, 1.5, 2.2, 3.5][evoLv] || 1;
+  // 레벨: 1레벨당 +10% (1렙=기본, 10렙=+90%)
+  const lvMult = 1 + (petLv - 1) * 0.10;
   return {
-    power: Math.floor(def.power * 1.5),
-    stars: ((game.petEvolutions || {})[petKey] || 0) + 1,
+    power: Math.floor(def.power * evoMult * lvMult),
+    stars: evoLv,
+    level: petLv,
   };
 }
 window.getEvolvedStats = getEvolvedStats;
 
 function evolvePet(petKey) {
   if (!canEvolvePet(petKey)) {
-    showToast('진화 조건이 충족되지 않았어요', 'warn');
+    const evoLv = (game.petEvolutions || {})[petKey] || 0;
+    if (evoLv >= MAX_EVOLUTION) {
+      showToast(`🌟 이미 최대 진화 단계 (${MAX_EVOLUTION}성)`, 'warn');
+    } else {
+      showToast('같은 펫 3마리가 필요해요', 'warn');
+    }
     return;
   }
   // 펫 3개 → 1개 + 진화 단계 +1
-  game.pets[petKey] -= 2;  // 2마리 소비 (1마리는 진화체로 변환)
+  game.pets[petKey] -= 2;
   if (!game.petEvolutions) game.petEvolutions = {};
   game.petEvolutions[petKey] = (game.petEvolutions[petKey] || 0) + 1;
-
   // 전투력 재계산
   try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
-
   try { playSound('victory'); } catch (e) {}
   const def = PETS[petKey];
   const newStars = game.petEvolutions[petKey];
   showToast(`🌟 ${def.emoji} ${def.name} ${newStars}성 진화 성공!`, 'gain');
   try { addNotification('pet', `🌟 ${def.name} ${newStars}성 진화!`, def.emoji); } catch (e) {}
   try { saveGame(); } catch (e) {}
+  // 펫 카탈로그가 열려 있으면 자동 갱신
+  try {
+    const mPets = document.getElementById('m-pets');
+    if (mPets && mPets.classList.contains('show')) renderPetCatalogTab('mine');
+  } catch (e) {}
   if ((typeof isOnlineMode === 'function') && isOnlineMode()) {
     try { uploadCloudSave(true); } catch (e) {}
   }
 }
 window.evolvePet = evolvePet;
+
+// === 💪 펫 강화 시스템 (10레벨 max) ===
+function getPetEnhanceCost(petKey) {
+  const def = PETS[petKey];
+  if (!def) return null;
+  const curLv = (game.petLevels || {})[petKey] || 1;
+  if (curLv >= MAX_PET_LEVEL) return null;
+  // 등급별 기본 비용, 레벨당 1.5배 증가
+  const baseGold = { common: 200, rare: 800, epic: 3000, legendary: 12000, mythic: 50000 }[def.tier] || 200;
+  const baseGem = { common: 0, rare: 1, epic: 3, legendary: 10, mythic: 30 }[def.tier] || 0;
+  const lvMult = Math.pow(1.5, curLv - 1);
+  return {
+    gold: Math.floor(baseGold * lvMult),
+    gem: Math.floor(baseGem * lvMult),
+  };
+}
+window.getPetEnhanceCost = getPetEnhanceCost;
+
+function canEnhancePet(petKey) {
+  const def = PETS[petKey];
+  if (!def) return false;
+  const curLv = (game.petLevels || {})[petKey] || 1;
+  if (curLv >= MAX_PET_LEVEL) return false;
+  const owned = (game.pets || {})[petKey] || 0;
+  if (owned < 1) return false;
+  const cost = getPetEnhanceCost(petKey);
+  if (!cost) return false;
+  if ((game.res.gold || 0) < cost.gold) return false;
+  if ((game.res.gem || 0) < cost.gem) return false;
+  return true;
+}
+window.canEnhancePet = canEnhancePet;
+
+function enhancePet(petKey) {
+  const def = PETS[petKey];
+  if (!def) return;
+  const curLv = (game.petLevels || {})[petKey] || 1;
+  if (curLv >= MAX_PET_LEVEL) {
+    showToast(`💪 이미 최대 레벨 (${MAX_PET_LEVEL})`, 'warn');
+    return;
+  }
+  const cost = getPetEnhanceCost(petKey);
+  if (!cost) return;
+  if ((game.res.gold || 0) < cost.gold) {
+    showToast(`🪙 골드 부족: ${cost.gold} 필요`, 'warn');
+    return;
+  }
+  if ((game.res.gem || 0) < cost.gem) {
+    showToast(`💎 보석 부족: ${cost.gem} 필요`, 'warn');
+    return;
+  }
+  // 비용 차감
+  game.res.gold -= cost.gold;
+  if (cost.gem > 0) game.res.gem -= cost.gem;
+  // 레벨업
+  if (!game.petLevels) game.petLevels = {};
+  game.petLevels[petKey] = curLv + 1;
+  // 전투력 재계산
+  try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
+  try { playSound('collect'); } catch (e) {}
+  const newLv = game.petLevels[petKey];
+  showToast(`💪 ${def.emoji} ${def.name} Lv.${newLv} 강화!`, 'gain');
+  try { addNotification('pet', `💪 ${def.name} Lv.${newLv} 강화!`, def.emoji); } catch (e) {}
+  try { saveGame(); } catch (e) {}
+  try { updateHUD(); } catch (e) {}
+  // 펫 카탈로그가 열려 있으면 자동 갱신
+  try {
+    const mPets = document.getElementById('m-pets');
+    if (mPets && mPets.classList.contains('show')) renderPetCatalogTab('mine');
+  } catch (e) {}
+  if ((typeof isOnlineMode === 'function') && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+}
+window.enhancePet = enhancePet;
+
+// === ✨ 펫 합성 시스템 (같은 등급 5마리 → 상위 등급 1마리 랜덤) ===
+// 일반 → 희귀, 희귀 → 영웅, 영웅 → 전설, 전설 → 신화
+const FUSION_RECIPE = {
+  common:    { upTo: 'rare',      cost: 5, gold: 1000 },
+  rare:      { upTo: 'epic',      cost: 5, gold: 5000 },
+  epic:      { upTo: 'legendary', cost: 5, gold: 30000 },
+  legendary: { upTo: 'mythic',    cost: 5, gold: 200000 },
+};
+
+function getFusionablePets(tier) {
+  // 해당 등급의 펫 중 2마리 이상 보유한 것
+  return Object.entries(game.pets || {})
+    .filter(([k, v]) => v >= 2 && PETS[k] && PETS[k].tier === tier)
+    .sort((a, b) => b[1] - a[1]);
+}
+window.getFusionablePets = getFusionablePets;
+
+function getTotalFusionableCount(tier) {
+  // 해당 등급에서 보유 총합
+  let total = 0;
+  for (const [k, v] of Object.entries(game.pets || {})) {
+    if (PETS[k] && PETS[k].tier === tier) total += v;
+  }
+  return total;
+}
+window.getTotalFusionableCount = getTotalFusionableCount;
+
+function canFuse(tier) {
+  const recipe = FUSION_RECIPE[tier];
+  if (!recipe) return false;
+  if (getTotalFusionableCount(tier) < recipe.cost) return false;
+  if ((game.res.gold || 0) < recipe.gold) return false;
+  return true;
+}
+window.canFuse = canFuse;
+
+function fusePets(tier) {
+  const recipe = FUSION_RECIPE[tier];
+  if (!recipe) { showToast('이 등급은 합성 불가', 'warn'); return; }
+  if (!canFuse(tier)) {
+    const needed = recipe.cost - getTotalFusionableCount(tier);
+    if (needed > 0) {
+      showToast(`${PET_TIER_NAMES[tier]} 펫 ${needed}마리 더 필요해요`, 'warn');
+    } else {
+      showToast(`🪙 ${recipe.gold} 골드 필요`, 'warn');
+    }
+    return;
+  }
+
+  // 펫 5마리 소비 (보유 많은 것부터)
+  let consumed = 0;
+  const sorted = Object.entries(game.pets || {})
+    .filter(([k, v]) => v > 0 && PETS[k] && PETS[k].tier === tier)
+    .sort((a, b) => b[1] - a[1]);
+
+  const consumedNames = [];
+  for (const [k, v] of sorted) {
+    if (consumed >= recipe.cost) break;
+    const take = Math.min(v, recipe.cost - consumed);
+    game.pets[k] -= take;
+    if (game.pets[k] <= 0) delete game.pets[k];
+    consumed += take;
+    consumedNames.push(`${PETS[k].emoji}${PETS[k].name}${take > 1 ? 'x'+take : ''}`);
+  }
+
+  // 골드 차감
+  game.res.gold -= recipe.gold;
+
+  // 상위 등급 펫 랜덤 1마리 (이미 보유한 것 우선 제외)
+  const upTier = recipe.upTo;
+  const upPool = Object.entries(PETS).filter(([k, p]) => p.tier === upTier);
+  const notOwned = upPool.filter(([k]) => !(game.pets[k] > 0));
+  let pickPool = notOwned.length > 0 ? notOwned : upPool;
+  const [newKey, newDef] = pickPool[Math.floor(Math.random() * pickPool.length)];
+
+  if (!game.pets) game.pets = {};
+  game.pets[newKey] = (game.pets[newKey] || 0) + 1;
+  if (!game.petAcquiredAt) game.petAcquiredAt = {};
+  game.petAcquiredAt[newKey] = Date.now();
+
+  // 전투력 재계산
+  try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
+  try { playSound('victory'); } catch (e) {}
+
+  showToast(`✨ ${newDef.emoji} ${newDef.name} 합성 성공! [${PET_TIER_NAMES[upTier]}]`, 'gain');
+  try { addNotification('pet', `✨ 합성: ${newDef.name} [${PET_TIER_NAMES[upTier]}]`, newDef.emoji); } catch (e) {}
+  try { saveGame(); } catch (e) {}
+  // 펫 카탈로그가 열려 있으면 자동 갱신
+  try {
+    const mPets = document.getElementById('m-pets');
+    if (mPets && mPets.classList.contains('show')) renderPetCatalogTab('mine');
+  } catch (e) {}
+  try { updateHUD(); } catch (e) {}
+  if ((typeof isOnlineMode === 'function') && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+  return { key: newKey, def: newDef };
+}
+window.fusePets = fusePets;
+
+// 합성 모달 열기
+function openFusionModal() {
+  const existing = document.getElementById('fusion-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'fusion-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  let html = `
+    <div style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e,#1a0a2e); border-radius:14px; padding:18px; max-width:420px; width:100%; max-height:85vh; overflow-y:auto; border:2px solid rgba(255,215,0,0.4); box-shadow:0 0 30px rgba(255,215,0,0.3);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="font-size:18px; font-weight:bold; background:linear-gradient(90deg,#ffd700,#ff9800); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">✨ 펫 합성</div>
+        <button id="fusion-close" style="background:#c62828; color:#fff; border:none; border-radius:50%; width:28px; height:28px; font-size:14px; cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:11px; color:#ce93d8; margin-bottom:12px; line-height:1.5;">
+        같은 등급 펫 5마리 + 골드 → 상위 등급 펫 1마리 랜덤 획득!<br>
+        <span style="color:#ffd700;">⚠ 신화 등급은 합성 불가</span>
+      </div>
+  `;
+
+  for (const tier of ['common', 'rare', 'epic', 'legendary']) {
+    const recipe = FUSION_RECIPE[tier];
+    const owned = getTotalFusionableCount(tier);
+    const canDo = canFuse(tier);
+    const color = PET_TIER_COLORS[tier];
+    const upColor = PET_TIER_COLORS[recipe.upTo];
+    html += `
+      <div style="background:rgba(0,0,0,0.5); border:2px solid ${color}; border-radius:10px; padding:10px; margin-bottom:8px; box-shadow:0 0 8px ${color}55;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-size:13px; font-weight:bold; color:${color}; text-shadow:0 0 4px ${color}aa;">${PET_TIER_NAMES[tier]} → ${PET_TIER_NAMES[recipe.upTo]}</div>
+          <div style="font-size:10px; color:${owned >= recipe.cost ? '#43a047' : '#888'}; font-weight:bold;">보유 ${owned}/${recipe.cost}</div>
+        </div>
+        <div style="font-size:10px; color:#bbb; margin-bottom:6px;">
+          비용: <span style="color:#ffd700;">🪙 ${recipe.gold.toLocaleString()}</span> + 펫 ${recipe.cost}마리
+        </div>
+        <button class="fusion-btn" data-tier="${tier}" ${canDo ? '' : 'disabled'} style="
+          width:100%; padding:6px;
+          background: ${canDo ? 'linear-gradient(135deg,' + color + ',' + upColor + ')' : 'rgba(0,0,0,0.4)'};
+          color: ${canDo ? '#fff' : '#666'};
+          border: 1.5px solid ${canDo ? upColor : 'rgba(255,255,255,0.2)'};
+          border-radius:8px; font-family:inherit; font-size:11px; font-weight:bold;
+          cursor:${canDo ? 'pointer' : 'not-allowed'};
+          box-shadow:${canDo ? '0 0 10px ' + upColor + 'aa' : 'none'};
+        ">✨ ${canDo ? PET_TIER_NAMES[recipe.upTo] + ' 합성!' : '조건 미달'}</button>
+      </div>
+    `;
+  }
+  html += `</div>`;
+  modal.innerHTML = html;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#fusion-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.querySelectorAll('.fusion-btn').forEach(btn => {
+    btn.onclick = () => {
+      const tier = btn.dataset.tier;
+      const recipe = FUSION_RECIPE[tier];
+      showConfirmDialog(
+        `✨ ${PET_TIER_NAMES[tier]} → ${PET_TIER_NAMES[recipe.upTo]} 합성`,
+        `펫 ${recipe.cost}마리 + 🪙${recipe.gold.toLocaleString()}\n→ ${PET_TIER_NAMES[recipe.upTo]} 등급 펫 1마리 랜덤 획득\n\n진행하시겠어요?`,
+        () => {
+          fusePets(tier);
+          modal.remove();
+        }
+      );
+    };
+  });
+}
+window.openFusionModal = openFusionModal;
+
+// === 🤖 자동 진화/강화 시스템 ===
+function runAutoEvolveAndEnhance() {
+  if (!game.autoEvolve && !game.autoEnhance) return;
+  let evoCount = 0;
+  let enhCount = 0;
+  // 자동 진화: 모든 펫 검사, 3마리 이상 + 진화 가능하면 진화
+  if (game.autoEvolve) {
+    const keys = Object.keys(game.pets || {});
+    for (const key of keys) {
+      // 진화는 무한 루프 방지 - 한 펫당 최대 3번 (3성까지)
+      let safety = 3;
+      while (safety-- > 0 && canEvolvePet(key)) {
+        // 즐겨찾기 펫이 1마리뿐이면 진화 안 함 (사용자 의도 보호)
+        const isFav = (game.petFavorites || {})[key];
+        if (isFav && (game.pets[key] || 0) <= 3) break;
+        // 조용히 진화 (토스트 X, 카탈로그 갱신 X)
+        game.pets[key] -= 2;
+        if (!game.petEvolutions) game.petEvolutions = {};
+        game.petEvolutions[key] = (game.petEvolutions[key] || 0) + 1;
+        evoCount++;
+      }
+    }
+  }
+  // 자동 강화: 자원 충분한 펫만 (보석 사용 없게 — 골드만)
+  if (game.autoEnhance) {
+    const keys = Object.keys(game.pets || {});
+    for (const key of keys) {
+      let safety = 10;
+      while (safety-- > 0) {
+        const curLv = (game.petLevels || {})[key] || 1;
+        if (curLv >= MAX_PET_LEVEL) break;
+        const cost = getPetEnhanceCost(key);
+        if (!cost) break;
+        // 보석 들면 자동 강화 안 함 (사용자 선택 보호)
+        if (cost.gem > 0) break;
+        if ((game.res.gold || 0) < cost.gold) break;
+        // 자원 차감 + 레벨업
+        game.res.gold -= cost.gold;
+        if (!game.petLevels) game.petLevels = {};
+        game.petLevels[key] = curLv + 1;
+        enhCount++;
+      }
+    }
+  }
+  if (evoCount > 0 || enhCount > 0) {
+    try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
+    let msg = '🤖 자동: ';
+    if (evoCount > 0) msg += `진화 ${evoCount}회`;
+    if (evoCount > 0 && enhCount > 0) msg += ', ';
+    if (enhCount > 0) msg += `강화 ${enhCount}회`;
+    showToast(msg, 'gain');
+    try { saveGame(); } catch (e) {}
+    // 카탈로그 열려 있으면 갱신
+    try {
+      const mPets = document.getElementById('m-pets');
+      if (mPets && mPets.classList.contains('show')) renderPetCatalogTab('mine');
+    } catch (e) {}
+  }
+}
+window.runAutoEvolveAndEnhance = runAutoEvolveAndEnhance;
 
 function getStarString(petKey) {
   const stars = (game.petEvolutions || {})[petKey] || 0;
@@ -24645,7 +24367,10 @@ async function loadArenaRecommendedPets() {
   let myMaxPower = 0;
   for (const [k] of owned) {
     const evoLevel = (game.petEvolutions || {})[k] || 0;
-    const power = PETS[k].power * (1 + evoLevel * 0.5);
+    const evoMult = [1, 1.5, 2.2, 3.5][evoLevel] || 1;
+    const petLv = (game.petLevels || {})[k] || 1;
+    const lvMult = 1 + (petLv - 1) * 0.10;
+    const power = PETS[k].power * evoMult * lvMult;
     if (power > myMaxPower) myMaxPower = power;
   }
 
@@ -24747,7 +24472,10 @@ function startArenaBattle(enemy) {
   let myBestPower = 0;
   for (const [k] of owned) {
     const evoLevel = (game.petEvolutions || {})[k] || 0;
-    const power = PETS[k].power * (1 + evoLevel * 0.5);
+    const evoMult = [1, 1.5, 2.2, 3.5][evoLevel] || 1;
+    const petLv = (game.petLevels || {})[k] || 1;
+    const lvMult = 1 + (petLv - 1) * 0.10;
+    const power = PETS[k].power * evoMult * lvMult;
     if (power > myBestPower) {
       myBestPower = power;
       myBestKey = k;
@@ -26083,36 +25811,78 @@ function renderPetCatalogTab(tab) {
       });
     }
 
-    let html = stats + `
-      <div style="display:flex; gap:4px; margin-bottom:8px; align-items:center; flex-wrap:wrap;">
-        <span style="font-size:11px; color:var(--wood-dark); font-weight:bold;">정렬:</span>
-        <button class="pet-sort-btn" data-sort="tier" type="button" style="
-          background: ${sortMode === 'tier' ? 'linear-gradient(to bottom, #ba68c8, #6a1b9a)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
-          color: ${sortMode === 'tier' ? 'white' : 'var(--wood-dark)'};
-          border: 2px solid var(--wood-dark); border-radius: 8px;
-          padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold;
-          cursor: pointer;
-        ">⭐ 등급순</button>
-        <button class="pet-sort-btn" data-sort="power" type="button" style="
-          background: ${sortMode === 'power' ? 'linear-gradient(to bottom, #ef5350, #b71c1c)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
-          color: ${sortMode === 'power' ? 'white' : 'var(--wood-dark)'};
-          border: 2px solid var(--wood-dark); border-radius: 8px;
-          padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold;
-          cursor: pointer;
-        ">⚔ 전투력순</button>
-        <button class="pet-sort-btn" data-sort="recent" type="button" style="
-          background: ${sortMode === 'recent' ? 'linear-gradient(to bottom, #4fc3f7, #0277bd)' : 'linear-gradient(to bottom, #fff, var(--parchment-dark))'};
-          color: ${sortMode === 'recent' ? 'white' : 'var(--wood-dark)'};
-          border: 2px solid var(--wood-dark); border-radius: 8px;
-          padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold;
-          cursor: pointer;
-        ">🆕 최근획득순</button>
-      </div>
-      <div style="font-size:11px; color:var(--wood-dark); margin-bottom:6px;">
-        ℹ️ <b>소환</b> 버튼으로 한 마리를 마을에 불러내요. 다시 누르면 마을에서 사라집니다.<br>
-        💎 <b>방출 시 보석 환급</b>: 일반 1 / 희귀 2 / 영웅 3 / 전설 5 / 신화 10
-      </div>
-      <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px;">
+    let html = `
+      <div style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e,#1a0a2e); border-radius:14px; padding:14px; margin:-6px -6px 8px -6px; position:relative; overflow:hidden;">
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+          <div style="flex:1; padding:8px; background:rgba(0,0,0,0.4); border:1.5px solid rgba(255,215,0,0.3); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; color:#ce93d8;">수집</div>
+            <div style="font-size:15px; font-weight:bold; color:#ffd700;">${uniqueCollected}/${totalUnique}</div>
+          </div>
+          <div style="flex:1; padding:8px; background:rgba(0,0,0,0.4); border:1.5px solid rgba(255,215,0,0.3); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; color:#ce93d8;">총 펫</div>
+            <div style="font-size:15px; font-weight:bold; color:#ffd700;">×${totalCount}</div>
+          </div>
+          <div style="flex:1; padding:8px; background:rgba(0,0,0,0.4); border:1.5px solid rgba(255,82,82,0.4); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; color:#ce93d8;">전투력</div>
+            <div style="font-size:15px; font-weight:bold; color:#ff5252;">⚔${game.totalPower}</div>
+          </div>
+        </div>
+        <button id="pet-fusion-open-btn" style="
+          width:100%; margin-bottom:8px; padding:8px;
+          background:linear-gradient(135deg,#9c27b0,#6a1b9a,#4527a0);
+          color:#fff; border:1.5px solid #ce93d8;
+          border-radius:10px; font-family:inherit; font-size:12px; font-weight:bold;
+          cursor:pointer; box-shadow:0 0 12px rgba(156,39,176,0.5);
+        ">✨ 펫 합성 (5→1 상위등급) ✨</button>
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <button id="auto-evolve-toggle" style="
+            flex:1; padding:6px;
+            background:${game.autoEvolve ? 'linear-gradient(135deg,#ffd700,#ff9800)' : 'rgba(0,0,0,0.4)'};
+            color:${game.autoEvolve ? '#3e2723' : '#fff'};
+            border:1.5px solid ${game.autoEvolve ? '#ffd700' : 'rgba(255,255,255,0.2)'};
+            border-radius:7px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;
+            ${game.autoEvolve ? 'box-shadow:0 0 8px rgba(255,215,0,0.5);' : ''}
+          ">🤖 자동 진화 ${game.autoEvolve ? 'ON ✓' : 'OFF'}</button>
+          <button id="auto-enhance-toggle" style="
+            flex:1; padding:6px;
+            background:${game.autoEnhance ? 'linear-gradient(135deg,#42a5f5,#1565c0)' : 'rgba(0,0,0,0.4)'};
+            color:#fff;
+            border:1.5px solid ${game.autoEnhance ? '#42a5f5' : 'rgba(255,255,255,0.2)'};
+            border-radius:7px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;
+            ${game.autoEnhance ? 'box-shadow:0 0 8px rgba(33,150,243,0.5);' : ''}
+          ">🤖 자동 강화 ${game.autoEnhance ? 'ON ✓' : 'OFF'}</button>
+        </div>
+        <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <span style="font-size:11px; color:#ce93d8; font-weight:bold;">정렬:</span>
+          <button class="pet-sort-btn" data-sort="tier" type="button" style="
+            background: ${sortMode === 'tier' ? 'linear-gradient(135deg,#ffd700,#ff9800)' : 'rgba(0,0,0,0.4)'};
+            color: ${sortMode === 'tier' ? '#3e2723' : '#fff'};
+            border: 1.5px solid ${sortMode === 'tier' ? '#ffd700' : 'rgba(255,255,255,0.2)'};
+            border-radius: 8px;
+            padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold;
+            cursor: pointer; box-shadow: ${sortMode === 'tier' ? '0 0 8px rgba(255,215,0,0.5)' : 'none'};
+          ">⭐ 등급순</button>
+          <button class="pet-sort-btn" data-sort="power" type="button" style="
+            background: ${sortMode === 'power' ? 'linear-gradient(135deg,#ff5252,#c62828)' : 'rgba(0,0,0,0.4)'};
+            color: #fff;
+            border: 1.5px solid ${sortMode === 'power' ? '#ff5252' : 'rgba(255,255,255,0.2)'};
+            border-radius: 8px;
+            padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold;
+            cursor: pointer; box-shadow: ${sortMode === 'power' ? '0 0 8px rgba(255,82,82,0.5)' : 'none'};
+          ">⚔ 전투력순</button>
+          <button class="pet-sort-btn" data-sort="recent" type="button" style="
+            background: ${sortMode === 'recent' ? 'linear-gradient(135deg,#42a5f5,#1565c0)' : 'rgba(0,0,0,0.4)'};
+            color: #fff;
+            border: 1.5px solid ${sortMode === 'recent' ? '#42a5f5' : 'rgba(255,255,255,0.2)'};
+            border-radius: 8px;
+            padding: 3px 8px; font-family: inherit; font-size: 10px; font-weight: bold;
+            cursor: pointer; box-shadow: ${sortMode === 'recent' ? '0 0 8px rgba(66,165,245,0.5)' : 'none'};
+          ">🆕 최근획득순</button>
+        </div>
+        <div style="font-size:10px; color:#ce93d8; margin-bottom:8px;">
+          ℹ️ <b style="color:#fff;">소환</b> 버튼으로 마을에 불러내요. 💎 방출 환급: 일반 1 / 희귀 2 / 영웅 3 / 전설 5 / 신화 10
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px;">
     `;
     for (const [key, count] of owned) {
       const def = PETS[key];
@@ -26122,55 +25892,84 @@ function renderPetCatalogTab(tab) {
       const stars = getStarString(key);
       const canEvo = canEvolvePet(key);
       const evoLevel = (game.petEvolutions || {})[key] || 0;
-      const evoBonus = evoLevel > 0 ? Math.floor(def.power * (1 + evoLevel * 0.5)) : def.power;
+      const petLv = (game.petLevels || {})[key] || 1;
+      // 정확한 전투력 계산 (진화 + 강화)
+      const evoMult = [1, 1.5, 2.2, 3.5][evoLevel] || 1;
+      const lvMult = 1 + (petLv - 1) * 0.10;
+      const evoBonus = Math.floor(def.power * evoMult * lvMult);
+      const isMaxEvo = evoLevel >= 3;
+      const isMaxLv = petLv >= 10;
+      const canEnh = canEnhancePet(key);
+      const enhCost = getPetEnhanceCost(key);
+      const tierBgRgba = { common:'rgba(158,158,158,0.3)', rare:'rgba(76,175,80,0.3)', epic:'rgba(33,150,243,0.3)', legendary:'rgba(255,152,0,0.3)', mythic:'rgba(156,39,176,0.4)' }[def.tier] || 'rgba(158,158,158,0.3)';
+      // 진화 보너스 % 표기
+      const evoBonusPct = [0, 50, 120, 250][evoLevel] || 0;
+      const lvBonusPct = (petLv - 1) * 10;
       html += `
-        <div style="background: linear-gradient(to bottom, #fff, ${color}22); border: 3px solid ${isSummoned ? '#4caf50' : color}; border-radius: 12px; padding: 10px; position: relative; box-shadow: 0 0 ${isSummoned ? '14px #4caf5099' : '8px ' + color + '44'};">
-          ${isSummoned ? '<div style="position:absolute; top:-8px; right:-6px; background:#4caf50; color:white; border-radius:10px; padding:2px 8px; font-size:10px; font-weight:bold; border:2px solid var(--wood-dark); box-shadow:0 2px 0 var(--wood-dark);">✦ 소환중</div>' : ''}
-          ${stars ? '<div style="position:absolute; top:-6px; left:-4px; background:linear-gradient(135deg, #ffd700, #f9a825); color:#3e2723; border-radius:10px; padding:2px 6px; font-size:11px; font-weight:bold; border:2px solid #3e2723; box-shadow:0 2px 0 #3e2723;">' + stars + '</div>' : ''}
-          <div style="text-align:center; line-height: 0;">
-            ${petSVG(def, 64)}
+        <div style="background:linear-gradient(135deg, rgba(0,0,0,0.7), rgba(20,10,40,0.8)); border: 2px solid ${isSummoned ? '#4caf50' : color}; border-radius: 12px; padding: 8px; position: relative; box-shadow: 0 0 ${isSummoned ? '18px #4caf5099' : '14px ' + color + '77, inset 0 0 14px ' + color + '22'};">
+          ${isSummoned ? '<div style="position:absolute; top:-7px; right:-4px; background:#4caf50; color:white; border-radius:10px; padding:2px 7px; font-size:9px; font-weight:bold; border:1.5px solid #1b5e20; box-shadow:0 0 6px #4caf50;">✦ 소환중</div>' : ''}
+          ${stars ? '<div style="position:absolute; top:-6px; left:-4px; background:linear-gradient(135deg, #ffd700, #f9a825); color:#3e2723; border-radius:10px; padding:2px 6px; font-size:10px; font-weight:bold; border:1.5px solid #f57f17; box-shadow:0 0 8px rgba(255,215,0,0.6);">' + stars + '</div>' : ''}
+          <div style="position:absolute; top:6px; right:6px; background:linear-gradient(135deg,#1976d2,#0d47a1); color:#fff; border-radius:8px; padding:1px 6px; font-size:9px; font-weight:bold; border:1px solid #42a5f5; box-shadow:0 0 6px rgba(33,150,243,0.5);">Lv.${petLv}${isMaxLv ? ' MAX' : ''}</div>
+          <div style="background:${tierBgRgba}; color:#fff; font-size:9px; padding:1px 7px; border-radius:8px; display:inline-block; font-weight:bold; border:1px solid ${color}; text-shadow:0 1px 1px rgba(0,0,0,0.5); margin-bottom:2px;">[${PET_TIER_NAMES[def.tier]}]</div>
+          <div style="text-align:center; line-height: 0; margin:2px 0;">
+            ${petSVG(def, 60)}
           </div>
-          <div style="font-size:12px; font-weight:bold; margin-top:4px; text-align:center;">${def.name}${count > 1 ? ' x' + count : ''}</div>
-          <div style="font-size:9px; color:${color}; font-weight:bold; text-align:center;">[${PET_TIER_NAMES[def.tier]}]</div>
-          <div style="font-size:11px; color:var(--red); text-align:center; margin-top:2px;">⚔ ${evoBonus}${evoLevel > 0 ? ' <span style="color:#ffa000;">(+' + (evoLevel * 50) + '%)</span>' : ''}</div>
+          <div style="font-size:12px; font-weight:bold; margin-top:2px; text-align:center; color:${color}; text-shadow:0 0 4px ${color}aa;">${def.name}${count > 1 ? ' x' + count : ''}</div>
+          <div style="font-size:11px; color:#ff5252; text-align:center; margin-top:2px; font-weight:bold;">⚔ ${evoBonus}${evoBonusPct > 0 ? ' <span style="color:#ffa000;">+' + evoBonusPct + '%</span>' : ''}${lvBonusPct > 0 ? ' <span style="color:#42a5f5;">+' + lvBonusPct + '%</span>' : ''}</div>
           ${(() => {
             const sk = getPetSkill(key);
             if (!sk) return '';
-            return `<div style="background:linear-gradient(135deg, #4527a0, #311b92); color:#fff; border-radius:6px; padding:3px 4px; margin-top:4px; text-align:center; font-size:9px;">
-              <b>${sk.icon} ${sk.name}</b>
-              <div style="opacity:0.85; font-size:8px;">${sk.desc}</div>
+            return `<div style="background:rgba(0,0,0,0.5); color:#fff; border-radius:6px; padding:3px 5px; margin-top:4px; text-align:center; font-size:9px; border-left:2px solid ${color};">
+              <b style="color:${color}; text-shadow:0 0 4px ${color}aa;">${sk.icon} ${sk.name}</b>
+              <div style="opacity:0.8; font-size:8px; color:#e0e0e0;">${sk.desc}</div>
             </div>`;
           })()}
-          <div style="font-size:9px; color:var(--wood-dark); margin-top:4px; line-height:1.3; text-align:center;">${def.desc}</div>
           ${canEvo ? `
             <button class="evolve-pet-btn" data-key="${key}" type="button" style="
               width: 100%; margin-top: 4px;
-              background: linear-gradient(to bottom, #ffd700, #f57c00);
-              color: #3e2723; border: 2px solid #3e2723;
+              background: linear-gradient(135deg, #ffd700, #f57c00);
+              color: #3e2723; border: 1.5px solid #f57f17;
               border-radius: 8px; padding: 4px 6px;
               font-family: inherit; font-size: 10px; font-weight: bold;
-              cursor: pointer; box-shadow: 0 2px 0 #3e2723;
+              cursor: pointer; box-shadow: 0 0 8px rgba(255,215,0,0.6);
               animation: pulse 1.5s infinite;
-            ">🌟 진화! (3→1)</button>
-          ` : count >= 2 && def.tier !== 'mythic' ? `
+            ">🌟 진화! (${evoLevel+1}성, 3→1)</button>
+          ` : isMaxEvo ? `
+            <div style="font-size:9px; color:#ffd700; text-align:center; margin-top:4px; font-weight:bold;">⭐ 진화 최대 (3성)</div>
+          ` : count >= 2 ? `
             <div style="font-size:9px; color:#888; text-align:center; margin-top:4px;">진화 ${count}/3</div>
+          ` : ''}
+          ${!isMaxLv && enhCost ? `
+            <button class="enhance-pet-btn" data-key="${key}" type="button" style="
+              width: 100%; margin-top: 4px;
+              background: ${canEnh ? 'linear-gradient(135deg, #42a5f5, #1565c0)' : 'rgba(0,0,0,0.4)'};
+              color: ${canEnh ? '#fff' : '#888'};
+              border: 1.5px solid ${canEnh ? '#42a5f5' : 'rgba(255,255,255,0.2)'};
+              border-radius: 8px; padding: 4px 6px;
+              font-family: inherit; font-size: 10px; font-weight: bold;
+              cursor: ${canEnh ? 'pointer' : 'not-allowed'};
+              box-shadow: ${canEnh ? '0 0 8px rgba(33,150,243,0.5)' : 'none'};
+              ${canEnh ? 'animation: pulse 2s infinite;' : ''}
+            ">💪 강화 Lv.${petLv}→${petLv+1} (🪙${enhCost.gold}${enhCost.gem > 0 ? ' 💎'+enhCost.gem : ''})</button>
+          ` : isMaxLv ? `
+            <div style="font-size:9px; color:#42a5f5; text-align:center; margin-top:4px; font-weight:bold;">💪 강화 최대 (Lv.10)</div>
           ` : ''}
           <div style="display:flex; gap:4px; margin-top:6px;">
             <button class="summon-pet-btn" data-key="${key}" type="button" style="
               flex: 1;
-              background: linear-gradient(to bottom, ${isSummoned ? '#ffb74d, #f57c00' : '#81c784, #2e7d32'});
-              color: white; border: 2px solid var(--wood-dark);
-              border-radius: 8px; padding: 4px 6px;
+              background: linear-gradient(135deg, ${isSummoned ? '#ffb74d, #f57c00' : '#43a047, #2e7d32'});
+              color: white; border: none;
+              border-radius: 7px; padding: 5px 6px;
               font-family: inherit; font-size: 10px; font-weight: bold;
-              cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+              cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
               touch-action: manipulation;
             ">${isSummoned ? '↩ 해제' : '✦ 소환'}</button>
             <button class="release-pet-btn" data-key="${key}" type="button" style="
-              background: linear-gradient(to bottom, #ef9a9a, #c62828);
-              color: white; border: 2px solid var(--wood-dark);
-              border-radius: 8px; padding: 4px 8px;
+              background: linear-gradient(135deg, #ef5350, #c62828);
+              color: white; border: none;
+              border-radius: 7px; padding: 5px 8px;
               font-family: inherit; font-size: 10px; font-weight: bold;
-              cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
+              cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
               touch-action: manipulation;
             " title="펫 방출 + 💎${refund} 환급">🕊️</button>
           </div>
@@ -26178,6 +25977,7 @@ function renderPetCatalogTab(tab) {
       `;
     }
     html += `</div>
+        </div>
       <button class="event-choice" style="margin-top:12px; text-align:center;" onclick="document.getElementById('m-pets').classList.remove('show'); openPetSummon();">
         🗿 더 소환하기
       </button>
@@ -26193,6 +25993,41 @@ function renderPetCatalogTab(tab) {
         renderPetCatalogTab('mine');  // 다시 렌더
       };
     });
+
+    // 합성 버튼 핸들러
+    const fusionBtn = c.querySelector('#pet-fusion-open-btn');
+    if (fusionBtn) {
+      fusionBtn.onclick = (e) => {
+        e.stopPropagation();
+        openFusionModal();
+      };
+    }
+
+    // 자동 진화/강화 토글
+    const autoEvoBtn = c.querySelector('#auto-evolve-toggle');
+    if (autoEvoBtn) {
+      autoEvoBtn.onclick = (e) => {
+        e.stopPropagation();
+        game.autoEvolve = !game.autoEvolve;
+        showToast(`🤖 자동 진화 ${game.autoEvolve ? '활성화' : '비활성화'}`, 'gain');
+        try { saveGame(); } catch (e) {}
+        // 즉시 실행
+        if (game.autoEvolve) try { runAutoEvolveAndEnhance(); } catch (e) {}
+        renderPetCatalogTab('mine');
+      };
+    }
+    const autoEnhBtn = c.querySelector('#auto-enhance-toggle');
+    if (autoEnhBtn) {
+      autoEnhBtn.onclick = (e) => {
+        e.stopPropagation();
+        game.autoEnhance = !game.autoEnhance;
+        showToast(`🤖 자동 강화 ${game.autoEnhance ? '활성화 (골드만)' : '비활성화'}`, 'gain');
+        try { saveGame(); } catch (e) {}
+        // 즉시 실행
+        if (game.autoEnhance) try { runAutoEvolveAndEnhance(); } catch (e) {}
+        renderPetCatalogTab('mine');
+      };
+    }
 
     // 소환/해제 버튼 핸들러
     c.querySelectorAll('.summon-pet-btn').forEach(btn => {
@@ -26218,52 +26053,187 @@ function renderPetCatalogTab(tab) {
         e.stopPropagation();
         const key = btn.dataset.key;
         const def = PETS[key];
+        const curEvo = (game.petEvolutions || {})[key] || 0;
+        const nextStar = curEvo + 1;
+        const bonusPct = [0, 50, 120, 250][nextStar] || 0;
         showConfirmDialog(
-          `🌟 ${def.name} 진화`,
-          `같은 펫 3마리 → 1마리로 진화합니다.\n전투력 +50% (별 1개당)\n진행하시겠어요?`,
+          `🌟 ${def.name} ${nextStar}성 진화`,
+          `같은 펫 3마리 → 1마리로 진화합니다.\n전투력 +${bonusPct}% (총 진화 보너스)\n진행하시겠어요?`,
           () => evolvePet(key)
+        );
+      };
+    });
+    // 강화 버튼 핸들러
+    c.querySelectorAll('.enhance-pet-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const key = btn.dataset.key;
+        const def = PETS[key];
+        const curLv = (game.petLevels || {})[key] || 1;
+        const cost = getPetEnhanceCost(key);
+        if (!cost) return;
+        showConfirmDialog(
+          `💪 ${def.name} Lv.${curLv}→${curLv+1} 강화`,
+          `필요 자원:\n🪙 ${cost.gold}${cost.gem > 0 ? '\n💎 ' + cost.gem : ''}\n\n레벨당 전투력 +10% 증가\n강화하시겠어요?`,
+          () => enhancePet(key)
         );
       };
     });
     return;
   }
 
-  // dex tab — 전체 도감
-  c.innerHTML = stats + `<div id="pet-dex-list"></div>`;
-  const list = c.querySelector('#pet-dex-list');
-  for (const tier of ['mythic', 'legendary', 'epic', 'rare', 'common']) {
-    const inTier = Object.entries(PETS).filter(([k, p]) => p.tier === tier);
-    const header = document.createElement('div');
-    header.style.cssText = `
-      font-weight:bold; color:${PET_TIER_COLORS[tier]}; font-size:13px;
-      margin: 10px 0 6px; letter-spacing:1px;
-    `;
-    header.textContent = `[ ${PET_TIER_NAMES[tier].toUpperCase()} ]`;
-    list.appendChild(header);
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display:grid; grid-template-columns: repeat(4, 1fr); gap:6px;';
-    for (const [key, def] of inTier) {
-      const ownedCount = game.pets[key] || 0;
-      const cell = document.createElement('div');
-      cell.style.cssText = `
-        background: ${ownedCount ? 'linear-gradient(to bottom, #fff, '+PET_TIER_COLORS[tier]+'22)' : 'rgba(80,80,80,0.2)'};
-        border: 2px solid ${ownedCount ? PET_TIER_COLORS[tier] : '#666'};
-        border-radius: 8px;
-        padding: 6px 2px;
-        text-align: center;
-        position: relative;
-        opacity: ${ownedCount ? 1 : 0.55};
-      `;
-      cell.innerHTML = `
-        <div style="line-height:1; filter:${ownedCount ? 'none' : 'grayscale(1) brightness(0.6)'};">${ownedCount ? petSVG(def, 40) : '<div style="font-size:26px;">❓</div>'}</div>
-        <div style="font-size:9px; font-weight:bold; margin-top:2px; line-height:1.1;">${ownedCount ? def.name : '???'}</div>
-        <div style="font-size:9px; color:var(--red); margin-top:1px;">${ownedCount ? '⚔ ' + def.power : '—'}</div>
-        ${ownedCount ? `<div style="position:absolute; top:2px; right:4px; background:#4caf50; color:white; border-radius:50%; width:14px; height:14px; font-size:9px; font-weight:bold; display:flex; align-items:center; justify-content:center;">✓</div>` : ''}
-      `;
-      grid.appendChild(cell);
-    }
-    list.appendChild(grid);
+  // dex tab — 전체 도감 (검색/필터 추가)
+  if (!game._dexFilter) game._dexFilter = { search: '', tier: 'all', owned: 'all' };
+  const filt = game._dexFilter;
+  c.innerHTML = stats + `
+    <div style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e); border-radius:10px; padding:10px; margin-bottom:10px; border:1.5px solid rgba(255,215,0,0.3);">
+      <input id="pet-dex-search" type="text" placeholder="🔍 펫 이름 검색..." value="${filt.search.replace(/"/g, '&quot;')}" style="
+        width:100%; padding:6px 10px; font-family:inherit; font-size:12px;
+        background:rgba(0,0,0,0.5); color:#fff; border:1.5px solid rgba(255,215,0,0.4);
+        border-radius:8px; outline:none; box-sizing:border-box;
+      ">
+      <div style="display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;">
+        <span style="font-size:10px; color:#ce93d8; font-weight:bold; align-self:center;">등급:</span>
+        ${['all','mythic','legendary','epic','rare','common'].map(t => `
+          <button class="dex-tier-btn" data-tier="${t}" style="
+            background:${filt.tier === t ? (t === 'all' ? 'linear-gradient(135deg,#ffd700,#ff9800)' : PET_TIER_COLORS[t] || 'rgba(0,0,0,0.4)') : 'rgba(0,0,0,0.4)'};
+            color:${filt.tier === t && t === 'all' ? '#3e2723' : '#fff'};
+            border:1.5px solid ${filt.tier === t ? (PET_TIER_COLORS[t] || '#ffd700') : 'rgba(255,255,255,0.2)'};
+            border-radius:7px; padding:3px 8px; font-size:10px; font-weight:bold; cursor:pointer;
+            ${filt.tier === t ? 'box-shadow:0 0 6px ' + (PET_TIER_COLORS[t] || '#ffd700') + '88;' : ''}
+          ">${t === 'all' ? '전체' : PET_TIER_NAMES[t]}</button>
+        `).join('')}
+      </div>
+      <div style="display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;">
+        <span style="font-size:10px; color:#ce93d8; font-weight:bold; align-self:center;">상태:</span>
+        ${[
+          ['all', '전체'],
+          ['owned', '✓ 보유'],
+          ['notowned', '❓ 미보유'],
+          ['favorite', '⭐ 즐겨찾기']
+        ].map(([v, n]) => `
+          <button class="dex-owned-btn" data-owned="${v}" style="
+            background:${filt.owned === v ? 'linear-gradient(135deg,#42a5f5,#1565c0)' : 'rgba(0,0,0,0.4)'};
+            color:#fff;
+            border:1.5px solid ${filt.owned === v ? '#42a5f5' : 'rgba(255,255,255,0.2)'};
+            border-radius:7px; padding:3px 8px; font-size:10px; font-weight:bold; cursor:pointer;
+            ${filt.owned === v ? 'box-shadow:0 0 6px rgba(33,150,243,0.6);' : ''}
+          ">${n}</button>
+        `).join('')}
+      </div>
+    </div>
+    <div id="pet-dex-list"></div>
+  `;
+
+  // 이벤트 핸들러 — 즉시 검색
+  const searchInput = c.querySelector('#pet-dex-search');
+  if (searchInput) {
+    let searchTimer = null;
+    searchInput.oninput = (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        game._dexFilter.search = e.target.value;
+        renderDexList();
+      }, 200);
+    };
   }
+  c.querySelectorAll('.dex-tier-btn').forEach(btn => {
+    btn.onclick = () => {
+      game._dexFilter.tier = btn.dataset.tier;
+      renderPetCatalogTab('dex');
+    };
+  });
+  c.querySelectorAll('.dex-owned-btn').forEach(btn => {
+    btn.onclick = () => {
+      game._dexFilter.owned = btn.dataset.owned;
+      renderPetCatalogTab('dex');
+    };
+  });
+
+  function renderDexList() {
+    const list = c.querySelector('#pet-dex-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const searchLower = (game._dexFilter.search || '').toLowerCase().trim();
+    const tierFilt = game._dexFilter.tier;
+    const ownedFilt = game._dexFilter.owned;
+    const favs = game.petFavorites || {};
+
+    let displayedAny = false;
+    const tiers = tierFilt === 'all' ? ['mythic', 'legendary', 'epic', 'rare', 'common'] : [tierFilt];
+    for (const tier of tiers) {
+      let inTier = Object.entries(PETS).filter(([k, p]) => p.tier === tier);
+      // 검색 필터
+      if (searchLower) {
+        inTier = inTier.filter(([k, p]) => (p.name || '').toLowerCase().includes(searchLower) || k.toLowerCase().includes(searchLower));
+      }
+      // 상태 필터
+      if (ownedFilt === 'owned') {
+        inTier = inTier.filter(([k]) => (game.pets[k] || 0) > 0);
+      } else if (ownedFilt === 'notowned') {
+        inTier = inTier.filter(([k]) => !(game.pets[k] > 0));
+      } else if (ownedFilt === 'favorite') {
+        inTier = inTier.filter(([k]) => favs[k]);
+      }
+      if (inTier.length === 0) continue;
+      displayedAny = true;
+
+      const header = document.createElement('div');
+      header.style.cssText = `
+        font-weight:bold; color:${PET_TIER_COLORS[tier]}; font-size:13px;
+        margin: 10px 0 6px; letter-spacing:1px;
+        text-shadow: 0 0 6px ${PET_TIER_COLORS[tier]}66;
+      `;
+      header.textContent = `[ ${PET_TIER_NAMES[tier].toUpperCase()} ] (${inTier.length})`;
+      list.appendChild(header);
+      const grid = document.createElement('div');
+      grid.style.cssText = 'display:grid; grid-template-columns: repeat(4, 1fr); gap:6px;';
+      for (const [key, def] of inTier) {
+        const ownedCount = game.pets[key] || 0;
+        const isFav = !!favs[key];
+        const cell = document.createElement('div');
+        cell.style.cssText = `
+          background: ${ownedCount ? 'linear-gradient(135deg, rgba(0,0,0,0.7), rgba(20,10,40,0.8))' : 'rgba(80,80,80,0.2)'};
+          border: 2px solid ${ownedCount ? PET_TIER_COLORS[tier] : '#555'};
+          border-radius: 8px;
+          padding: 6px 2px;
+          text-align: center;
+          position: relative;
+          opacity: ${ownedCount ? 1 : 0.55};
+          box-shadow: ${ownedCount ? '0 0 8px ' + PET_TIER_COLORS[tier] + '55' : 'none'};
+          cursor: pointer;
+        `;
+        cell.innerHTML = `
+          <div style="line-height:1; filter:${ownedCount ? 'none' : 'grayscale(1) brightness(0.6)'};">${ownedCount ? petSVG(def, 40) : '<div style="font-size:26px;">❓</div>'}</div>
+          <div style="font-size:9px; font-weight:bold; margin-top:2px; line-height:1.1; color:${ownedCount ? PET_TIER_COLORS[tier] : '#999'};">${ownedCount ? def.name : '???'}</div>
+          <div style="font-size:9px; color:#ff5252; margin-top:1px;">${ownedCount ? '⚔ ' + def.power : '—'}</div>
+          ${ownedCount ? `<div style="position:absolute; top:2px; right:2px; background:#4caf50; color:white; border-radius:50%; width:14px; height:14px; font-size:9px; font-weight:bold; display:flex; align-items:center; justify-content:center;">✓</div>` : ''}
+          <div class="pet-fav-btn" data-key="${key}" style="position:absolute; top:2px; left:2px; cursor:pointer; font-size:13px; ${isFav ? 'color:#ffd700; text-shadow:0 0 4px #ffd700;' : 'color:rgba(255,255,255,0.3);'}">${isFav ? '⭐' : '☆'}</div>
+        `;
+        grid.appendChild(cell);
+      }
+      list.appendChild(grid);
+    }
+    if (!displayedAny) {
+      list.innerHTML = `<div style="text-align:center; padding:30px; color:#888; font-size:13px;">🔍 검색 결과 없음<br><span style="font-size:11px;">다른 필터를 시도해보세요</span></div>`;
+    }
+    // 즐겨찾기 버튼 핸들러
+    list.querySelectorAll('.pet-fav-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const key = btn.dataset.key;
+        if (!game.petFavorites) game.petFavorites = {};
+        if (game.petFavorites[key]) {
+          delete game.petFavorites[key];
+        } else {
+          game.petFavorites[key] = true;
+        }
+        try { saveGame(); } catch (e) {}
+        renderDexList();
+      };
+    });
+  }
+  renderDexList();
 }
 window.openPetSummon = openPetSummon;
 window.openPetDex = openPetDex;
@@ -27791,6 +27761,14 @@ function tick(now) {
       try { recomputePower(); } catch (e) {}
       // HUD에 실시간 반영
       try { updateHUD(); } catch (e) {}
+    }
+
+    // === 🤖 자동 진화/강화 (30초마다) ===
+    if (!game._autoEvolveTimer) game._autoEvolveTimer = 0;
+    game._autoEvolveTimer += dt;
+    if (game._autoEvolveTimer >= 30) {
+      game._autoEvolveTimer = 0;
+      try { if (typeof runAutoEvolveAndEnhance === 'function') runAutoEvolveAndEnhance(); } catch (e) {}
     }
 
     // === 퀘스트/업적/칭호 체크 (5초마다만 — 매 초 호출 시 버벅임 발생) ===

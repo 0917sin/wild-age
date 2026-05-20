@@ -1034,6 +1034,149 @@
     z-index: 40;
     display: none;
   }
+
+  /* === 🎓 튜토리얼 시스템 === */
+  .tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9000;
+    display: none;
+    pointer-events: auto;
+  }
+  .tutorial-overlay.show { display: block; }
+  .tutorial-overlay.see-through { background: rgba(0, 0, 0, 0.5); }
+  .tutorial-overlay.see-through .tutorial-spotlight {
+    pointer-events: none;
+  }
+
+  /* 스포트라이트 (특정 영역만 밝게) */
+  .tutorial-spotlight {
+    position: absolute;
+    border-radius: 12px;
+    box-shadow:
+      0 0 0 9999px rgba(0, 0, 0, 0.75),
+      0 0 30px rgba(255, 215, 0, 0.8),
+      inset 0 0 20px rgba(255, 215, 0, 0.4);
+    border: 3px solid #ffd700;
+    animation: tutorialPulse 1.8s ease-in-out infinite;
+    pointer-events: none;
+    transition: all 0.4s ease;
+    z-index: 9001;
+  }
+  @keyframes tutorialPulse {
+    0%, 100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75), 0 0 30px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 215, 0, 0.4); }
+    50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75), 0 0 50px rgba(255, 215, 0, 1), inset 0 0 30px rgba(255, 215, 0, 0.6); }
+  }
+  @keyframes tutorialArrowBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* 튜토리얼 말풍선 */
+  .tutorial-bubble {
+    position: fixed;
+    background: linear-gradient(135deg, #fff8e1, #ffe082);
+    border: 4px solid #5d4037;
+    border-radius: 16px;
+    padding: 14px 18px;
+    max-width: 320px;
+    min-width: 200px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(255, 215, 0, 0.4);
+    z-index: 9002;
+    font-family: inherit;
+  }
+  .tutorial-bubble .tut-icon {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .tutorial-bubble .tut-title {
+    font-weight: bold;
+    color: #3e2723;
+    font-size: 15px;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .tutorial-bubble .tut-msg {
+    color: #5d4037;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    white-space: pre-line;
+  }
+  .tutorial-bubble .tut-progress {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 10px;
+    color: #8d6e63;
+    font-weight: bold;
+  }
+  .tutorial-bubble .tut-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .tutorial-bubble button {
+    background: linear-gradient(to bottom, #66bb6a, #2e7d32);
+    color: white;
+    border: 2px solid #3e2723;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #3e2723;
+  }
+  .tutorial-bubble button:active { transform: translateY(2px); box-shadow: 0 0 0 #3e2723; }
+  .tutorial-bubble button.tut-skip {
+    background: linear-gradient(to bottom, #bdbdbd, #757575);
+  }
+  .tutorial-bubble button.tut-next {
+    background: linear-gradient(to bottom, #42a5f5, #1565c0);
+  }
+  /* 말풍선 화살표 */
+  .tutorial-bubble::before {
+    content: '';
+    position: absolute;
+    width: 0; height: 0;
+  }
+  .tutorial-bubble.arrow-top::before {
+    top: -16px; left: 50%; transform: translateX(-50%);
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 16px solid #5d4037;
+  }
+  .tutorial-bubble.arrow-bottom::before {
+    bottom: -16px; left: 50%; transform: translateX(-50%);
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 16px solid #5d4037;
+  }
+  .tutorial-bubble.arrow-left::before {
+    left: -16px; top: 50%; transform: translateY(-50%);
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-right: 16px solid #5d4037;
+  }
+  .tutorial-bubble.arrow-right::before {
+    right: -16px; top: 50%; transform: translateY(-50%);
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-left: 16px solid #5d4037;
+  }
+
+  /* 튜토리얼 손가락 표시 */
+  .tutorial-finger {
+    position: fixed;
+    font-size: 40px;
+    z-index: 9003;
+    pointer-events: none;
+    animation: tutorialArrowBounce 1s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+  }
 </style>
 </head>
 <body>
@@ -1108,6 +1251,22 @@
   <canvas id="canvas"></canvas>
 </div>
 
+<!-- 🎓 튜토리얼 시스템 -->
+<div class="tutorial-overlay" id="tutorial-overlay">
+  <div class="tutorial-spotlight" id="tutorial-spotlight" style="display:none;"></div>
+  <div class="tutorial-finger" id="tutorial-finger" style="display:none;">👇</div>
+  <div class="tutorial-bubble" id="tutorial-bubble" style="display:none;">
+    <div class="tut-icon" id="tut-icon">👋</div>
+    <div class="tut-title" id="tut-title">환영합니다!</div>
+    <div class="tut-msg" id="tut-msg">와일드 에이지에 오신 것을 환영합니다.</div>
+    <div class="tut-progress" id="tut-progress">1 / 10</div>
+    <div class="tut-actions" id="tut-actions">
+      <button class="tut-skip" id="tut-skip-btn">건너뛰기</button>
+      <button class="tut-next" id="tut-next-btn">다음 →</button>
+    </div>
+  </div>
+</div>
+
 <!-- HUD -->
 <div class="hud" id="hud" style="display:none">
   <div class="topbar">
@@ -1147,7 +1306,7 @@
     <div class="icon-btn" id="btn-roulette" title="일일 룰렛">🎰<div class="label">룰렛</div></div>
     <div class="icon-btn" id="btn-notifications" title="알림함" style="position:relative;">🔔<div class="label">알림</div></div>
     <div class="icon-btn" id="btn-stats" title="내 기록">📊<div class="label">기록</div></div>
-    <div class="icon-btn" id="btn-boss" title="주간 보스 레이드">🐲<div class="label">보스</div></div>
+    <div class="icon-btn" id="btn-boss" title="일일 보스 레이드">🐲<div class="label">보스</div></div>
     <div class="icon-btn" id="btn-tribe" title="부족/길드">👥<div class="label">부족</div></div>
     <div class="icon-btn" id="btn-calendar" title="캘린더">📅<div class="label">달력</div></div>
     <div class="icon-btn" id="btn-vip" title="VIP 상점" style="background:linear-gradient(135deg, #ffd700, #f57c00); border-color:#3e2723;">👑<div class="label" style="color:#3e2723;">VIP</div></div>
@@ -1321,7 +1480,7 @@
 <!-- 🐲 보스 레이드 -->
 <div class="modal-bg" id="m-boss">
   <div class="modal">
-    <div class="modal-header">🐲 주간 보스 레이드 <button class="modal-close" data-close>✕</button></div>
+    <div class="modal-header">🐲 일일 보스 레이드 <button class="modal-close" data-close>✕</button></div>
     <div class="modal-body" id="boss-body"></div>
   </div>
 </div>
@@ -2686,6 +2845,312 @@ async function cleanClaimedMails() {
   }
 }
 window.cleanClaimedMails = cleanClaimedMails;
+
+// ============================================================================
+// 🎓 튜토리얼 시스템
+// ============================================================================
+// 신규 유저를 위한 단계별 가이드
+// game.tutorialStep: 0(시작 전), 1~N(진행 중), 99(완료/스킵)
+
+const TUTORIAL_STEPS = [
+  {
+    // 1. 환영 인사
+    icon: '👋',
+    title: '환영합니다!',
+    msg: '안녕하세요! 와일드 에이지에 오신 것을 환영해요.\n\n부족의 시대를 살아가는 원시인이 되어\n마을을 키우고 펫을 모아보세요!',
+    showSpotlight: false,
+    autoCheck: null,
+    waitForClick: false,
+  },
+  {
+    // 2. 자원 설명
+    icon: '💰',
+    title: '자원이 있어요',
+    msg: '화면 위쪽의 자원들을 확인하세요!\n\n💰 골드 · 🍖 식량 · 🪵 목재\n🪨 석재 · 💎 보석',
+    target: '.topbar',
+    spotlightSize: { padding: 8 },
+    waitForClick: false,
+  },
+  {
+    // 3. 채집 — 빈 땅 탭하기
+    icon: '👆',
+    title: '땅을 탭해보세요!',
+    msg: '화면을 탭하면 자원이 모여요.\n\n나무, 돌, 풀숲을 탭해서\n자원을 모아보세요!\n\n(아무 곳이나 5번 탭하세요)',
+    autoCheck: () => (game._tutorialTaps || 0) >= 5,
+    waitForClick: false,
+    showFinger: true,
+  },
+  {
+    // 4. 레벨/경험치
+    icon: '⭐',
+    title: '레벨이 있어요',
+    msg: '왼쪽 위의 LV 박스를 보세요!\n\n행동할 때마다 경험치를 얻고\n레벨이 오르면 더 강해져요.',
+    target: '#level-box',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+  },
+  {
+    // 5. Day / 전투력
+    icon: '⚔',
+    title: '전투력과 시간',
+    msg: '오른쪽 위에 Day(날짜)와\n전투력이 표시돼요.\n\n⚔ 전투력 = 펫 + 군대 + 레벨\n전투력이 높을수록 강한 적도 이길 수 있어요!',
+    target: '#power-display',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+  },
+  {
+    // 6. 건물 짓기 — 빌드바
+    icon: '🏠',
+    title: '건물을 지어요',
+    msg: '아래쪽 빌드바에서 건물을 선택해\n마을에 지을 수 있어요!\n\n움막은 부족원을 늘리고\n농경지는 식량을 만들어요.',
+    target: '#build-bar',
+    spotlightSize: { padding: 6 },
+    waitForClick: false,
+  },
+  {
+    // 7. 펫 — 사이드바
+    icon: '🦁',
+    title: '펫을 모아요',
+    msg: '오른쪽 사이드바의 🦁 버튼을 누르면\n펫을 소환할 수 있어요!\n\n펫은 전투력을 크게 올려주고\n등급이 높을수록 강해요.\n\n💎 보석으로 가챠를 돌려보세요!',
+    target: '#btn-pets',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+    showFinger: true,
+  },
+  {
+    // 8. 메일함
+    icon: '📬',
+    title: '메일함 확인',
+    msg: '운영자가 보낸 선물과\n공지사항은 📬 메일함에서 받을 수 있어요!\n\n빨간 배지가 뜨면 새 메일이에요.',
+    target: '#btn-mailbox',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+  },
+  {
+    // 9. 친구
+    icon: '👥',
+    title: '친구와 함께!',
+    msg: '👥 친구 버튼으로 친구를 추가해보세요!\n\n친구 마을을 방문해서\n원조를 보내고 침략도 할 수 있어요.\n\n친구 코드는 메뉴에서 확인 가능!',
+    target: '#btn-friends',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+  },
+  {
+    // 10. 부족
+    icon: '🏛',
+    title: '부족 시스템',
+    msg: '여러 명이 모여 부족을 만들 수 있어요!\n\n🏛 부족 금고에 자원을 기부해서\n부족 레벨을 올리면\n모든 부족원이 보너스를 받아요.',
+    target: '#btn-tribe',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+  },
+  {
+    // 11. 시즌 패스
+    icon: '🎁',
+    title: '시즌 패스',
+    msg: '🎁 시즌 패스로 매일 미션을 수행하고\n보상을 받아보세요!\n\nVIP Lv.3 이상이면\nVIP 트랙도 활성화돼요.',
+    target: '#btn-season-pass',
+    spotlightSize: { padding: 4 },
+    waitForClick: false,
+  },
+  {
+    // 12. 완료 보상
+    icon: '🎉',
+    title: '튜토리얼 완료!',
+    msg: '🎉 축하해요! 와일드 에이지의 기본을\n모두 배우셨어요.\n\n시작 보너스를 드릴게요!\n💰 5,000 · 💎 50 · 🍖 500\n🪵 200 · 🪨 200\n\n즐거운 게임 되세요!',
+    showSpotlight: false,
+    finalRewards: true,
+  },
+];
+
+// === 튜토리얼 시작 ===
+function startTutorial() {
+  if (game.tutorialCompleted) return;
+  if (!document.getElementById('tutorial-overlay')) return;
+  game.tutorialStep = 1;
+  game._tutorialTaps = 0;
+  showTutorialStep(0);  // 첫 단계 (배열 인덱스 0 = 1단계)
+}
+window.startTutorial = startTutorial;
+
+// === 튜토리얼 한 단계 표시 ===
+function showTutorialStep(index) {
+  const step = TUTORIAL_STEPS[index];
+  if (!step) { completeTutorial(); return; }
+
+  const overlay = document.getElementById('tutorial-overlay');
+  const bubble = document.getElementById('tutorial-bubble');
+  const spotlight = document.getElementById('tutorial-spotlight');
+  const finger = document.getElementById('tutorial-finger');
+  const iconEl = document.getElementById('tut-icon');
+  const titleEl = document.getElementById('tut-title');
+  const msgEl = document.getElementById('tut-msg');
+  const progressEl = document.getElementById('tut-progress');
+  const actionsEl = document.getElementById('tut-actions');
+
+  overlay.classList.add('show');
+  if (step.target) overlay.classList.add('see-through');
+  else overlay.classList.remove('see-through');
+
+  iconEl.textContent = step.icon;
+  titleEl.textContent = step.title;
+  msgEl.textContent = step.msg;
+  progressEl.textContent = `${index + 1} / ${TUTORIAL_STEPS.length}`;
+
+  // 스포트라이트 위치 계산
+  if (step.target && document.querySelector(step.target)) {
+    const el = document.querySelector(step.target);
+    const rect = el.getBoundingClientRect();
+    const pad = (step.spotlightSize && step.spotlightSize.padding) || 6;
+    spotlight.style.display = 'block';
+    spotlight.style.left = (rect.left - pad) + 'px';
+    spotlight.style.top = (rect.top - pad) + 'px';
+    spotlight.style.width = (rect.width + pad * 2) + 'px';
+    spotlight.style.height = (rect.height + pad * 2) + 'px';
+
+    // 손가락 표시
+    if (step.showFinger) {
+      finger.style.display = 'block';
+      finger.style.left = (rect.left + rect.width / 2 - 20) + 'px';
+      finger.style.top = (rect.top - 50) + 'px';
+    } else {
+      finger.style.display = 'none';
+    }
+
+    // 말풍선 위치: 타겟 아래/위에 (화면에서 안 벗어나게)
+    bubble.style.display = 'block';
+    bubble.classList.remove('arrow-top', 'arrow-bottom', 'arrow-left', 'arrow-right');
+
+    const bubbleRect = bubble.getBoundingClientRect();
+    const winH = window.innerHeight;
+    const winW = window.innerWidth;
+    const targetCenterX = rect.left + rect.width / 2;
+    let bubbleLeft, bubbleTop;
+
+    // 타겟이 화면 아래쪽이면 말풍선 위에 표시
+    if (rect.top > winH / 2) {
+      bubbleTop = rect.top - bubble.offsetHeight - 25;
+      bubble.classList.add('arrow-bottom');
+    } else {
+      bubbleTop = rect.bottom + 25;
+      bubble.classList.add('arrow-top');
+    }
+    bubbleLeft = targetCenterX - bubble.offsetWidth / 2;
+    // 가로 화면 안 벗어나게
+    if (bubbleLeft < 10) bubbleLeft = 10;
+    if (bubbleLeft + bubble.offsetWidth > winW - 10) bubbleLeft = winW - bubble.offsetWidth - 10;
+    bubble.style.left = bubbleLeft + 'px';
+    bubble.style.top = bubbleTop + 'px';
+  } else {
+    spotlight.style.display = 'none';
+    finger.style.display = 'none';
+    // 가운데 표시
+    bubble.classList.remove('arrow-top', 'arrow-bottom', 'arrow-left', 'arrow-right');
+    bubble.style.display = 'block';
+    bubble.style.left = '50%';
+    bubble.style.top = '50%';
+    bubble.style.transform = 'translate(-50%, -50%)';
+  }
+
+  // 버튼 텍스트 동적 변경
+  const isLast = index === TUTORIAL_STEPS.length - 1;
+  actionsEl.innerHTML = isLast
+    ? `<button class="tut-next" id="tut-next-btn">🎁 보상 받기</button>`
+    : `<button class="tut-skip" id="tut-skip-btn">건너뛰기</button>
+       <button class="tut-next" id="tut-next-btn">${step.autoCheck ? '자동 진행' : '다음 →'}</button>`;
+
+  // 자동 진행 체크
+  if (step.autoCheck) {
+    if (game._tutorialAutoCheckInterval) clearInterval(game._tutorialAutoCheckInterval);
+    game._tutorialAutoCheckInterval = setInterval(() => {
+      if (step.autoCheck()) {
+        clearInterval(game._tutorialAutoCheckInterval);
+        game._tutorialAutoCheckInterval = null;
+        nextTutorialStep();
+      }
+    }, 300);
+    // 자동 진행은 버튼 비활성화 (사용자가 액션해야 다음)
+    const nextBtn = document.getElementById('tut-next-btn');
+    if (nextBtn) {
+      nextBtn.style.opacity = '0.5';
+      nextBtn.style.cursor = 'not-allowed';
+      nextBtn.disabled = true;
+    }
+  }
+
+  // 버튼 핸들러
+  setTimeout(() => {
+    const skipBtn = document.getElementById('tut-skip-btn');
+    const nextBtn = document.getElementById('tut-next-btn');
+    if (skipBtn) skipBtn.onclick = () => {
+      if (confirm('튜토리얼을 건너뛸까요?\n(시작 보상도 함께 받습니다)')) {
+        completeTutorial();
+      }
+    };
+    if (nextBtn && !step.autoCheck) nextBtn.onclick = nextTutorialStep;
+  }, 50);
+
+  game.tutorialStep = index + 1;
+}
+window.showTutorialStep = showTutorialStep;
+
+// === 다음 단계로 ===
+function nextTutorialStep() {
+  if (game._tutorialAutoCheckInterval) {
+    clearInterval(game._tutorialAutoCheckInterval);
+    game._tutorialAutoCheckInterval = null;
+  }
+  const next = game.tutorialStep;  // 현재 step은 1-indexed이므로 다음 인덱스
+  if (next >= TUTORIAL_STEPS.length) {
+    completeTutorial();
+    return;
+  }
+  showTutorialStep(next);
+}
+window.nextTutorialStep = nextTutorialStep;
+
+// === 튜토리얼 완료 + 보상 ===
+function completeTutorial() {
+  if (game._tutorialAutoCheckInterval) {
+    clearInterval(game._tutorialAutoCheckInterval);
+    game._tutorialAutoCheckInterval = null;
+  }
+  // 보상 지급 (마지막 단계까지 완료한 경우)
+  if (!game.tutorialCompleted) {
+    game.tutorialCompleted = true;
+    game.tutorialStep = 99;
+    if (typeof addRes === 'function') {
+      addRes('gold', 5000);
+      addRes('gem', 50);
+      addRes('food', 500);
+      addRes('wood', 200);
+      addRes('stone', 200);
+    }
+    try { showToast('🎁 튜토리얼 보상 지급 완료!', 'gain'); } catch (e) {}
+    try { playSound('levelUp'); } catch (e) {}
+    // 화면 효과
+    if (game.home) {
+      try { emitConfetti(game.home.x, game.home.y - 20, 50); } catch (e) {}
+      try { emitLevelUpBurst(game.home.x, game.home.y); } catch (e) {}
+    }
+    try { saveGame(); } catch (e) {}
+    try { if (typeof uploadCloudSave === 'function') uploadCloudSave(true); } catch (e) {}
+  }
+  // 튜토리얼 UI 숨기기
+  const overlay = document.getElementById('tutorial-overlay');
+  if (overlay) overlay.classList.remove('show');
+  try { updateHUD(); } catch (e) {}
+}
+window.completeTutorial = completeTutorial;
+
+// === 채집 탭 카운트 (3단계 자동 진행용) ===
+function incrementTutorialTap() {
+  if (game.tutorialCompleted) return;
+  if (!game._tutorialTaps) game._tutorialTaps = 0;
+  game._tutorialTaps++;
+}
+window.incrementTutorialTap = incrementTutorialTap;
+
 
 function updateFriendRequestBadge(count) {
   const btn = document.getElementById('btn-friends');
@@ -6491,6 +6956,156 @@ function rebuildPetCompanions() {
 // SHOP / OUTFITS / UPGRADES
 // ============================================================================
 // ============================================================================
+// 🖼 이미지 에셋 로딩 시스템 (Kenney CC0 에셋 등 외부 이미지 통합)
+// ============================================================================
+// 사용 방법:
+//   1. GitHub assets/ 폴더에 이미지 업로드
+//   2. PET_IMAGES, BUILDING_IMAGES 등에 매핑 추가
+//   3. 게임에서 자동으로 이미지 사용 (없으면 SVG 폴백)
+//
+// 폴더 구조 (예상):
+//   assets/
+//     pets/        — 펫 캐릭터 이미지 (PNG, 권장 32x32 또는 64x64)
+//     buildings/   — 건물 이미지
+//     icons/       — UI 아이콘
+//     tiles/       — 배경 타일
+
+const ASSET_BASE = './assets';  // GitHub Pages에서 상대 경로
+const IMG_CACHE = {};            // 로딩된 Image 객체 캐시
+const IMG_LOAD_STATUS = {};      // 'loading' | 'loaded' | 'failed'
+
+// 펫 이미지 매핑 (key → 파일명, 비어있으면 SVG 폴백)
+// 예: { rat: 'rat.png', wolf: 'wolf.png', ... }
+const PET_IMAGES = {
+  // 여기에 펫 이미지 매핑 추가됨 (뚜릴님이 GitHub 올린 후 매핑 작성)
+};
+
+// 건물 이미지 매핑
+const BUILDING_IMAGES = {
+  // hut: 'hut.png',
+  // farm: 'farm.png',
+};
+
+// 자원/UI 아이콘 이미지 매핑
+const ICON_IMAGES = {
+  // gold: 'gold.png',
+  // gem: 'gem.png',
+};
+
+// === 이미지 로딩 (비동기, 캐시됨) ===
+function loadImage(filename, category = 'pets') {
+  const key = `${category}/${filename}`;
+  if (IMG_CACHE[key]) return IMG_CACHE[key];
+  if (IMG_LOAD_STATUS[key] === 'failed') return null;
+
+  const img = new Image();
+  IMG_LOAD_STATUS[key] = 'loading';
+  img.onload = () => { IMG_LOAD_STATUS[key] = 'loaded'; };
+  img.onerror = () => { IMG_LOAD_STATUS[key] = 'failed'; console.warn('[Asset] Failed to load:', key); };
+  img.src = `${ASSET_BASE}/${category}/${filename}`;
+  IMG_CACHE[key] = img;
+  return img;
+}
+
+// === 펫 이미지 가져오기 (없으면 null) ===
+function getPetImage(petKey) {
+  const filename = PET_IMAGES[petKey];
+  if (!filename) return null;
+  return loadImage(filename, 'pets');
+}
+
+// === 건물 이미지 가져오기 ===
+function getBuildingImage(buildingType) {
+  const filename = BUILDING_IMAGES[buildingType];
+  if (!filename) return null;
+  return loadImage(filename, 'buildings');
+}
+
+// === HTML용 펫 이미지 태그 생성 (SVG 대체) ===
+function petImageHTML(def, size) {
+  const key = Object.keys(PETS).find(k => PETS[k] === def);
+  if (!key) return petSVG(def, size);
+
+  const filename = PET_IMAGES[key];
+  if (!filename) return petSVG(def, size);  // 폴백: SVG
+
+  // 이미지 태그 (픽셀 아트 선명하게)
+  return `<img src="${ASSET_BASE}/pets/${filename}" width="${size}" height="${size}" 
+    style="image-rendering: pixelated; image-rendering: crisp-edges; display: inline-block; vertical-align: middle;" 
+    onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', window._petSVGFallback(${JSON.stringify(key)}, ${size}));" 
+    alt="${def.name}">`;
+}
+
+// SVG 폴백을 위한 전역 함수
+window._petSVGFallback = function(petKey, size) {
+  const def = PETS[petKey];
+  if (!def) return '';
+  return petSVG(def, size);
+};
+
+// 이미지 로딩 실패 시 전체 SVG로 교체용 (PET_IMAGES 일시 무시)
+window._petSVGFallbackFull = function(petKey, size) {
+  const def = PETS[petKey];
+  if (!def) return '';
+  // PET_IMAGES 일시 우회: 이 펫만 잠시 매핑 제거 후 SVG 그리기
+  const savedFilename = PET_IMAGES[petKey];
+  delete PET_IMAGES[petKey];
+  const svg = petSVG(def, size);
+  if (savedFilename) PET_IMAGES[petKey] = savedFilename;  // 복구
+  return svg;
+};
+
+// === 캔버스용 펫 이미지 그리기 ===
+function drawPetImage(ctx, petKey, x, y, size) {
+  const img = getPetImage(petKey);
+  if (!img || IMG_LOAD_STATUS[`pets/${PET_IMAGES[petKey]}`] !== 'loaded') {
+    return false;  // 로딩 안 됐거나 실패 → 호출자가 폴백 처리
+  }
+  // 픽셀 아트 선명하게
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, x, y, size, size);
+  return true;
+}
+
+// === 캔버스용 건물 이미지 그리기 ===
+function drawBuildingImage(ctx, buildingType, x, y, w, h) {
+  const img = getBuildingImage(buildingType);
+  if (!img || IMG_LOAD_STATUS[`buildings/${BUILDING_IMAGES[buildingType]}`] !== 'loaded') {
+    return false;
+  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, x, y, w, h);
+  return true;
+}
+
+// === 게임 시작 시 모든 매핑된 이미지 프리로드 (선택사항) ===
+function preloadGameImages() {
+  console.log('[Asset] Preloading game images...');
+  let count = 0;
+  for (const filename of Object.values(PET_IMAGES)) {
+    if (filename) { loadImage(filename, 'pets'); count++; }
+  }
+  for (const filename of Object.values(BUILDING_IMAGES)) {
+    if (filename) { loadImage(filename, 'buildings'); count++; }
+  }
+  for (const filename of Object.values(ICON_IMAGES)) {
+    if (filename) { loadImage(filename, 'icons'); count++; }
+  }
+  console.log(`[Asset] Started loading ${count} images`);
+}
+
+window.loadImage = loadImage;
+window.getPetImage = getPetImage;
+window.getBuildingImage = getBuildingImage;
+window.petImageHTML = petImageHTML;
+window.drawPetImage = drawPetImage;
+window.drawBuildingImage = drawBuildingImage;
+window.preloadGameImages = preloadGameImages;
+window.PET_IMAGES = PET_IMAGES;
+window.BUILDING_IMAGES = BUILDING_IMAGES;
+window.ICON_IMAGES = ICON_IMAGES;
+
+// ============================================================================
 // PETS — 와일드 에이지 스타일 야수 컬렉션
 // 제단에서 보석을 소모해 뽑기. 등급에 따라 출현 확률 차등.
 // 각 펫은 전투력(power)을 부여하고 일부는 자원 생산에 영향을 줌.
@@ -7049,6 +7664,19 @@ const PET_ART = {
 // === 펫을 SVG 문자열로 그리기 (카드/UI용) ===
 function petSVG(def, size) {
   const key = Object.keys(PETS).find(k => PETS[k] === def);
+  // === 🖼 이미지 에셋 우선 사용 (PET_IMAGES에 매핑되어 있으면) ===
+  if (key && PET_IMAGES[key]) {
+    const tierColor = PET_TIER_COLORS[def.tier] || '#999';
+    const glowStyle = (def.tier === 'mythic' || def.tier === 'legendary')
+      ? `box-shadow: 0 0 ${size*0.3}px ${tierColor}, 0 0 ${size*0.15}px ${tierColor};`
+      : (def.tier === 'epic' ? `box-shadow: 0 0 ${size*0.15}px ${tierColor};` : '');
+    return `<span style="display:inline-block; position:relative; width:${size}px; height:${size}px; vertical-align:middle;">
+      <img src="${ASSET_BASE}/pets/${PET_IMAGES[key]}" width="${size}" height="${size}"
+        style="image-rendering:pixelated; image-rendering:crisp-edges; display:block; ${glowStyle}"
+        onerror="this.onerror=null; this.outerHTML=window._petSVGFallbackFull(${JSON.stringify(key)}, ${size});"
+        alt="${def.name}">
+    </span>`;
+  }
   const art = PET_ART[key] || PET_ART.boar;
   const s = size;
   const tier = def.tier;
@@ -9592,6 +10220,7 @@ function saveGame() {
     vipLevel: game.vipLevel || 0,
     vipExpiry: game.vipExpiry || 0,
     notifications: (game.notifications || []).slice(-30),  // 최근 30개만 저장
+    tutorialCompleted: game.tutorialCompleted || false,
     savedAt: Date.now(),
   };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); return true; }
@@ -9670,6 +10299,7 @@ function loadGame() {
     game.vipLevel = d.vipLevel || 0;
     game.vipExpiry = d.vipExpiry || 0;
     game.notifications = d.notifications || [];
+    game.tutorialCompleted = d.tutorialCompleted || false;
     game.buildings = (d.buildings || []).map(bd => {
       const b = new Building(bd.type, bd.gx, bd.gy);
       b.state = bd.state;
@@ -9861,47 +10491,49 @@ function updateHUD() {
       hourEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     }
   } catch (e) {}
-  // === 전투력 실시간 표시 (펫 + 군대 + 칭호 등 합산) ===
+  // === 전투력 실시간 표시 (펫 + 군대 + 칭호 등 합산) - 변화 시에만 DOM 갱신 ===
   const powerEl = document.getElementById('power-display');
   if (powerEl) {
     powerEl.style.display = 'block';
-    // 펫 전투력 계산
-    let petPower = 0;
-    for (const [k, count] of Object.entries(game.pets || {})) {
-      if (PETS[k]) {
-        const evoLv = (game.petEvolutions || {})[k] || 0;
-        petPower += Math.floor(PETS[k].power * count * (1 + evoLv * 0.5));
-      }
-    }
-    // 군대 전투력
-    const armyPow = (typeof getTotalArmyPower === 'function') ? getTotalArmyPower() : 0;
-    // 레벨 보너스
-    const lv = game.level || 1;
-    const levelPow = Math.floor(lv * 50 + lv * lv * 0.5);
-    // 칭호/테두리 효과 (% 표시)
-    let titlePct = 0;
-    try {
-      const eff = getEquippedEffects ? getEquippedEffects() : {};
-      if (eff.power) titlePct = Math.round(eff.power * 100);
-    } catch (e) {}
-    // 부족 보너스
-    const tribePct = (game._myTribeCache && game._myTribeCache.level) ? (game._myTribeCache.level * 2) : 0;
-    // 합산 표시
     const total = game.totalPower || 0;
-    document.getElementById('total-power').textContent = total.toLocaleString();
-    const bd = document.getElementById('power-breakdown');
-    if (bd) {
-      bd.innerHTML = `🦁${petPower.toLocaleString()} · ⚔${armyPow.toLocaleString()} · 📈${levelPow.toLocaleString()}${titlePct ? ' · 👑+' + titlePct + '%' : ''}${tribePct ? ' · 👥+' + tribePct + '%' : ''}`;
+    // 캐시 비교: total + petCount + level만 빠르게 비교
+    const cacheKey = `${total}|${Object.keys(game.pets || {}).length}|${game.level}|${game.vipLevel}|${game.equippedTitle}|${game.equippedBorder}|${game._myTribeCache?.level || 0}`;
+    if (game._powerDisplayCache !== cacheKey) {
+      game._powerDisplayCache = cacheKey;
+      // 펫 전투력 계산 (DOM 갱신 필요할 때만)
+      let petPower = 0;
+      for (const [k, count] of Object.entries(game.pets || {})) {
+        if (PETS[k]) {
+          const evoLv = (game.petEvolutions || {})[k] || 0;
+          petPower += Math.floor(PETS[k].power * count * (1 + evoLv * 0.5));
+        }
+      }
+      const armyPow = (typeof getTotalArmyPower === 'function') ? getTotalArmyPower() : 0;
+      const lv = game.level || 1;
+      const levelPow = Math.floor(lv * 50 + lv * lv * 0.5);
+      let titlePct = 0;
+      let adminFlatPow = 0;
+      let adminFlatPet = 0;
+      try {
+        const eff = getEquippedEffects ? getEquippedEffects() : {};
+        if (eff.power) titlePct = Math.round(eff.power * 100);
+        if (eff.flatPower) adminFlatPow = eff.flatPower;
+        if (eff.flatPetDamage) adminFlatPet = eff.flatPetDamage;
+      } catch (e) {}
+      const tribePct = (game._myTribeCache && game._myTribeCache.level) ? (game._myTribeCache.level * 2) : 0;
+      document.getElementById('total-power').textContent = total.toLocaleString();
+      const bd = document.getElementById('power-breakdown');
+      if (bd) {
+        const adminLine = (adminFlatPow > 0 || adminFlatPet > 0)
+          ? `<div style="color:#c62828; font-weight:bold; font-size:9px; margin-top:2px;">⚜ ${adminFlatPow > 0 ? '+' + adminFlatPow.toLocaleString() : ''}${adminFlatPow > 0 && adminFlatPet > 0 ? ' · ' : ''}${adminFlatPet > 0 ? '🦁+' + adminFlatPet.toLocaleString() : ''}</div>`
+          : '';
+        bd.innerHTML = `🦁${petPower.toLocaleString()} · ⚔${armyPow.toLocaleString()} · 📈${levelPow.toLocaleString()}${titlePct ? ' · 👑+' + titlePct + '%' : ''}${tribePct ? ' · 👥+' + tribePct + '%' : ''}${adminLine}`;
+      }
     }
   }
   const att = checkAttendanceAvailable();
   document.getElementById('att-badge').style.display = att ? 'flex' : 'none';
-  // 퀘스트 자동 체크 (자원/레벨/펫 등이 자동 갱신)
-  if (typeof runAllQuestChecks === 'function') runAllQuestChecks();
-  if (typeof checkAllAchievements === 'function') checkAllAchievements();
-  if (typeof updateAchievementsBadge === 'function') updateAchievementsBadge();
-  if (typeof checkAllTitles === 'function') checkAllTitles();
-  if (typeof updateTitlesBadge === 'function') updateTitlesBadge();
+  // ❌ 매 HUD 갱신마다 quest/achievement/title 체크는 너무 무거움 → tick의 5초 타이머로 이동됨
 }
 const MAX_LEVEL = 250;
 
@@ -10429,6 +11061,10 @@ function openSettings() {
     <div class="settings-row">
       <span class="lbl">수동 저장</span>
       <button class="danger-btn" style="background:linear-gradient(to bottom,#66bb6a,#388e3c);" onclick="manualSave()">💾 지금 저장</button>
+    </div>
+    <div class="settings-row">
+      <span class="lbl">🎓 튜토리얼 다시 보기</span>
+      <button class="danger-btn" style="background:linear-gradient(to bottom,#42a5f5,#1565c0);" onclick="document.getElementById('m-settings').classList.remove('show'); game.tutorialCompleted = false; startTutorial();">🎓 시작</button>
     </div>
     ${online ? `
       <div class="settings-row">
@@ -12406,6 +13042,24 @@ const TITLES = [
   { id: 'rank_8',  icon: '⛏', name: '부지런한 일꾼',     desc: '랭킹 8등 보상 획득', condition: () => false, color: '#bf8b54', special: true, effect: { tapBonus: 0.08 }, effectDesc: '채집 +8%' },
   { id: 'rank_9',  icon: '🌿', name: '떠오르는 신예',    desc: '랭킹 9등 보상 획득', condition: () => false, color: '#43a047', special: true, effect: { expBonus: 0.10 }, effectDesc: '경험치 +10%' },
   { id: 'rank_10', icon: '🌱', name: '도전하는 자',      desc: '랭킹 10등 보상 획득', condition: () => false, color: '#9e9e9e', special: true, effect: { expBonus: 0.05 }, effectDesc: '경험치 +5%' },
+
+  // ===== 🔱 운영자 전용 칭호 (ADMIN ONLY) =====
+  // 운영자 닉네임만 획득 가능. 일반 유저에게는 보이지도 않음
+  {
+    id: 'admin_god',
+    icon: '🔱',
+    name: '🔱 권능한 신',
+    desc: '⚜ 운영자 전용 ⚜',
+    condition: () => isAdmin(),
+    color: '#c62828',  // 빨간색 (운영자 표시)
+    adminOnly: true,
+    special: true,
+    effect: {
+      flatPower: 100,                 // 전투력 +100 (고정)
+      flatPetDamage: 100_000_000,     // 펫 전투력 +1억 (고정)
+    },
+    effectDesc: '⚔ 전투력 +100 · 🦁 펫 전투력 +100,000,000',
+  },
 ];
 
 // ===== 테두리 시스템 =====
@@ -12421,6 +13075,21 @@ const BORDERS = [
   { id: 'diamond',  icon: '💎', name: '다이아 테두리', desc: '랭킹 3등 이내',  unlock: () => (game.titles && (game.titles.rank_1 || game.titles.rank_2 || game.titles.rank_3)), color: '#42a5f5', glow: true,  effect: { allRes: 0.25, power: 0.20, petPower: 0.15 },  effectDesc: '모든 자원 +25%, 전투력 +20%, 펫 +15%' },
   { id: 'ruby',     icon: '❤️', name: '루비 테두리',  desc: '침략 50회 성공',  unlock: () => (game.stats && game.stats.invadeWins) >= 50, color: '#c62828', glow: true, effect: { power: 0.30, petPower: 0.20 }, effectDesc: '전투력 +30%, 펫 +20%' },
   { id: 'rainbow',  icon: '🌈', name: '무지개 테두리', desc: '펫 100종 모두', unlock: () => Object.keys(game.pets || {}).length >= 100, color: '#ec407a', glow: true, effect: { allRes: 0.30, power: 0.30, petPower: 0.30, tapBonus: 0.30 }, effectDesc: '모든 효과 +30% (최강!)' },
+
+  // ===== 🪽 운영자 전용 테두리 (ADMIN ONLY) =====
+  {
+    id: 'admin_angelwings',
+    icon: '🪽',
+    name: '🪽 천사의 날개',
+    desc: '⚜ 운영자 전용 ⚜',
+    unlock: () => isAdmin(),
+    color: '#c62828',  // 빨간색 (운영자 표시)
+    glow: true,
+    adminOnly: true,
+    angelWings: true,  // 특수 렌더링 플래그
+    effect: { allRes: 0.50, power: 0.50, petPower: 0.50, tapBonus: 0.50 },
+    effectDesc: '⚜ 모든 효과 +50%',
+  },
 ];
 
 
@@ -12461,7 +13130,7 @@ function checkAllTitles() {
   let newCount = 0;
   for (const t of TITLES) {
     if (game.titles[t.id]) continue;  // 이미 보유
-    if (t.special) continue;  // 특수 칭호는 별도 부여
+    if (t.special && !t.adminOnly) continue;  // 특수 칭호는 별도 부여 (운영자 칭호 제외)
     try {
       if (t.condition()) {
         game.titles[t.id] = { unlockedAt: Date.now() };
@@ -12616,6 +13285,8 @@ function renderTitlesBody() {
   `;
 
   for (const t of TITLES) {
+    // 🔱 운영자 전용 칭호는 운영자 아닌 사람에겐 보이지도 않음
+    if (t.adminOnly && !isAdmin()) continue;
     const has = !!game.titles[t.id];
     const equipped = game.equippedTitle === t.id;
     html += `
@@ -12687,8 +13358,15 @@ function renderBordersBody() {
   `;
 
   for (const b of BORDERS) {
+    // 🪽 운영자 전용 테두리는 일반 유저에겐 보이지 않음
+    if (b.adminOnly && !isAdmin()) continue;
     const has = b.unlock();
     const equipped = game.equippedBorder === b.id;
+    // 천사날개 시각 효과 (운영자 전용)
+    const angelWingsHTML = b.angelWings ? `
+      <span style="position:absolute; left:-12px; top:50%; transform:translateY(-50%); font-size:22px; filter:drop-shadow(0 0 4px ${b.color});">🪽</span>
+      <span style="position:absolute; right:-12px; top:50%; transform:translateY(-50%); font-size:22px; filter:drop-shadow(0 0 4px ${b.color}); transform:translateY(-50%) scaleX(-1);">🪽</span>
+    ` : '';
     // 테두리 미리보기 — 더 두꺼운 테두리 + 글로우
     html += `
       <div style="background:${equipped ? `linear-gradient(to bottom, ${b.color}22, ${b.color}55)` : (has ? 'linear-gradient(to bottom, #fff, #fff8e1)' : 'rgba(255,255,255,0.4)')}; border:${equipped ? '4' : (b.glow && has ? '3' : '2')}px solid ${has ? b.color : 'var(--wood)'}; border-radius:12px; padding:10px; margin-bottom:6px; ${!has ? 'opacity:0.5;' : ''} ${equipped ? `box-shadow: 0 0 14px ${b.color};` : (has && b.glow ? `box-shadow: 0 0 8px ${b.color}88;` : '')}">
@@ -12696,6 +13374,7 @@ function renderBordersBody() {
           <!-- 테두리 미리보기 -->
           <div style="
             width: 44px; height: 44px;
+            position: relative;
             background: linear-gradient(to bottom, #fff, #ffe082);
             border: 4px solid ${has ? b.color : '#bdbdbd'};
             border-radius: 50%;
@@ -12703,7 +13382,7 @@ function renderBordersBody() {
             ${has && b.glow ? `box-shadow: 0 0 8px ${b.color};` : ''}
             ${!has ? 'filter: grayscale(100%);' : ''}
             font-size: 18px; font-weight: bold;
-          ">${has ? 'LV' : '🔒'}</div>
+          ">${has ? 'LV' : '🔒'}${has ? angelWingsHTML : ''}</div>
           <div style="flex:1; min-width:0;">
             <div style="font-weight:bold; font-size:13px; color:${has ? (b.color === '#ffd700' ? '#bf8b00' : b.color) : 'var(--wood-dark)'};">${has ? b.name : '???'}</div>
             <div style="font-size:10px; color:var(--wood-dark); margin-top:1px;">${b.desc}</div>
@@ -13169,8 +13848,8 @@ async function renderRankingByType(type) {
         <div style="display:flex; align-items:center; gap:8px;">
           <div style="font-size:${rank<=3?'20':'14'}px; min-width:32px; text-align:center; font-weight:bold; color:${rank<=3?'#bf8b00':'var(--wood-dark)'};">${medal}</div>
           <div style="flex:1; min-width:0;">
-            <div style="font-weight:bold; font-size:13px; ${p.isMe ? 'color:#ef6c00;' : ''} overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-              ${p.name}${p.isMe ? ' (나)' : ''}${p.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 4px; border-radius:5px; margin-left:3px; border:1px solid #3e2723; font-weight:bold;">👑${p.vipLevel}</span>` : ''}${rankBadge}${titleBadge}
+            <div style="font-weight:bold; font-size:13px; ${ADMIN_NICKNAMES.includes(p.name) ? 'color:#c62828; text-shadow: 1px 1px 0 #000;' : (p.isMe ? 'color:#ef6c00;' : '')} overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              ${p.name}${p.isMe ? ' (나)' : ''}${ADMIN_NICKNAMES.includes(p.name) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 4px; border-radius:4px; border:1px solid #000; font-weight:bold; box-shadow:0 0 3px rgba(198,40,40,0.6);">⚜</span>' : ''}${p.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 4px; border-radius:5px; margin-left:3px; border:1px solid #3e2723; font-weight:bold;">👑${p.vipLevel}</span>` : ''}${rankBadge}${titleBadge}
             </div>
             <div style="font-size:10px; color:var(--wood-dark);">Lv.${p.level} · ⚔${p.totalPower} · 🦁${p.petCount}</div>
             ${petPreview}
@@ -14043,7 +14722,7 @@ function renderFriendsTab(tab) {
     card.innerHTML = `
       <div class="fc-avatar">${f.avatar || '🏕️'}</div>
       <div class="fc-info">
-        <div class="fc-name">${f.nickname} ${f.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; border:1px solid #3e2723; font-weight:bold;">👑 VIP ${f.vipLevel}</span>` : ''} ${f.isOnline ? '<span style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px;">🌐 ONLINE</span>' : ''} ${f.conquered ? '<span class="conquered-flag">🚩점령됨</span>' : ''} ${f.occupiedByEnemy ? '<span style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; animation:pulse 1.5s infinite;">⚠️ 침략당함</span>' : ''}</div>
+        <div class="fc-name" style="${ADMIN_NICKNAMES.includes(f.nickname) ? 'color:#c62828; text-shadow: 1px 1px 0 #000;' : ''}">${f.nickname}${ADMIN_NICKNAMES.includes(f.nickname) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 6px; border-radius:6px; border:1px solid #000; font-weight:bold; box-shadow:0 0 4px rgba(198,40,40,0.6);">⚜ ADMIN</span>' : ''} ${f.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; border:1px solid #3e2723; font-weight:bold;">👑 VIP ${f.vipLevel}</span>` : ''} ${f.isOnline ? '<span style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px;">🌐 ONLINE</span>' : ''} ${f.conquered ? '<span class="conquered-flag">🚩점령됨</span>' : ''} ${f.occupiedByEnemy ? '<span style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; animation:pulse 1.5s infinite;">⚠️ 침략당함</span>' : ''}</div>
         <div class="fc-meta">Lv.${f.level || '?'} · ${f.tribe || '부족'} · ⚔${f.power || '?'}</div>
         <div class="fc-code">#${f.code}</div>
         ${f.conquered && f.conquerData ? `
@@ -16198,6 +16877,12 @@ function recomputePower() {
 
   total *= petMult;
   total = Math.floor(total);
+  // === 🐉 운영자 전용: flatPetDamage 펫 데미지 고정 가산 ===
+  try {
+    const eff = getEquippedEffects();
+    if (eff.flatPetDamage) total += eff.flatPetDamage;
+  } catch (e) {}
+  game._petPowerBonus = total;  // UI 표시용 캐시
   // 건물 보너스
   let buildingPower = 0;
   for (const b of game.buildings) {
@@ -16228,6 +16913,11 @@ function recomputePower() {
       combined = Math.floor(combined * (1 + ub.powerPct));
     }
   }
+  // === 🔱 운영자 전용: flatPower 고정 가산 (가장 마지막에 더함) ===
+  try {
+    const eff = getEquippedEffects();
+    if (eff.flatPower) combined += eff.flatPower;
+  } catch (e) {}
   game.totalPower = combined;
 
   // === 장식품 생산 보너스 계산 (다른 곳에서 활용) ===
@@ -17210,48 +17900,138 @@ window.showScoreDetail = showScoreDetail;
 // ============================================================================
 // 🐲 주간 보스 레이드 시스템
 // ============================================================================
-const WEEKLY_BOSSES = [
-  { id: 'fire_dragon',    name: '🐉 화염 드래곤', icon: '🐉', maxHP: 5000000, baseReward: { gold: 5000, gem: 50, exp: 3000 }, color: '#ef5350' },
-  { id: 'shadow_demon',   name: '👹 그림자 악마', icon: '👹', maxHP: 7500000, baseReward: { gold: 8000, gem: 80, exp: 5000 }, color: '#7b1fa2' },
-  { id: 'ice_giant',      name: '🧊 얼음 거인',   icon: '🧊', maxHP: 6000000, baseReward: { gold: 6500, gem: 65, exp: 4000 }, color: '#1976d2' },
-  { id: 'lava_titan',     name: '🌋 용암 타이탄', icon: '🌋', maxHP: 8000000, baseReward: { gold: 9000, gem: 90, exp: 6000 }, color: '#ff6f00' },
-  { id: 'storm_kraken',   name: '🐙 폭풍 크라켄', icon: '🐙', maxHP: 9000000, baseReward: { gold: 10000, gem: 100, exp: 7000 }, color: '#0277bd' },
+// ============================================================================
+// 🐲 보스 레이드 — 일일 보스 시스템 (매일 새 보스 등장)
+// ============================================================================
+const DAILY_BOSSES = [
+  { id: 'fire_dragon',     name: '🐉 화염 드래곤',     icon: '🐉', maxHP: 5_000_000,  baseReward: { gold: 5000, gem: 50, exp: 3000 }, color: '#ef5350' },
+  { id: 'shadow_demon',    name: '👹 그림자 악마',     icon: '👹', maxHP: 7_500_000,  baseReward: { gold: 8000, gem: 80, exp: 5000 }, color: '#7b1fa2' },
+  { id: 'ice_giant',       name: '🧊 얼음 거인',       icon: '🧊', maxHP: 6_000_000,  baseReward: { gold: 6500, gem: 65, exp: 4000 }, color: '#1976d2' },
+  { id: 'lava_titan',      name: '🌋 용암 타이탄',     icon: '🌋', maxHP: 8_000_000,  baseReward: { gold: 9000, gem: 90, exp: 6000 }, color: '#ff6f00' },
+  { id: 'storm_kraken',    name: '🐙 폭풍 크라켄',     icon: '🐙', maxHP: 9_000_000,  baseReward: { gold: 10000, gem: 100, exp: 7000 }, color: '#0277bd' },
+  { id: 'forest_lord',     name: '🌳 숲의 군주',       icon: '🌳', maxHP: 5_500_000,  baseReward: { gold: 6000, gem: 55, exp: 3500 }, color: '#2e7d32' },
+  { id: 'death_knight',    name: '💀 죽음의 기사',     icon: '💀', maxHP: 8_500_000,  baseReward: { gold: 9500, gem: 95, exp: 6500 }, color: '#37474f' },
+  { id: 'phoenix',         name: '🔥 영원의 불사조',   icon: '🔥', maxHP: 10_000_000, baseReward: { gold: 12000, gem: 120, exp: 8000 }, color: '#e64a19' },
+  { id: 'ancient_sphinx',  name: '🦁 고대 스핑크스',   icon: '🦁', maxHP: 7_000_000,  baseReward: { gold: 7500, gem: 75, exp: 4500 }, color: '#bf8b00' },
+  { id: 'void_horror',     name: '🌌 공허의 공포',     icon: '🌌', maxHP: 12_000_000, baseReward: { gold: 15000, gem: 150, exp: 10000 }, color: '#311b92' },
 ];
 
-function getCurrentWeekKey() {
-  // 매주 월요일 0시 기준으로 주차 키 생성
+// 호환성: 이전 코드가 WEEKLY_BOSSES 참조해도 동작
+const WEEKLY_BOSSES = DAILY_BOSSES;
+
+// === 오늘 날짜 키 (yyyy-mm-dd) ===
+function getCurrentBossDayKey() {
   const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().split('T')[0];
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// 호환성: 옛 함수 이름 유지
+function getCurrentWeekKey() {
+  return getCurrentBossDayKey();
 }
 
 function getCurrentBoss() {
-  // 주차마다 다른 보스 (순환)
-  const weekKey = getCurrentWeekKey();
-  const seed = weekKey.split('-').reduce((a, b) => a + parseInt(b), 0);
-  const idx = seed % WEEKLY_BOSSES.length;
-  return WEEKLY_BOSSES[idx];
+  // 매일 다른 보스 (날짜 기반 순환)
+  const dayKey = getCurrentBossDayKey();
+  const seed = dayKey.split('-').reduce((a, b) => a + parseInt(b), 0);
+  const idx = seed % DAILY_BOSSES.length;
+  return DAILY_BOSSES[idx];
 }
 
 function getBossEndTime() {
-  // 이번 주 일요일 23:59
+  // 오늘 23:59:59
   const now = new Date();
-  const day = now.getDay();
-  const daysToSunday = day === 0 ? 0 : 7 - day;
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() + daysToSunday);
-  sunday.setHours(23, 59, 59, 999);
-  return sunday.getTime();
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return end.getTime();
+}
+
+// === 일일 보스 랭킹 보상 (Top N 자동 지급) ===
+// 데미지 기여 순위별 추가 보상 (baseReward와 별도)
+const BOSS_RANK_REWARDS = [
+  { rank: 1,  gold: 50000, gem: 500, exp: 20000, badge: '🥇', name: '데미지 1위' },
+  { rank: 2,  gold: 30000, gem: 300, exp: 15000, badge: '🥈', name: '데미지 2위' },
+  { rank: 3,  gold: 20000, gem: 200, exp: 10000, badge: '🥉', name: '데미지 3위' },
+  { rank: 5,  gold: 10000, gem: 100, exp: 5000,  badge: '🏅', name: 'TOP 5' },
+  { rank: 10, gold: 5000,  gem: 50,  exp: 3000,  badge: '⭐', name: 'TOP 10' },
+  { rank: 50, gold: 2000,  gem: 20,  exp: 1500,  badge: '🎖', name: 'TOP 50' },
+  { rank: 999999, gold: 500, gem: 5, exp: 500,   badge: '🎁', name: '참가 보상' },
+];
+
+// 자신의 랭킹에 맞는 보상 가져오기
+function getBossRankReward(rank) {
+  for (const r of BOSS_RANK_REWARDS) {
+    if (rank <= r.rank) return r;
+  }
+  return BOSS_RANK_REWARDS[BOSS_RANK_REWARDS.length - 1];
 }
 
 function openBossRaid() {
   document.getElementById('m-boss').classList.add('show');
   renderBossRaid();
+  // === 실시간 자동 갱신 ===
+  startBossRaidLiveUpdate();
 }
 window.openBossRaid = openBossRaid;
+
+// === 실시간 보스 갱신 (Firebase 리스너 + 폴링 백업) ===
+let _bossRaidListener = null;
+let _bossRaidPollTimer = null;
+let _bossRaidLastRender = 0;
+
+function startBossRaidLiveUpdate() {
+  stopBossRaidLiveUpdate();  // 기존 정리
+  const online = (typeof isOnlineMode === 'function') && isOnlineMode();
+  if (!online) return;
+
+  try {
+    const dayKey = getCurrentBossDayKey();
+    const ref = _firebaseDB.ref(`boss_raids/${dayKey}/participants`);
+    // 데이터 변경 시 모달이 열려있으면 자동 갱신 (throttle: 2초)
+    _bossRaidListener = ref.on('value', () => {
+      const modal = document.getElementById('m-boss');
+      if (!modal || !modal.classList.contains('show')) return;
+      const now = Date.now();
+      if (now - _bossRaidLastRender < 2000) return;  // 2초 쓰로틀
+      _bossRaidLastRender = now;
+      try { renderBossRaid(); } catch (e) {}
+    });
+  } catch (e) {
+    console.warn('boss live listener failed', e);
+  }
+
+  // 폴링 백업 (5초마다 - 리스너 실패 대비)
+  _bossRaidPollTimer = setInterval(() => {
+    const modal = document.getElementById('m-boss');
+    if (!modal || !modal.classList.contains('show')) {
+      stopBossRaidLiveUpdate();
+      return;
+    }
+    const now = Date.now();
+    if (now - _bossRaidLastRender < 4000) return;
+    _bossRaidLastRender = now;
+    try { renderBossRaid(); } catch (e) {}
+  }, 5000);
+}
+window.startBossRaidLiveUpdate = startBossRaidLiveUpdate;
+
+function stopBossRaidLiveUpdate() {
+  if (_bossRaidListener) {
+    try {
+      const dayKey = getCurrentBossDayKey();
+      _firebaseDB.ref(`boss_raids/${dayKey}/participants`).off('value', _bossRaidListener);
+    } catch (e) {}
+    _bossRaidListener = null;
+  }
+  if (_bossRaidPollTimer) {
+    clearInterval(_bossRaidPollTimer);
+    _bossRaidPollTimer = null;
+  }
+}
+window.stopBossRaidLiveUpdate = stopBossRaidLiveUpdate;
 
 async function renderBossRaid() {
   const body = document.getElementById('boss-body');
@@ -17265,37 +18045,52 @@ async function renderBossRaid() {
     </div>
   `;
 
-  let boss, weekKey, online;
+  let boss, dayKey, online;
   try {
     boss = getCurrentBoss();
-    weekKey = getCurrentWeekKey();
+    dayKey = getCurrentBossDayKey();
     online = (typeof isOnlineMode === 'function') && isOnlineMode();
 
-    // 내 기여도
-    if (!game.bossRaid) game.bossRaid = { weekKey: '', myDamage: 0, attackCount: 0, claimed: false };
-    if (game.bossRaid.weekKey !== weekKey) {
-      game.bossRaid = { weekKey, myDamage: 0, attackCount: 0, claimed: false };
+    // 내 기여도 (이전엔 주간이라 weekKey 썼는데 이제 dayKey 기준)
+    if (!game.bossRaid) game.bossRaid = { dayKey: '', myDamage: 0, attackCount: 0, claimed: false };
+    // 호환성: 옛 weekKey 필드 → dayKey로
+    if (game.bossRaid.weekKey && !game.bossRaid.dayKey) {
+      game.bossRaid.dayKey = game.bossRaid.weekKey;
+      delete game.bossRaid.weekKey;
+    }
+    if (game.bossRaid.dayKey !== dayKey) {
+      game.bossRaid = { dayKey, myDamage: 0, attackCount: 0, claimed: false };
     }
   } catch (e) {
     body.innerHTML = `<div style="text-align:center; padding:30px; color:#c62828;"><div style="font-size:48px;">⚠️</div><div>보스 시스템 오류: ${e.message}</div></div>`;
     return;
   }
 
-  // 글로벌 보스 상태 가져오기
+  // === 글로벌 보스 상태 가져오기 (실시간 랭킹용) ===
   let totalDamage = game.bossRaid.myDamage;
   let topAttackers = [];
+  let participantCount = 0;
+  let allRanking = [];  // 내 순위 계산용 (전체)
   let isDefeated = false;
 
   if (online) {
     try {
-      const snap = await _firebaseDB.ref(`boss_raids/${weekKey}`).once('value');
+      const snap = await _firebaseDB.ref(`boss_raids/${dayKey}`).once('value');
       const raid = snap.val() || {};
       const participants = raid.participants || {};
       totalDamage = Object.values(participants).reduce((sum, p) => sum + (p.damage || 0), 0);
-      topAttackers = Object.entries(participants)
-        .map(([nick, p]) => ({ nickname: decodeURIComponent(nick), damage: p.damage || 0 }))
-        .sort((a, b) => b.damage - a.damage)
-        .slice(0, 10);
+      // 전체 정렬해서 내 순위 계산
+      allRanking = Object.entries(participants)
+        .map(([nick, p]) => ({ 
+          nickname: (() => { try { return decodeURIComponent(nick); } catch (e) { return nick; } })(), 
+          damage: p.damage || 0,
+          attackCount: p.attackCount || 0,
+          vipLevel: p.vipLevel || 0,
+          avatar: p.avatar || '⛺',
+        }))
+        .sort((a, b) => b.damage - a.damage);
+      participantCount = allRanking.length;
+      topAttackers = allRanking.slice(0, 50);  // 상위 50명 (확장됨)
       isDefeated = totalDamage >= boss.maxHP;
     } catch (e) {
       console.warn('boss fetch failed', e);
@@ -17306,33 +18101,30 @@ async function renderBossRaid() {
   const hpPercent = (remainingHP / boss.maxHP) * 100;
   const endTime = getBossEndTime();
   const timeLeft = endTime - Date.now();
-  const daysLeft = Math.floor(timeLeft / 86400000);
-  const hoursLeft = Math.floor((timeLeft % 86400000) / 3600000);
+  const hoursLeft = Math.floor(timeLeft / 3600000);
+  const minutesLeft = Math.floor((timeLeft % 3600000) / 60000);
 
-  // 내 예상 보상 (기여도 기준)
-  const myRank = topAttackers.findIndex(a => a.nickname === game.player.nickname);
-  const myRankNum = myRank >= 0 ? myRank + 1 : '미참여';
-  let rewardMult = 1;
-  if (myRank === 0) rewardMult = 5;
-  else if (myRank === 1) rewardMult = 3;
-  else if (myRank === 2) rewardMult = 2;
-  else if (myRank >= 3 && myRank < 10) rewardMult = 1.5;
-
-  const myReward = {
-    gold: Math.floor(boss.baseReward.gold * rewardMult),
-    gem: Math.floor(boss.baseReward.gem * rewardMult),
-    exp: Math.floor(boss.baseReward.exp * rewardMult),
-  };
+  // === 내 실시간 순위 ===
+  const myNick = game.player.nickname;
+  const myRankIdx = allRanking.findIndex(a => a.nickname === myNick);
+  const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
+  const myRankReward = myRank ? getBossRankReward(myRank) : null;
 
   body.innerHTML = `
     <div style="background:linear-gradient(135deg, ${boss.color}, ${boss.color}88); border:4px solid #3e2723; border-radius:14px; padding:16px; margin-bottom:12px; text-align:center; color:white; box-shadow:0 0 24px ${boss.color}aa;">
       <div style="font-size:64px; margin-bottom:4px; animation:${isDefeated ? '' : 'pulse 1.5s infinite'};">${boss.icon}</div>
       <div style="font-size:20px; font-weight:bold; color:#ffd54f;">${boss.name}</div>
-      <div style="font-size:11px; color:rgba(255,255,255,0.9); margin-top:4px;">이번 주 보스 ${isDefeated ? '⚔ 처치됨!' : '⏰ ' + daysLeft + '일 ' + hoursLeft + '시간 남음'}</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.9); margin-top:4px;">
+        📅 오늘의 보스 · ${isDefeated ? '⚔ 처치됨!' : `⏰ ${hoursLeft}시간 ${minutesLeft}분 남음`}
+      </div>
+      <div style="font-size:10px; color:#ffd54f; margin-top:2px;">매일 자정에 새로운 보스가 등장합니다!</div>
     </div>
 
     <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:12px; margin-bottom:12px;">
-      <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">⚔ HP</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-weight:bold; color:#bf8b00;">⚔ HP</div>
+        <div style="font-size:10px; color:#bf8b00;">👥 ${participantCount.toLocaleString()}명 참여 중</div>
+      </div>
       <div style="height:28px; background:#3e2723; border:2px solid #1a0d08; border-radius:14px; overflow:hidden; position:relative;">
         <div style="height:100%; width:${hpPercent}%; background:linear-gradient(to right, ${boss.color}, ${boss.color}cc); transition:width 0.8s;"></div>
         <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; color:white; text-shadow:1px 1px 2px rgba(0,0,0,0.8);">
@@ -17344,17 +18136,23 @@ async function renderBossRaid() {
       </div>
     </div>
 
-    <div style="background:rgba(255,255,255,0.7); border:2px solid var(--wood); border-radius:10px; padding:12px; margin-bottom:12px;">
-      <div style="font-weight:bold; color:var(--wood-dark); text-align:center; margin-bottom:6px;">⚔ 내 기여도</div>
+    <div style="background:linear-gradient(135deg, #fff, #e3f2fd); border:3px solid #1976d2; border-radius:10px; padding:12px; margin-bottom:12px;">
+      <div style="font-weight:bold; color:#0d47a1; text-align:center; margin-bottom:6px;">📊 내 실시간 순위</div>
       <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:12px;">
-        <div>💥 데미지: <b>${(game.bossRaid.myDamage || 0).toLocaleString()}</b></div>
-        <div>⚔ 공격 횟수: <b>${game.bossRaid.attackCount || 0}/10</b></div>
-        <div>🏆 순위: <b>${myRankNum}</b></div>
-        <div>💎 예상 보상: <b>${rewardMult}배</b></div>
+        <div>💥 데미지: <b style="color:#c62828;">${(game.bossRaid.myDamage || 0).toLocaleString()}</b></div>
+        <div>⚔ 공격: <b>${game.bossRaid.attackCount || 0}/10</b></div>
+        <div>🏆 순위: <b style="color:${myRank && myRank <= 3 ? '#bf8b00' : '#1565c0'};">${myRank ? `${myRankReward.badge} ${myRank}위` : '미참여'}</b></div>
+        <div>🎁 예상 보상: <b style="color:#2e7d32;">${myRankReward ? myRankReward.name : '없음'}</b></div>
       </div>
+      ${myRank ? `
+        <div style="margin-top:8px; padding:6px; background:rgba(255,255,255,0.7); border:1px dashed #1976d2; border-radius:6px; font-size:11px;">
+          🎁 <b>${myRankReward.badge} ${myRankReward.name} 보상:</b>
+          💰 ${myRankReward.gold.toLocaleString()} · 💎 ${myRankReward.gem} · ✨ ${myRankReward.exp.toLocaleString()}
+        </div>
+      ` : ''}
     </div>
 
-    ${!isDefeated ? `
+    ${!isDefeated && timeLeft > 0 ? `
       <button id="attack-boss" type="button" ${(game.bossRaid.attackCount || 0) >= 10 ? 'disabled' : ''} style="
         width: 100%;
         background: linear-gradient(to bottom, ${(game.bossRaid.attackCount || 0) >= 10 ? '#bdbdbd, #757575' : '#ef5350, #c62828'});
@@ -17367,12 +18165,12 @@ async function renderBossRaid() {
         ${(game.bossRaid.attackCount || 0) >= 10 ? '⏰ 오늘 공격 횟수 소진' : '⚔ 보스 공격! (오늘 ' + (10 - (game.bossRaid.attackCount || 0)) + '회 남음)'}
       </button>
       <div style="text-align:center; font-size:11px; color:var(--wood-dark); margin-top:6px;">
-        공격 비용: 💰2500 · 데미지: 전투력 × 100
+        공격 비용: 💰2500 · 데미지: 전투력 × 100 + 랜덤
       </div>
     ` : `
       <div style="background:linear-gradient(to bottom, #c8e6c9, #66bb6a); border:3px solid #2e7d32; border-radius:12px; padding:12px; text-align:center;">
-        <div style="font-size:24px;">🏆</div>
-        <div style="font-weight:bold; color:#1b5e20; margin-top:4px;">보스 처치 완료!</div>
+        <div style="font-size:24px;">${isDefeated ? '🏆' : '⏰'}</div>
+        <div style="font-weight:bold; color:#1b5e20; margin-top:4px;">${isDefeated ? '보스 처치 완료!' : '오늘 보스 종료'}</div>
         ${!game.bossRaid.claimed && game.bossRaid.myDamage > 0 ? `
           <button id="claim-boss-reward" style="
             margin-top: 8px;
@@ -17380,30 +18178,47 @@ async function renderBossRaid() {
             color: #3e2723; border: 2px solid #3e2723; border-radius: 8px;
             padding: 8px 20px; font-family: inherit; font-weight: bold;
             cursor: pointer; box-shadow: 0 2px 0 #3e2723;
-          ">🎁 보상 받기 (${rewardMult}배)</button>
+          ">🎁 ${myRankReward ? myRankReward.badge + ' ' + myRankReward.name : '참가'} 보상 받기</button>
         ` : game.bossRaid.claimed ? '<div style="font-size:11px; color:#1b5e20; margin-top:4px;">✓ 보상 수령 완료</div>' : ''}
       </div>
     `}
 
     <div style="background:linear-gradient(to bottom, #fff8e1, #ffd54f); border:3px solid #f9a825; border-radius:10px; padding:10px; margin-top:12px;">
-      <div style="font-weight:bold; color:#bf8b00; text-align:center; margin-bottom:8px;">🏆 TOP 10 데미지 딜러</div>
-      ${topAttackers.length === 0 ? '<div style="text-align:center; font-size:11px; color:#888;">아직 참여자 없음</div>' : topAttackers.map((a, i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
-        const isMe = a.nickname === game.player.nickname;
-        return `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; margin-bottom:2px; background:${isMe ? '#fff3e0' : '#fff'}; border:1px solid ${isMe ? '#fb8c00' : '#ddd'}; border-radius:4px; font-size:11px;">
-            <div><b>${medal}</b> ${a.nickname}${isMe ? ' <span style="color:#fb8c00;">(나)</span>' : ''}</div>
-            <div style="color:#c62828; font-weight:bold;">💥 ${a.damage.toLocaleString()}</div>
-          </div>
-        `;
-      }).join('')}
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-weight:bold; color:#bf8b00;">🏆 실시간 랭킹</div>
+        <button id="refresh-boss-ranking" style="background:#1976d2; color:white; border:1px solid #0d47a1; border-radius:6px; padding:3px 8px; font-family:inherit; font-size:10px; font-weight:bold; cursor:pointer;">🔄 새로고침</button>
+      </div>
+      <div style="max-height:280px; overflow-y:auto;">
+        ${topAttackers.length === 0 ? '<div style="text-align:center; font-size:11px; color:#888; padding:20px;">아직 참여자 없음<br>첫 번째 도전자가 되어보세요!</div>' : topAttackers.map((a, i) => {
+          const rank = i + 1;
+          const reward = getBossRankReward(rank);
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank <= 10 ? '🏅' : rank <= 50 ? '🎖' : '🎁';
+          const isMe = a.nickname === myNick;
+          const rankColor = rank === 1 ? '#bf8b00' : rank === 2 ? '#9e9e9e' : rank === 3 ? '#a1887f' : '#666';
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; margin-bottom:3px; background:${isMe ? 'linear-gradient(to right, #fff3e0, #ffe082)' : '#fff'}; border:2px solid ${isMe ? '#fb8c00' : '#ddd'}; border-radius:6px; font-size:11px; ${isMe ? 'box-shadow: 0 0 8px rgba(251,140,0,0.4);' : ''}">
+              <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
+                <div style="font-weight:bold; min-width:30px; color:${rankColor}; font-size:13px;">${medal} ${rank}</div>
+                <div style="font-size:16px;">${a.avatar || '⛺'}</div>
+                <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                  <b>${a.nickname}</b>${a.vipLevel > 0 ? ` <span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:8px; padding:1px 3px; border-radius:3px; font-weight:bold; border:1px solid #3e2723;">👑${a.vipLevel}</span>` : ''}${isMe ? ' <span style="color:#fb8c00; font-weight:bold;">(나)</span>' : ''}
+                </div>
+              </div>
+              <div style="color:#c62828; font-weight:bold; margin-left:6px; white-space:nowrap;">💥 ${a.damage.toLocaleString()}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
     </div>
 
-    <div style="background:linear-gradient(to bottom, #e1bee7, #ce93d8); border:2px solid #7b1fa2; border-radius:8px; padding:8px; margin-top:10px; font-size:10px; line-height:1.5; color:#4a148c;">
-      <b>🏆 보상 배율:</b><br>
-      🥇 1위: 5배 · 🥈 2위: 3배 · 🥉 3위: 2배<br>
-      TOP 10: 1.5배 · 그 외 참여자: 1배<br>
-      <b>기본 보상:</b> 💰${boss.baseReward.gold.toLocaleString()} · 💎${boss.baseReward.gem} · ✨${boss.baseReward.exp.toLocaleString()}
+    <div style="background:linear-gradient(to bottom, #e1bee7, #ce93d8); border:2px solid #7b1fa2; border-radius:8px; padding:8px; margin-top:10px; font-size:10px; line-height:1.6; color:#4a148c;">
+      <b>🏆 일일 랭킹 보상:</b><br>
+      🥇 1위: 💰50,000 · 💎500 · ✨20,000<br>
+      🥈 2위: 💰30,000 · 💎300 · ✨15,000<br>
+      🥉 3위: 💰20,000 · 💎200 · ✨10,000<br>
+      🏅 TOP 10: 💰5,000 · 💎50 · ✨3,000<br>
+      🎖 TOP 50: 💰2,000 · 💎20 · ✨1,500<br>
+      🎁 참가 보상: 💰500 · 💎5 · ✨500
     </div>
   `;
 
@@ -17420,7 +18235,10 @@ async function renderBossRaid() {
   };
 
   const claimBtn = document.getElementById('claim-boss-reward');
-  if (claimBtn) claimBtn.onclick = () => claimBossReward(boss, rewardMult, myReward);
+  if (claimBtn) claimBtn.onclick = () => claimBossReward(boss, myRank);
+
+  const refreshBtn = document.getElementById('refresh-boss-ranking');
+  if (refreshBtn) refreshBtn.onclick = () => { showToast('🔄 갱신 중...', ''); renderBossRaid(); };
 }
 window.renderBossRaid = renderBossRaid;
 
@@ -17439,17 +18257,24 @@ async function attackBoss(boss) {
   game.bossRaid.myDamage += damage;
   game.bossRaid.attackCount = (game.bossRaid.attackCount || 0) + 1;
 
-  // 글로벌 업데이트
+  // === 글로벌 업데이트 (실시간 랭킹용) ===
   const online = (typeof isOnlineMode === 'function') && isOnlineMode();
   if (online) {
     try {
-      const weekKey = getCurrentWeekKey();
-      const path = `boss_raids/${weekKey}/participants/${encodeURIComponent(game.player.nickname)}`;
+      const dayKey = getCurrentBossDayKey();
+      const path = `boss_raids/${dayKey}/participants/${encodeURIComponent(game.player.nickname)}`;
+      // 프로필 정보(아바타/VIP)도 함께 저장 → 랭킹에서 표시 가능
       await _firebaseDB.ref(path).set({
         damage: game.bossRaid.myDamage,
-        attacks: game.bossRaid.attackCount,
+        attackCount: game.bossRaid.attackCount,
         lastAttack: Date.now(),
+        avatar: (game.player && game.player.avatar) || '⛺',
+        vipLevel: game.vipLevel || 0,
+        level: game.level || 1,
       });
+      // 전체 데미지 (집계용)
+      await _firebaseDB.ref(`boss_raids/${dayKey}/totalDamage`).transaction(v => (v || 0) + damage);
+      await _firebaseDB.ref(`boss_raids/${dayKey}/bossId`).set(boss.id);
     } catch (e) {
       console.warn('boss attack sync failed', e);
     }
@@ -17462,16 +18287,68 @@ async function attackBoss(boss) {
 }
 window.attackBoss = attackBoss;
 
-async function claimBossReward(boss, mult, reward) {
-  if (game.bossRaid.claimed) return;
+// === 보상 받기 (일일 랭킹 기반) ===
+async function claimBossReward(boss, myRank) {
+  if (game.bossRaid.claimed) {
+    showToast('이미 보상을 받았어요', 'warn');
+    return;
+  }
+  if (!game.bossRaid.myDamage || game.bossRaid.myDamage <= 0) {
+    showToast('참여하지 않아 보상 없음', 'warn');
+    return;
+  }
+
+  // 최신 랭킹 한번 더 조회 (사용자가 모달 열어둔 동안 순위 바뀌었을 수 있음)
+  let finalRank = myRank || 999999;
+  try {
+    const online = (typeof isOnlineMode === 'function') && isOnlineMode();
+    if (online) {
+      const dayKey = getCurrentBossDayKey();
+      const snap = await _firebaseDB.ref(`boss_raids/${dayKey}/participants`).once('value');
+      const participants = snap.val() || {};
+      const sorted = Object.entries(participants)
+        .map(([nick, p]) => ({ nick, damage: p.damage || 0 }))
+        .sort((a, b) => b.damage - a.damage);
+      const myEncNick = encodeURIComponent(game.player.nickname);
+      const idx = sorted.findIndex(s => s.nick === myEncNick);
+      if (idx >= 0) finalRank = idx + 1;
+    }
+  } catch (e) { console.warn('rank refetch failed', e); }
+
+  // 보상 결정 = 랭킹별 보상 + 기본 보상(데미지 기여 비례 보너스)
+  const rankReward = getBossRankReward(finalRank);
+  // 기본 보상은 데미지 기여도에 따라 추가 (보너스)
+  const damageBonusRatio = Math.min(1, (game.bossRaid.myDamage || 0) / boss.maxHP);
+  const baseBonus = {
+    gold: Math.floor(boss.baseReward.gold * damageBonusRatio * 0.3),
+    gem: Math.floor(boss.baseReward.gem * damageBonusRatio * 0.3),
+    exp: Math.floor(boss.baseReward.exp * damageBonusRatio * 0.3),
+  };
+
+  const total = {
+    gold: rankReward.gold + baseBonus.gold,
+    gem: rankReward.gem + baseBonus.gem,
+    exp: rankReward.exp + baseBonus.exp,
+  };
+
   game.bossRaid.claimed = true;
-  addRes('gold', reward.gold);
-  addRes('gem', reward.gem);
-  game.exp = (game.exp || 0) + reward.exp;
+  addRes('gold', total.gold);
+  addRes('gem', total.gem);
+  game.exp = (game.exp || 0) + total.exp;
   try { checkLevelUp(); } catch (e) {}
   try { playSound('victory'); } catch (e) {}
-  showToast(`🏆 보스 보상 수령! (${mult}배)`, 'gain');
-  try { addNotification('boss', `🐲 보스 처치! 💰+${reward.gold} 💎+${reward.gem}`, '🏆'); } catch (e) {}
+
+  showToast(`🏆 ${rankReward.badge} ${rankReward.name} 보상! 💰+${total.gold.toLocaleString()} 💎+${total.gem}`, 'gain');
+  try { 
+    addNotification('boss', `🐲 보스 보상 (${rankReward.badge} ${rankReward.name})\n💰+${total.gold.toLocaleString()} 💎+${total.gem}`, '🏆'); 
+  } catch (e) {}
+
+  // 화면 효과
+  if (game.home) {
+    try { emitConfetti(game.home.x, game.home.y - 20, 40); } catch (e) {}
+    try { emitLevelUpBurst(game.home.x, game.home.y); } catch (e) {}
+  }
+
   try { saveGame(); } catch (e) {}
   if ((typeof isOnlineMode === 'function') && isOnlineMode()) {
     try { uploadCloudSave(true); } catch (e) {}
@@ -18023,13 +18900,15 @@ async function renderTribeTab(tribe, tab, ctx) {
         log.innerHTML = '<div style="text-align:center; color:var(--wood-dark); font-size:11px; padding:20px;">💬 아직 메시지가 없어요. 첫 메시지를 남겨보세요!</div>';
       } else {
         log.innerHTML = sortedMsgs.map(([id, m]) => {
-          const isMe = decodeURIComponent(m.from || '') === ctx.myNick;
+          const senderNick = decodeURIComponent(m.from || '');
+          const isMe = senderNick === ctx.myNick;
+          const isAdminSender = ADMIN_NICKNAMES.includes(senderNick);
           const time = new Date(m.ts || 0).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
           return `
             <div style="display:flex; ${isMe ? 'justify-content:flex-end;' : ''} margin-bottom:6px;">
-              <div style="${isMe ? 'background:#e3f2fd; border:1px solid #42a5f5;' : 'background:#fff; border:1px solid #ddd;'} border-radius:8px; padding:6px 10px; max-width:80%;">
-                <div style="font-size:9px; color:var(--wood-dark); margin-bottom:2px;">
-                  <b>${decodeURIComponent(m.from || '')}</b> <span style="opacity:0.6;">${time}</span>
+              <div style="${isAdminSender ? 'background:linear-gradient(to bottom, #ffebee, #ffcdd2); border:2px solid #c62828;' : (isMe ? 'background:#e3f2fd; border:1px solid #42a5f5;' : 'background:#fff; border:1px solid #ddd;')} border-radius:8px; padding:6px 10px; max-width:80%;">
+                <div style="font-size:9px; ${isAdminSender ? 'color:#c62828;' : 'color:var(--wood-dark);'} margin-bottom:2px;">
+                  <b>${senderNick}</b>${isAdminSender ? ' <span style="background:#c62828; color:white; padding:0 4px; border-radius:3px; font-size:8px;">⚜ ADMIN</span>' : ''} <span style="opacity:0.6;">${time}</span>
                 </div>
                 <div style="font-size:12px; word-break:break-word;">${escapeHtml(m.text || '')}</div>
               </div>
@@ -23730,6 +24609,8 @@ function tapHarvest() {
   // 통계
   if (!game.stats) game.stats = {};
   game.stats.tapCount = (game.stats.tapCount || 0) + 1;
+  // 튜토리얼 카운트
+  try { incrementTutorialTap(); } catch (e) {}
   checkLevelUp();
   updateHUD();
 }
@@ -23763,6 +24644,18 @@ function tick(now) {
       try { recomputePower(); } catch (e) {}
       // HUD에 실시간 반영
       try { updateHUD(); } catch (e) {}
+    }
+
+    // === 퀘스트/업적/칭호 체크 (5초마다만 — 매 초 호출 시 버벅임 발생) ===
+    if (!game._questCheckTimer) game._questCheckTimer = 0;
+    game._questCheckTimer += dt;
+    if (game._questCheckTimer >= 5) {
+      game._questCheckTimer = 0;
+      try { if (typeof runAllQuestChecks === 'function') runAllQuestChecks(); } catch (e) {}
+      try { if (typeof checkAllAchievements === 'function') checkAllAchievements(); } catch (e) {}
+      try { if (typeof updateAchievementsBadge === 'function') updateAchievementsBadge(); } catch (e) {}
+      try { if (typeof checkAllTitles === 'function') checkAllTitles(); } catch (e) {}
+      try { if (typeof updateTitlesBadge === 'function') updateTitlesBadge(); } catch (e) {}
     }
 
     // === 플레이어 정보 Firebase 실시간 동기화 (30초마다) ===
@@ -24121,11 +25014,77 @@ function drawCampfire(ctx) {
     ctx.lineTo(fx2, fy2 - 14);
     ctx.closePath();
     ctx.fill();
-    // player nickname banner
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 10px "Jua", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(game.player.nickname || 'YOU', fx2 + 4, fy2 - 23);
+    // player nickname banner — 운영자는 빨간색 + 강한 외곽선
+    const isAdminPlayer = (typeof isAdmin === 'function') && isAdmin();
+    if (isAdminPlayer) {
+      // 외곽선 (검은색 진하게)
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.font = 'bold 11px "Jua", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.strokeText(game.player.nickname || 'YOU', fx2 + 4, fy2 - 23);
+      // 빨간색 본문
+      ctx.fillStyle = '#ff5252';
+      ctx.fillText(game.player.nickname || 'YOU', fx2 + 4, fy2 - 23);
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px "Jua", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(game.player.nickname || 'YOU', fx2 + 4, fy2 - 23);
+    }
+    const nick = game.player.nickname || 'YOU';
+    // === 🪽 운영자 천사날개 테두리 (닉네임 양옆에 그림) ===
+    if (game.equippedBorder === 'admin_angelwings' && typeof isAdmin === 'function' && isAdmin()) {
+      const nickW = ctx.measureText(nick).width;
+      const wingY = fy2 - 26;
+      const leftWingX = fx2;
+      const rightWingX = fx2 + 4 + nickW + 2;
+      const t = Date.now() * 0.003;
+      const flap = Math.sin(t) * 1.5;
+      // 왼쪽 날개 (반시계 방향 곡선)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.strokeStyle = '#c62828';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(leftWingX, wingY);
+      ctx.bezierCurveTo(leftWingX - 4, wingY - 6 + flap, leftWingX - 10, wingY - 3, leftWingX - 12, wingY + 1);
+      ctx.bezierCurveTo(leftWingX - 9, wingY + 3, leftWingX - 4, wingY + 2, leftWingX, wingY + 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 왼쪽 날개 깃털 디테일
+      ctx.strokeStyle = 'rgba(198, 40, 40, 0.6)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(leftWingX - 2, wingY - 1); ctx.lineTo(leftWingX - 8, wingY - 2 + flap);
+      ctx.moveTo(leftWingX - 2, wingY); ctx.lineTo(leftWingX - 10, wingY);
+      ctx.moveTo(leftWingX - 2, wingY + 1); ctx.lineTo(leftWingX - 8, wingY + 1);
+      ctx.stroke();
+      // 오른쪽 날개 (시계 방향 곡선)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.strokeStyle = '#c62828';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(rightWingX, wingY);
+      ctx.bezierCurveTo(rightWingX + 4, wingY - 6 + flap, rightWingX + 10, wingY - 3, rightWingX + 12, wingY + 1);
+      ctx.bezierCurveTo(rightWingX + 9, wingY + 3, rightWingX + 4, wingY + 2, rightWingX, wingY + 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // 오른쪽 날개 깃털 디테일
+      ctx.strokeStyle = 'rgba(198, 40, 40, 0.6)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(rightWingX + 2, wingY - 1); ctx.lineTo(rightWingX + 8, wingY - 2 + flap);
+      ctx.moveTo(rightWingX + 2, wingY); ctx.lineTo(rightWingX + 10, wingY);
+      ctx.moveTo(rightWingX + 2, wingY + 1); ctx.lineTo(rightWingX + 8, wingY + 1);
+      ctx.stroke();
+      // 후광 (닉네임 위쪽 빨간 광채)
+      ctx.fillStyle = 'rgba(198, 40, 40, 0.3)';
+      ctx.beginPath();
+      ctx.arc(fx2 + 4 + nickW / 2, wingY - 8, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // === 👑 VIP 뱃지 (닉네임 위에) ===
     if (game.vipLevel && game.vipLevel > 0) {
       const vipText = `👑 VIP ${game.vipLevel}`;
@@ -24252,9 +25211,20 @@ function render() {
   // Campfire (home base)
   drawCampfire(ctx);
 
-  // build sorted draw list (z-order by y) — 이제 월드 좌표 그대로 사용
+  // build sorted draw list (z-order by y) — 뷰포트 컬링으로 화면 밖 객체 스킵
+  // 뷰포트 영역 (월드 좌표, 여유분 포함)
+  const vpMinX = game.camX - TILE * 2;
+  const vpMinY = game.camY - TILE * 2;
+  const vpMaxX = game.camX + viewW + TILE * 2;
+  const vpMaxY = game.camY + viewH + TILE * 2;
+
   const drawList = [];
   for (const b of game.buildings) {
+    const bx = b.gx * TILE;
+    const by = b.gy * TILE;
+    const bw = b.def.size * TILE;
+    // 컬링: 뷰포트 밖이면 그리지 않음
+    if (bx + bw < vpMinX || bx > vpMaxX || by + bw < vpMinY || by > vpMaxY) continue;
     drawList.push({ y: (b.gy + b.def.size) * TILE, draw: () => {
       const sx = b.gx * TILE;
       const sy = b.gy * TILE;
@@ -24263,10 +25233,13 @@ function render() {
   }
   // villager/pet도 새 카메라 변환에서는 camX 빼지 말고 월드 좌표 그대로
   for (const v of game.villagers) {
+    // 컬링
+    if (v.x < vpMinX || v.x > vpMaxX || v.y < vpMinY || v.y > vpMaxY) continue;
     drawList.push({ y: v.y, draw: () => v.draw(ctx, 0, 0) });
   }
   if (game.petCompanions) {
     for (const p of game.petCompanions) {
+      if (p.x < vpMinX || p.x > vpMaxX || p.y < vpMinY || p.y > vpMaxY) continue;
       drawList.push({ y: p.y, draw: () => p.draw(ctx, 0, 0) });
     }
   }
@@ -24480,6 +25453,9 @@ function startNewGame() {
   game.occupiedByMe = false;
   game.occupiedBy = null;
   game.attendance = { lastClaimDate: null, streak: 0, claimedToday: false };
+  // === 튜토리얼 시작 플래그 ===
+  game.tutorialStep = 0;          // 0: 시작 전, 1~N: 진행 중, 99: 완료
+  game.tutorialCompleted = false;
   beginGame();
 }
 function continueGame() {
@@ -24547,6 +25523,12 @@ function beginGame() {
       }, 1500);
     }
   } catch (e) {}
+  // === 튜토리얼 자동 시작 (신규 유저만) ===
+  setTimeout(() => {
+    if (!game.tutorialCompleted && game.day === 1 && game.level === 1) {
+      try { startTutorial(); } catch (e) { console.warn('tutorial start failed', e); }
+    }
+  }, 800);
 }
 
 function resizeCanvas() {
@@ -25097,10 +26079,20 @@ async function _initImpl() {
 
   // modal close
   document.querySelectorAll('[data-close]').forEach(b => {
-    b.onclick = () => b.closest('.modal-bg').classList.remove('show');
+    b.onclick = () => {
+      const m = b.closest('.modal-bg');
+      m.classList.remove('show');
+      // 보스 모달이면 실시간 리스너 정리
+      if (m.id === 'm-boss') { try { stopBossRaidLiveUpdate(); } catch (e) {} }
+    };
   });
   document.querySelectorAll('.modal-bg').forEach(bg => {
-    bg.addEventListener('click', (e) => { if (e.target === bg) bg.classList.remove('show'); });
+    bg.addEventListener('click', (e) => { 
+      if (e.target === bg) {
+        bg.classList.remove('show');
+        if (bg.id === 'm-boss') { try { stopBossRaidLiveUpdate(); } catch (e) {} }
+      }
+    });
   });
 
   // preload

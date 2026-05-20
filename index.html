@@ -17229,10 +17229,12 @@ function renderFriendsTab(tab) {
     // suggested list — randomly picked names not yet added
     const suggList = c.querySelector('#suggested-list');
     const aiPool = [
-      // 솔로 플레이용 AI 친구 풀
+      // 솔로 플레이용 AI 친구 풀 (36명) + 글로벌 AI 풀 (50명) 합쳐서 사용
       '점박이','천화','소년시대','쿨한늑대','샤넬로즈','깜박이','전승이','디아','율본산장','돌도끼맨','불의여왕','슈팅퀘이서','CAD노가다','사자왕','Sad doll','림네스',
       '회오리감자','쥬얼리나','블루베어','태풍맨','구름달리기','용암군주','은하수','지존검객','달빛소녀','폭풍의눈',
-      'PixelKing','FrostByte','NeonHunter','SilverWolf','CrimsonAce','DarkRaven','EpicFalcon','ShadowFox','QuickArrow','MysticOwl'
+      'PixelKing','FrostByte','NeonHunter','SilverWolf','CrimsonAce','DarkRaven','EpicFalcon','ShadowFox','QuickArrow','MysticOwl',
+      // AI_USER_POOL의 50명도 친구 추천에 포함
+      ...(typeof AI_USER_POOL !== 'undefined' ? AI_USER_POOL : [])
     ];
 
     // 일단 로딩 표시
@@ -17245,25 +17247,45 @@ function renderFriendsTab(tab) {
       seen.add(game.player.nickname);
       game.friends.forEach(f => seen.add(f.nickname));
 
-      // 1. 실제 서버 유저 가져오기 (온라인 모드)
+      // 1. 실제 서버 유저 가져오기 (AI 제외 - DB 직접 조회)
       if (online) {
         try {
-          const globalPlayers = await fetchGlobalRanking(30);
-          for (const p of (globalPlayers || [])) {
-            if (!p || !p.nickname) continue;
-            if (seen.has(p.nickname)) continue;
-            seen.add(p.nickname);
+          // fetchGlobalRanking은 AI 50명을 섞으므로 사용하지 않음
+          // DB 직접 조회 → 실제 유저만
+          const snap = await _firebaseDB.ref('players').orderByChild('score').limitToLast(30).once('value');
+          const realPlayers = [];
+          if (snap.exists()) {
+            snap.forEach(child => {
+              const v = child.val();
+              if (!v || v.isAI) return;  // AI 플래그 있으면 제외
+              // 실제 유저 검증: 닉네임 + 레벨 + 마지막 접속 시간 있어야 함
+              const nick = v.nickname || v.name;
+              if (!nick) return;
+              if (!v.level || v.level < 1) return;  // 레벨 미설정 = 가짜
+              // lastSeen이 30일 이상 지난 유저는 비활성으로 제외
+              if (v.lastSeen) {
+                const daysSince = (Date.now() - v.lastSeen) / (1000 * 60 * 60 * 24);
+                if (daysSince > 30) return;
+              }
+              realPlayers.push(v);
+            });
+          }
+          for (const p of realPlayers) {
+            const nick = p.nickname || p.name;
+            if (!nick) continue;
+            if (seen.has(nick)) continue;
+            seen.add(nick);
             candidates.push({
-              name: p.nickname,
+              name: nick,
               level: p.level || 1,
-              power: p.power || 100,
+              power: p.power || p.score || 100,
               avatar: p.avatar || '⛺',
               isReal: true,
               petCount: p.petCount || 0,
             });
           }
         } catch (e) {
-          console.warn('global players fetch failed', e);
+          console.warn('real players fetch failed', e);
         }
       }
 
@@ -17308,11 +17330,15 @@ function renderFriendsTab(tab) {
       finalList.forEach(c => {
         const div = document.createElement('div');
         div.style.cssText = `background: linear-gradient(to bottom, #fff, var(--parchment-dark));
-          border: 2px solid ${c.isReal ? '#7b1fa2' : 'var(--wood-dark)'}; border-radius: 10px;
+          border: 2px solid ${c.isReal ? '#7b1fa2' : '#9e9e9e'}; border-radius: 10px;
           padding: 8px; text-align: center; cursor: pointer;`;
+        // 실제: 🌐 보라색 / AI: 🤖 회색 마크
+        const markBadge = c.isReal
+          ? '<span style="background:#7b1fa2; color:white; font-size:8px; padding:1px 4px; border-radius:3px;">🌐 실제</span>'
+          : '<span style="background:#616161; color:white; font-size:8px; padding:1px 4px; border-radius:3px;">🤖 AI</span>';
         div.innerHTML = `
           <div style="font-size:28px;">${c.avatar}</div>
-          <div style="font-size:12px; font-weight:bold;">${c.name}${c.isReal ? ' <span style="background:#7b1fa2; color:white; font-size:8px; padding:1px 4px; border-radius:3px;">🌐실제</span>' : ''}</div>
+          <div style="font-size:12px; font-weight:bold;">${c.name} ${markBadge}</div>
           <div style="font-size:9px; color:var(--wood-dark);">Lv.${c.level} · ⚔${c.power}</div>
           <button style="margin-top:4px; background:linear-gradient(to bottom, ${c.isReal ? '#7b1fa2, #4a148c' : '#66bb6a, #388e3c'}); color:white; border:2px solid var(--wood-dark); border-radius:6px; padding:2px 8px; font-size:10px; font-family:inherit; cursor:pointer; font-weight:bold;">${c.isReal ? '📨 요청' : '+ 친구'}</button>
         `;

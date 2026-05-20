@@ -9089,7 +9089,9 @@ function claimDailyQuest(qId) {
     }
   }
   q.claimed = true;
-  showToast(`📅 일일 보상! ${q.title}${q.reward.exp ? ` (+${q.reward.exp}xp)` : ''}`, 'gain');
+  // 🎁 시즌 패스 EXP도 함께 (일일 퀘스트 완료 = 시즌 EXP 30)
+  try { addSeasonExp(30); } catch (e) {}
+  showToast(`📅 일일 보상! ${q.title}${q.reward.exp ? ` (+${q.reward.exp}xp)` : ''} (+30 시즌)`, 'gain');
   try { checkLevelUp(); } catch (e) {}
   updateHUD();
   updateQuestBadge();
@@ -9256,7 +9258,9 @@ function claimQuest(qId) {
   q.claimed = true;
   game.completedQuests = game.completedQuests || [];
   game.completedQuests.push(qId);
-  showToast(`📜 "${q.title}" 보상 획득!${q.reward.exp ? ` (+${q.reward.exp}xp)` : ''}`, 'gain');
+  // 🎁 시즌 패스 EXP도 함께 (일반 퀘스트 완료 = 시즌 EXP 50)
+  try { addSeasonExp(50); } catch (e) {}
+  showToast(`📜 "${q.title}" 보상 획득!${q.reward.exp ? ` (+${q.reward.exp}xp)` : ''} (+50 시즌)`, 'gain');
   try { checkLevelUp(); } catch (e) {}
   // 새 퀘스트 추가
   const unused = QUESTS_TEMPLATES.filter(t => 
@@ -9959,6 +9963,20 @@ const SHOP_ITEMS = [
     for (const key of Object.keys(item.cost)) {
       if (typeof item.cost[key] === 'number') {
         item.cost[key] = Math.max(1, Math.ceil(item.cost[key] * BUFF_EXTRA));
+      }
+    }
+  }
+})();
+
+// === 🛒 버프 외 모든 상점 아이템 추가 ×10 인상 (사용자 요청) ===
+(function applyNonBuffMultiplier() {
+  const EXTRA = 10;
+  for (const item of SHOP_ITEMS) {
+    if (item.category === 'buff') continue;  // 버프는 이미 ×50, 제외
+    if (!item.cost) continue;
+    for (const key of Object.keys(item.cost)) {
+      if (typeof item.cost[key] === 'number') {
+        item.cost[key] = Math.max(1, Math.ceil(item.cost[key] * EXTRA));
       }
     }
   }
@@ -17348,36 +17366,128 @@ function renderPetArenaTab(c) {
 window.renderPetArenaTab = renderPetArenaTab;
 
 // === 🏟 독립 투기장 모달 ===
+// ============================================================================
+// 🏟 펫 투기장 - 포켓몬 마스터즈 스타일 (3명 자동 매칭)
+// ============================================================================
+const ARENA_FREE_DAILY = 5;  // 하루 무료 횟수
+const ARENA_RESET_COST = 100;  // 리셋 보석 비용
+
+// AI 봇 생성용 (실제 유저 부족 시 채움)
+function generateArenaBot(targetPower, index) {
+  const aiNames = [
+    '백호술사', '용의후예', '바람늑대', '천둥부족', '달빛전사',
+    '폭풍사냥꾼', '얼음마녀', '불꽃족장', '대지수호자', '심해의왕',
+    '별빛여신', '암흑기사', '황금사자', '눈보라전사', '천공의주인',
+    '돌격대장', '광휘기사', '심연의사도', '여명의기수', '망각의수호자',
+    '폐허순례자', '운명의기수', '강철군주', '루비의주인', '에메랄드도적',
+    '사파이어현자', '아메시스트마법사', '오팔점성술사', '진주의무희', '비단늑대'
+  ];
+  const name = aiNames[index % aiNames.length] + (Math.floor(index / aiNames.length) > 0 ? Math.floor(index / aiNames.length) : '');
+  // 펫 후보 (랜덤)
+  const petKeys = Object.keys(PETS);
+  const myLevel = game.level || 1;
+  const tierFilter = myLevel >= 30 ? ['legendary', 'epic', 'rare']
+                  : myLevel >= 15 ? ['epic', 'rare', 'common']
+                  : ['rare', 'common'];
+  const eligiblePets = petKeys.filter(k => tierFilter.includes(PETS[k].tier));
+  const randomPet = eligiblePets[Math.floor(Math.random() * eligiblePets.length)] || 'wolf';
+  return {
+    nickname: name,
+    level: Math.max(1, myLevel + Math.floor(Math.random() * 11) - 5),  // 내 레벨 ±5
+    totalPower: Math.floor(targetPower * (0.7 + Math.random() * 0.6)),  // 70~130%
+    petCount: Math.floor(Math.random() * 30) + 5,
+    avatar: ['⚔', '🛡', '🦁', '🐺', '🔥', '⚡', '🌙', '⭐'][Math.floor(Math.random() * 8)],
+    isAI: true,
+    representPet: randomPet,
+  };
+}
+
+// 매칭 후보 3명 생성 (실제 유저 + AI 봇 혼합)
+function generateArenaOpponents() {
+  const myPower = game.totalPower || 100;
+  const candidates = [];
+  // 1) 친구 중에서
+  if (game.friends && game.friends.length > 0) {
+    for (const f of game.friends) {
+      candidates.push({
+        nickname: f.nickname,
+        level: f.level || 1,
+        totalPower: f.power || 100,
+        petCount: f.petCount || 0,
+        avatar: f.avatar || '⛺',
+        isAI: false,
+        isFriend: true,
+        representPet: Object.keys(f.pets || {})[0] || 'wolf',
+      });
+    }
+  }
+  // 2) 글로벌 랭킹에서
+  if (game._globalPlayersCache && game._globalPlayersCache.length > 0) {
+    for (const p of game._globalPlayersCache) {
+      if (p.name === (game.player && game.player.nickname)) continue;  // 본인 제외
+      if (candidates.some(c => c.nickname === p.name)) continue;  // 중복 제거
+      candidates.push({
+        nickname: p.name,
+        level: p.level || 1,
+        totalPower: p.totalPower || 100,
+        petCount: p.petCount || 0,
+        avatar: p.avatar || '⛺',
+        isAI: false,
+        isFriend: false,
+        representPet: (p.pets && p.pets[0]) || 'wolf',
+      });
+    }
+  }
+
+  // 3) 비슷한 전투력 (±50%) 우선 + 랜덤 셔플
+  const filtered = candidates.filter(c => c.totalPower > 0 && c.totalPower < myPower * 3 + 1000);
+  for (let i = filtered.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+  }
+
+  // 4) 부족하면 AI 봇으로 채우기
+  const opponents = filtered.slice(0, 3);
+  while (opponents.length < 3) {
+    opponents.push(generateArenaBot(myPower, opponents.length));
+  }
+  return opponents;
+}
+
 async function openArena() {
   const modal = document.getElementById('m-arena');
   if (!modal) return;
   modal.classList.add('show');
 
-  // 일단 로컬 친구로 렌더
-  renderArenaModal();
+  // 데이터 초기화
+  if (!game.arena) game.arena = {};
+  const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+  if (game.arena.date !== today) {
+    game.arena.date = today;
+    game.arena.freeUsed = 0;       // 오늘 사용한 무료 횟수
+    game.arena.totalMatches = 0;   // 오늘 총 매칭 횟수
+  }
+  if (!game.arena.wins) game.arena.wins = 0;
+  if (!game.arena.losses) game.arena.losses = 0;
+  if (!game.arena.score) game.arena.score = 1000;
+  if (!game.arena.skipBattle) game.arena.skipBattle = false;
 
-  // 온라인이면 서버 유저 전체 가져와서 합쳐서 다시 렌더
+  // 글로벌 랭킹 미리 로드 (백그라운드)
   if (typeof isOnlineMode === 'function' && isOnlineMode()) {
-    try {
-      const body = document.getElementById('arena-body');
-      const loadingMsg = document.createElement('div');
-      loadingMsg.id = 'arena-loading';
-      loadingMsg.style.cssText = 'text-align:center; color:var(--wood-dark); font-size:11px; padding:8px;';
-      loadingMsg.textContent = '🌐 서버 유저 가져오는 중...';
-      if (body) body.insertBefore(loadingMsg, body.firstChild);
-
-      const globalPlayers = await fetchGlobalRanking(50);
-      // 캐시 (renderArenaModal에서 사용)
-      game._globalPlayersCache = globalPlayers || [];
-
-      // 로딩 메시지 제거 + 재렌더
-      const lm = document.getElementById('arena-loading');
-      if (lm) lm.remove();
-      renderArenaModal();
-    } catch (e) {
-      console.warn('Failed to load global players', e);
+    if (!game._globalPlayersCache || (Date.now() - (game._globalPlayersCacheAt || 0)) > 60000) {
+      try {
+        game._globalPlayersCache = await fetchGlobalRanking(50);
+        game._globalPlayersCacheAt = Date.now();
+      } catch (e) {}
     }
   }
+
+  // 첫 매칭 (없으면 생성)
+  if (!game.arena.opponents || game.arena.opponents.length !== 3) {
+    game.arena.opponents = generateArenaOpponents();
+  }
+
+  renderArenaModal();
 }
 window.openArena = openArena;
 
@@ -19637,7 +19747,7 @@ function addSeasonExp(amount) {
 }
 window.addSeasonExp = addSeasonExp;
 
-// 일일 미션 진행도 갱신
+// 일일 미션 진행도 갱신 - 완료 시 자동 EXP 지급
 function updateSeasonMission(type, amount = 1) {
   ensureSeasonPassData();
   const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
@@ -19647,10 +19757,23 @@ function updateSeasonMission(type, amount = 1) {
     game.seasonPass.dailyMissions[today] = {};
     for (const m of shuffled) game.seasonPass.dailyMissions[today][m.id] = 0;
   }
+  if (!game.seasonPass.dailyClaimed[today]) game.seasonPass.dailyClaimed[today] = {};
+
   // 해당 type의 미션 진행
   for (const m of SEASON_DAILY_MISSIONS) {
     if (m.type === type && game.seasonPass.dailyMissions[today][m.id] !== undefined) {
-      game.seasonPass.dailyMissions[today][m.id] = Math.min(m.target, (game.seasonPass.dailyMissions[today][m.id] || 0) + amount);
+      const before = game.seasonPass.dailyMissions[today][m.id] || 0;
+      const after = Math.min(m.target, before + amount);
+      game.seasonPass.dailyMissions[today][m.id] = after;
+
+      // 🎁 미션 완료 시 자동 EXP 지급 (이미 받지 않았으면)
+      if (before < m.target && after >= m.target && !game.seasonPass.dailyClaimed[today][m.id]) {
+        game.seasonPass.dailyClaimed[today][m.id] = true;
+        const expGain = m.exp || 20;
+        addSeasonExp(expGain);
+        try { showToast(`✅ ${m.title} 완료! +${expGain} 시즌 EXP`, 'gain'); } catch (e) {}
+        try { playSound('coin'); } catch (e) {}
+      }
     }
   }
   try { updateSeasonBadge(); } catch (e) {}
@@ -19737,6 +19860,13 @@ function renderSeasonPass() {
 
     <div style="background:rgba(255,255,255,0.85); border:2px solid var(--wood); border-radius:10px; padding:10px; margin-bottom:10px;">
       <div style="font-weight:bold; color:var(--wood-dark); margin-bottom:6px;">📋 오늘의 미션 (${completedCount}/${missionDefs.length})</div>
+      <div style="background:linear-gradient(135deg, #fff3e0, #ffe0b2); border:1px dashed #ef6c00; border-radius:6px; padding:6px 8px; margin-bottom:6px; font-size:10px; color:#bf360c; line-height:1.5;">
+        💡 <b>EXP 획득 방법:</b><br>
+        • 일일 미션 자동 진행 (완료 시 즉시 EXP 지급)<br>
+        • 📜 일반 퀘스트 보상 받기: <b>+50 EXP</b><br>
+        • 📅 일일 퀘스트 보상 받기: <b>+30 EXP</b><br>
+        • 🏟 부족 기부: 기부 EXP 50당 <b>+1 EXP</b>
+      </div>
       ${missionDefs.map(m => {
         const prog = missions[m.id] || 0;
         const done = prog >= m.target;
@@ -21591,32 +21721,6 @@ function renderArenaModal() {
   if (!body) return;
   const owned = Object.entries(game.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
 
-  // 전체 전적
-  const allStats = game.petArenaStats || {};
-  let totalWins = 0, totalLosses = 0;
-  for (const k in allStats) {
-    totalWins += (allStats[k].wins || 0);
-    totalLosses += (allStats[k].losses || 0);
-  }
-  const totalMatches = totalWins + totalLosses;
-  const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : '0.0';
-
-  // 내 펫 전투력
-  let totalPower = 0;
-  owned.forEach(([k]) => totalPower += PETS[k].power || 0);
-
-  // 투기장 랭킹 포인트 (서버에서 가져오거나 로컬)
-  const myRankPoints = game.arenaRankPoints || 1000;
-
-  // 등급
-  let rankBadge = '🥉 신참';
-  let rankColor = '#a1887f';
-  if (totalWins >= 100) { rankBadge = '👑 챔피언'; rankColor = '#ffd700'; }
-  else if (totalWins >= 50) { rankBadge = '🏆 마스터'; rankColor = '#e91e63'; }
-  else if (totalWins >= 20) { rankBadge = '⚔ 베테랑'; rankColor = '#f57c00'; }
-  else if (totalWins >= 10) { rankBadge = '🛡 도전자'; rankColor = '#1565c0'; }
-  else if (totalWins >= 5) { rankBadge = '⚡ 견습'; rankColor = '#2e7d32'; }
-
   if (owned.length === 0) {
     body.innerHTML = `
       <div style="text-align:center; padding:30px; color:var(--wood-dark);">
@@ -21628,59 +21732,312 @@ function renderArenaModal() {
     return;
   }
 
-  // === 상단 패널 ===
-  let html = `
-    <div style="background:linear-gradient(135deg, #5d4037, #3e2723); border:3px solid ${rankColor}; border-radius:12px; padding:14px; margin-bottom:10px; color:white; box-shadow: 0 0 12px ${rankColor}55;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-        <div>
-          <div style="font-size:18px; font-weight:bold; color:${rankColor};">${rankBadge}</div>
-          <div style="font-size:11px; color:#ffd54f;">투기장 등급</div>
+  // 전체 전적
+  const allStats = game.petArenaStats || {};
+  let totalWins = 0, totalLosses = 0;
+  for (const k in allStats) {
+    totalWins += (allStats[k].wins || 0);
+    totalLosses += (allStats[k].losses || 0);
+  }
+  const totalMatches = totalWins + totalLosses;
+  const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : '0.0';
+
+  const myPower = game.totalPower || 0;
+  const myRank = game.arena.score || 1000;
+  const opponents = game.arena.opponents || [];
+  const freeUsed = game.arena.freeUsed || 0;
+  const freeLeft = Math.max(0, ARENA_FREE_DAILY - freeUsed);
+  const skipBattle = !!game.arena.skipBattle;
+  const myAvatar = (game.player && game.player.avatar) || '⛺';
+  const myNick = (game.player && game.player.nickname) || '나';
+  const myLevel = game.level || 1;
+
+  // === HTML 렌더 ===
+  body.innerHTML = `
+    <!-- 내 정보 패널 (상단) -->
+    <div style="background:linear-gradient(135deg, #fff3cd, #ffe5b4); border:3px solid #c69c6d; border-radius:14px; padding:10px; margin-bottom:12px; box-shadow:0 4px 0 #8d6e63;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="position:relative; width:56px; height:56px; background:linear-gradient(135deg, #fff, #ffe082); border:3px solid #8d6e63; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:30px; box-shadow:0 2px 6px rgba(0,0,0,0.3);">
+          ${myAvatar}
+          <div style="position:absolute; bottom:-4px; right:-4px; background:linear-gradient(135deg, #c62828, #8b0000); color:white; font-size:10px; font-weight:bold; padding:2px 5px; border-radius:8px; border:2px solid white;">${myLevel}</div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:20px; font-weight:bold; color:#ffd54f;">🏆 ${myRankPoints}</div>
-          <div style="font-size:10px; color:#fff8e1;">랭킹 포인트</div>
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; padding-top:8px; border-top:1px dashed rgba(255,213,79,0.4);">
-        <div style="text-align:center;">
-          <div style="font-size:16px; font-weight:bold; color:#66bb6a;">${totalWins}</div>
-          <div style="font-size:9px; color:#a5d6a7;">승</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:16px; font-weight:bold; color:#ef5350;">${totalLosses}</div>
-          <div style="font-size:9px; color:#ef9a9a;">패</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:16px; font-weight:bold; color:#42a5f5;">${winRate}%</div>
-          <div style="font-size:9px; color:#90caf9;">승률</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:16px; font-weight:bold; color:#ffd54f;">⚔${totalPower.toLocaleString()}</div>
-          <div style="font-size:9px; color:#fff8e1;">전투력</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:14px; font-weight:bold; color:#3e2723; margin-bottom:4px;">내 정보</div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <div style="background:rgba(255,255,255,0.7); padding:3px 8px; border-radius:8px; font-size:11px; color:#3e2723;">🏆 <b>${myRank}</b></div>
+            <div style="background:linear-gradient(to right, #c62828, #ff6b6b); color:white; padding:3px 10px; border-radius:8px; font-size:12px; font-weight:bold;">⚔ ${myPower.toLocaleString()}</div>
+            <div style="background:rgba(255,255,255,0.7); padding:3px 8px; border-radius:8px; font-size:11px; color:#3e2723;">${totalWins}승 ${totalLosses}패 (${winRate}%)</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div style="text-align:center; margin-bottom:8px;">
-      <button id="arena-refresh-btn" style="background:linear-gradient(to bottom, #42a5f5, #1565c0); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:8px 16px; font-family:inherit; font-size:12px; font-weight:bold; cursor:pointer; box-shadow:0 2px 0 var(--wood-dark);">🔄 추천 상대 새로고침</button>
+    <!-- 매칭된 상대 3명 -->
+    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-bottom:10px;">
+      ${opponents.map((opp, idx) => renderArenaOpponentCard(opp, idx)).join('')}
     </div>
 
-    <div id="arena-recommend-list">
-      <div style="text-align:center; padding:20px; color:var(--wood-dark);">⏳ 추천 상대 로딩 중...</div>
+    <!-- 컨트롤 영역 -->
+    <div style="background:linear-gradient(to bottom, #fff8e1, #ffe5b4); border:2px solid #c69c6d; border-radius:12px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+        <label style="display:flex; align-items:center; gap:4px; cursor:pointer; user-select:none;">
+          <input type="checkbox" id="arena-skip-battle" ${skipBattle ? 'checked' : ''} style="width:16px; height:16px;">
+          <span style="font-size:11px; color:#3e2723; font-weight:bold;">⚡ 전투 건너뛰기</span>
+        </label>
+        <button id="arena-reset-btn" style="background:linear-gradient(135deg, #4fc3f7, #0288d1); color:white; border:2px solid #01579b; border-radius:10px; padding:8px 20px; font-family:inherit; font-size:13px; font-weight:bold; cursor:pointer; box-shadow:0 3px 0 #01579b;">
+          🔄 리셋 (💎${ARENA_RESET_COST})
+        </button>
+        <div style="font-size:11px; color:#3e2723; font-weight:bold;">
+          오늘 무료: <b style="color:${freeLeft > 0 ? '#2e7d32' : '#c62828'};">${freeLeft}/${ARENA_FREE_DAILY}</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- 안내 -->
+    <div style="font-size:10px; color:#8d6e63; text-align:center; padding:6px;">
+      💡 비슷한 전투력의 상대 3명이 자동 매칭됩니다. 무료 횟수 소진 시 리셋으로 새 상대 가능.
     </div>
   `;
 
-  body.innerHTML = html;
+  // 핸들러
+  const skipCb = document.getElementById('arena-skip-battle');
+  if (skipCb) skipCb.onchange = () => { game.arena.skipBattle = skipCb.checked; };
+  const resetBtn = document.getElementById('arena-reset-btn');
+  if (resetBtn) resetBtn.onclick = arenaReset;
 
-  // 새로고침 버튼
-  document.getElementById('arena-refresh-btn').onclick = () => {
-    loadArenaRecommendedPets();
-  };
-
-  // 추천 펫 3마리 로드
-  loadArenaRecommendedPets();
+  // 상대 카드 클릭 핸들러
+  document.querySelectorAll('.arena-opp-card').forEach(card => {
+    card.onclick = () => {
+      const idx = parseInt(card.dataset.idx);
+      arenaChallenge(idx);
+    };
+  });
 }
 window.renderArenaModal = renderArenaModal;
+
+// === 상대 카드 1개 렌더링 ===
+function renderArenaOpponentCard(opp, idx) {
+  const tierColors = PET_TIER_COLORS || {};
+  const myPower = game.totalPower || 100;
+  const powerDiff = opp.totalPower - myPower;
+  const diffColor = powerDiff < -myPower * 0.2 ? '#43a047'  // 약함 = 녹색
+                  : powerDiff > myPower * 0.2 ? '#c62828'   // 강함 = 빨강
+                  : '#f57c00';                              // 비슷 = 주황
+
+  // 펫 정보
+  const petKey = opp.representPet || 'wolf';
+  const pet = PETS[petKey] || PETS.wolf;
+  const tier = pet?.tier || 'common';
+  const tierColor = tierColors[tier] || '#999';
+
+  const isAdminOpp = ADMIN_NICKNAMES.includes(opp.nickname);
+  const isAI = opp.isAI;
+
+  return `
+    <div class="arena-opp-card" data-idx="${idx}" style="
+      background:linear-gradient(to bottom, #fff, #ffefd5);
+      border:3px solid ${tierColor};
+      border-radius:14px;
+      padding:6px;
+      cursor:pointer;
+      transition:transform 0.1s, box-shadow 0.15s;
+      box-shadow:0 4px 0 #8d6e63, 0 0 6px ${tierColor}44;
+      position:relative;
+      overflow:hidden;
+    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 0 #8d6e63, 0 0 12px ${tierColor}aa';" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 0 #8d6e63, 0 0 6px ${tierColor}44';">
+      <!-- 상단: 전투력 -->
+      <div style="background:linear-gradient(to right, #c62828, #ff7043); color:white; text-align:center; padding:3px; border-radius:6px; font-size:11px; font-weight:bold; margin-bottom:5px;">
+        ⚔ ${opp.totalPower.toLocaleString()}
+      </div>
+
+      <!-- 펫 아이콘 (큰 원형) -->
+      <div style="position:relative; width:100%; aspect-ratio:1; max-width:80px; margin:0 auto 5px;">
+        <div style="
+          width:100%; height:100%;
+          background:radial-gradient(circle, #fff, #ffe5b4);
+          border:3px solid ${tierColor};
+          border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          box-shadow:inset 0 0 10px ${tierColor}33, 0 0 8px ${tierColor}66;
+          overflow:hidden;
+        ">
+          ${pet ? petSVG(pet, 60) : '<div style="font-size:36px;">' + (opp.avatar || '🦁') + '</div>'}
+        </div>
+        <!-- 레벨 뱃지 -->
+        <div style="position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg, #1565c0, #0d47a1); color:white; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:10px; border:2px solid white; min-width:24px; text-align:center;">${opp.level}</div>
+      </div>
+
+      <!-- 닉네임 -->
+      <div style="font-size:11px; font-weight:bold; text-align:center; color:${isAdminOpp ? '#c62828' : '#3e2723'}; padding:2px; min-height:14px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        ${escapeHtml(opp.nickname)}
+        ${isAdminOpp ? '<span style="background:#c62828; color:white; padding:0 3px; border-radius:3px; font-size:8px;">⚜</span>' : ''}
+      </div>
+
+      <!-- 타입 표시 -->
+      <div style="text-align:center; margin-top:3px;">
+        ${isAI ? '<span style="background:#9e9e9e; color:white; font-size:8px; padding:1px 5px; border-radius:4px;">🤖 AI</span>'
+              : opp.isFriend ? '<span style="background:#43a047; color:white; font-size:8px; padding:1px 5px; border-radius:4px;">👥 친구</span>'
+              : '<span style="background:#1976d2; color:white; font-size:8px; padding:1px 5px; border-radius:4px;">🌐 유저</span>'}
+        <span style="background:${diffColor}; color:white; font-size:8px; padding:1px 5px; border-radius:4px; margin-left:3px;">
+          ${powerDiff > 0 ? '+' : ''}${powerDiff.toLocaleString()}
+        </span>
+      </div>
+    </div>
+  `;
+}
+window.renderArenaOpponentCard = renderArenaOpponentCard;
+
+// === 매칭 리셋 ===
+async function arenaReset() {
+  if ((game.res.gem || 0) < ARENA_RESET_COST) {
+    showToast(`💎 ${ARENA_RESET_COST} 보석이 필요해요`, 'warn');
+    return;
+  }
+  showConfirmDialog(
+    '🔄 리셋',
+    `💎 ${ARENA_RESET_COST} 보석으로 새 상대 3명을 매칭할까요?\n\n현재 보석: 💎 ${(game.res.gem || 0).toLocaleString()}`,
+    () => {
+      if ((game.res.gem || 0) < ARENA_RESET_COST) { showToast('보석 부족!', 'warn'); return; }
+      game.res.gem -= ARENA_RESET_COST;
+      game.arena.opponents = generateArenaOpponents();
+      showToast('🔄 새 상대 매칭됨!', 'gain');
+      try { playSound('click'); } catch (e) {}
+      renderArenaModal();
+      updateHUD();
+    }
+  );
+}
+window.arenaReset = arenaReset;
+
+// === 도전 (상대 카드 클릭) ===
+async function arenaChallenge(idx) {
+  const opp = game.arena.opponents[idx];
+  if (!opp) return;
+
+  const freeLeft = Math.max(0, ARENA_FREE_DAILY - (game.arena.freeUsed || 0));
+  if (freeLeft <= 0) {
+    showConfirmDialog(
+      '⏰ 무료 횟수 소진',
+      '오늘 무료 횟수를 모두 사용했어요!\n\n🔄 리셋(💎' + ARENA_RESET_COST + ')으로 새 상대를 매칭하거나\n내일 다시 도전하세요.',
+      () => {}
+    );
+    return;
+  }
+
+  // 도전 진행
+  game.arena.freeUsed = (game.arena.freeUsed || 0) + 1;
+  game.arena.totalMatches = (game.arena.totalMatches || 0) + 1;
+
+  // 전투력 비교로 승패 결정 (±15% 변동성)
+  const myPow = game.totalPower || 1;
+  const oppPow = opp.totalPower || 1;
+  const myRoll = myPow * (0.85 + Math.random() * 0.3);
+  const oppRoll = oppPow * (0.85 + Math.random() * 0.3);
+  const won = myRoll > oppRoll;
+
+  // 점수 변동
+  const expectedWin = myPow / (myPow + oppPow);
+  const K = 32;
+  const scoreChange = Math.round(K * ((won ? 1 : 0) - expectedWin));
+  game.arena.score = Math.max(0, (game.arena.score || 1000) + scoreChange);
+
+  // 승패 카운트
+  if (won) {
+    game.arena.wins = (game.arena.wins || 0) + 1;
+  } else {
+    game.arena.losses = (game.arena.losses || 0) + 1;
+  }
+
+  // 보상
+  let goldReward = 0, gemReward = 0, expReward = 0;
+  if (won) {
+    goldReward = 500 + Math.floor(opp.level * 50);
+    gemReward = Math.floor(Math.random() * 3) + 1;
+    expReward = 50 + opp.level * 5;
+    addRes('gold', goldReward);
+    addRes('gem', gemReward);
+    if (typeof addExp === 'function') addExp(expReward);
+    else game.exp = (game.exp || 0) + expReward;
+  } else {
+    goldReward = 100;
+    addRes('gold', goldReward);
+  }
+
+  // 시즌 패스 미션 진행
+  try { if (typeof updateSeasonMission === 'function') updateSeasonMission('arena', 1); } catch (e) {}
+  // 일일 퀘스트
+  try { if (typeof checkDailyQuestProgress === 'function') checkDailyQuestProgress('daily_arena'); } catch (e) {}
+
+  // 결과 표시
+  if (game.arena.skipBattle) {
+    // 건너뛰기: 토스트만
+    const msg = won
+      ? `🏆 승리! +💰${goldReward} +💎${gemReward} +✨${expReward} (${scoreChange > 0 ? '+' + scoreChange : scoreChange}점)`
+      : `💔 패배! +💰${goldReward} (${scoreChange}점)`;
+    showToast(msg, won ? 'gain' : 'warn');
+    try { playSound(won ? 'levelUp' : 'click'); } catch (e) {}
+  } else {
+    // 전투 결과 모달
+    showArenaResultModal(opp, won, { gold: goldReward, gem: gemReward, exp: expReward, scoreChange });
+  }
+
+  // 시도한 상대는 회색 처리 (또는 제거)
+  game.arena.opponents[idx]._defeated = true;
+  game.arena.opponents[idx]._wonByMe = won;
+
+  // 클라우드 저장
+  try { saveGame(); } catch (e) {}
+  if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+
+  // 다시 렌더
+  setTimeout(() => renderArenaModal(), 100);
+  updateHUD();
+}
+window.arenaChallenge = arenaChallenge;
+
+// === 전투 결과 모달 ===
+function showArenaResultModal(opp, won, rewards) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-bg show';
+  modal.style.zIndex = '10001';
+  const petKey = opp.representPet || 'wolf';
+  const pet = PETS[petKey];
+  modal.innerHTML = `
+    <div class="modal" style="max-width:340px;">
+      <div class="modal-header" style="background:${won ? 'linear-gradient(135deg, #43a047, #1b5e20)' : 'linear-gradient(135deg, #c62828, #b71c1c)'}; color:white;">
+        ${won ? '🏆 승리!' : '💔 패배...'}
+        <button class="modal-close" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align:center; padding:14px;">
+          <div style="font-size:14px; color:#3e2723; margin-bottom:8px;">VS ${escapeHtml(opp.nickname)} (Lv.${opp.level})</div>
+          <div style="display:inline-block; padding:8px; border:3px solid ${won ? '#43a047' : '#c62828'}; border-radius:50%; background:#fff; margin-bottom:10px;">
+            ${pet ? petSVG(pet, 80) : '<div style="font-size:50px;">' + (opp.avatar || '🦁') + '</div>'}
+          </div>
+          <div style="background:#f5f5f5; border-radius:10px; padding:10px; margin-top:10px;">
+            <div style="font-weight:bold; color:#3e2723; margin-bottom:6px;">📊 결과</div>
+            <div style="font-size:12px; color:#5d4037; line-height:1.8;">
+              <div>🏆 랭킹 포인트: <b style="color:${rewards.scoreChange > 0 ? '#43a047' : '#c62828'};">${rewards.scoreChange > 0 ? '+' : ''}${rewards.scoreChange}</b></div>
+              ${rewards.gold ? `<div>💰 골드: <b style="color:#f57c00;">+${rewards.gold}</b></div>` : ''}
+              ${rewards.gem ? `<div>💎 보석: <b style="color:#1976d2;">+${rewards.gem}</b></div>` : ''}
+              ${rewards.exp ? `<div>✨ 경험치: <b style="color:#7b1fa2;">+${rewards.exp}</b></div>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  // 효과
+  try { playSound(won ? 'levelUp' : 'click'); } catch (e) {}
+  // 자동 닫기 (5초 후)
+  setTimeout(() => { if (modal.parentNode) modal.remove(); }, 5000);
+}
+window.showArenaResultModal = showArenaResultModal;
 
 // === 추천 상대 펫 3마리 로드 ===
 async function loadArenaRecommendedPets() {

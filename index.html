@@ -109,19 +109,19 @@
     .cam-btn { width: 34px; height: 34px; font-size: 14px; }
     .cam-hint { font-size: 9px; }
 
-    /* 건설 메뉴: 세로 화면에선 가로 스크롤 그대로 */
-    .buildbar { padding: 6px; gap: 4px; }
+    /* 건설 메뉴: 모바일에서도 여러 줄 표시 */
+    .buildbar { padding: 6px; gap: 4px; max-height: 160px; }
     .build-card { width: 62px; padding: 3px; }
     .build-card .preview { width: 48px; height: 42px; font-size: 26px; }
     .build-card .bname { font-size: 10px; }
     .build-card .bcost { font-size: 8px; }
-    .build-cat-bar { padding: 4px; gap: 4px; bottom: 126px; }
+    .build-cat-bar { padding: 4px; gap: 4px; bottom: 176px; }
     .build-cat-bar .build-cat-btn { padding: 6px 4px; font-size: 11px; }
 
     /* 탭 버튼 위치 - 오른쪽 아래 정확히 (빌드바 위) */
     .tap-btn {
       width: 70px; height: 70px; font-size: 32px;
-      bottom: 188px; right: 10px;
+      bottom: 238px; right: 10px;
       border-width: 3px;
     }
 
@@ -850,7 +850,7 @@
   /* BUILD CATEGORY BAR — 빌드바 바로 위에 딱 붙는 카탈로그 헤더 */
   .build-cat-bar {
     position: absolute; left: 8px; right: 8px;
-    bottom: 126px;  /* 빌드바 위에 4px 띄워서 겹치지 않게 */
+    bottom: 196px;  /* 빌드바(180px)+여백 위에 띄움 */
     background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
     border: 4px solid var(--wood-dark);
     border-radius: 16px;
@@ -879,13 +879,15 @@
     border: 4px solid var(--wood-dark);
     border-radius: 16px;
     padding: 8px;
-    display: flex; gap: 6px; overflow-x: auto;
+    display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden;
+    flex-wrap: wrap;  /* 🔧 2줄 표시 가능하게 */
     box-shadow: 0 4px 0 var(--wood-dark);
     scrollbar-width: thin;
-    max-height: 110px;
+    max-height: 180px;  /* 2줄 공간 확보 */
+    overflow-y: auto;  /* 세로 스크롤 가능 */
     z-index: 50;
   }
-  .buildbar::-webkit-scrollbar { height: 4px; }
+  .buildbar::-webkit-scrollbar { height: 4px; width: 4px; }
   .buildbar::-webkit-scrollbar-thumb { background: var(--wood-dark); border-radius: 2px; }
 
   .build-card {
@@ -4425,11 +4427,53 @@ const BUILDING_TYPES = {
     desc: '바닷가 분위기.',
   },
   path_marble: {
-    name: '🟪 대리석길', icon: '🟪', size: 1,
+    name: '⬜ 대리석길', icon: '⬜', size: 1,
     cost: { stone: 20, gold: 30, gem: 1 },
     buildTime: 5, levelReq: 10,
     capacity: 0, decoration: true, isPath: true,
     desc: '고급 대리석. 위엄을 더해요.',
+  },
+  path_wood: {
+    name: '🪵 나무 데크', icon: '🪵', size: 1,
+    cost: { wood: 15 },
+    buildTime: 2, levelReq: 2,
+    capacity: 0, decoration: true, isPath: true,
+    desc: '따뜻한 나무 데크. 자연스러운 분위기.',
+  },
+  path_glass: {
+    name: '🟦 유리길', icon: '🟦', size: 1,
+    cost: { stone: 15, gold: 50, gem: 2 },
+    buildTime: 5, levelReq: 12,
+    capacity: 0, decoration: true, isPath: true,
+    desc: '투명한 유리. 미래적인 느낌.',
+  },
+  path_gold: {
+    name: '🟡 황금길', icon: '🟡', size: 1,
+    cost: { gold: 200, gem: 5 },
+    buildTime: 8, levelReq: 15,
+    capacity: 0, decoration: true, isPath: true,
+    desc: '왕족의 황금길. 빛납니다.',
+  },
+  path_crystal: {
+    name: '💎 수정길', icon: '💎', size: 1,
+    cost: { stone: 30, gold: 100, gem: 10 },
+    buildTime: 10, levelReq: 18,
+    capacity: 0, decoration: true, isPath: true,
+    desc: '신비한 보라 수정. 마력이 느껴져요.',
+  },
+  path_lava: {
+    name: '🔥 용암길', icon: '🔥', size: 1,
+    cost: { stone: 40, gold: 80, gem: 8 },
+    buildTime: 7, levelReq: 16,
+    capacity: 0, decoration: true, isPath: true,
+    desc: '뜨거운 용암길. 위험하지만 멋져요.',
+  },
+  path_ice: {
+    name: '❄️ 얼음길', icon: '❄️', size: 1,
+    cost: { stone: 25, gold: 60, gem: 5 },
+    buildTime: 6, levelReq: 14,
+    capacity: 0, decoration: true, isPath: true,
+    desc: '시원한 얼음길. 미끄러질 듯 매끄러워요.',
   },
 
   // === 🌸 정원 (격자 미관) ===
@@ -5953,6 +5997,261 @@ class Building {
         grad.addColorStop(1, 'rgba(255, 100, 50, 0)');
         ctx.fillStyle = grad;
         ctx.fillRect(x, y, w, h);
+        break;
+      }
+      // === 🛤 길/도로 시스템 — 캔버스 그리기 ===
+      case 'path_stone': {
+        // 회색 돌길 - 작은 돌멩이 패턴
+        ctx.fillStyle = '#9e9e9e';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.fillStyle = '#757575';
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            if ((i + j) % 2 === 0) {
+              ctx.fillRect(x + 4 + i * (w-8)/4, y + 4 + j * (h-8)/4, (w-8)/4 - 2, (h-8)/4 - 2);
+            }
+          }
+        }
+        ctx.strokeStyle = '#616161';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        break;
+      }
+      case 'path_brick': {
+        // 갈색 벽돌길 - 벽돌 패턴
+        ctx.fillStyle = '#8d6e63';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.fillStyle = '#a1887f';
+        const brickW = (w - 6) / 3;
+        const brickH = (h - 6) / 4;
+        for (let row = 0; row < 4; row++) {
+          const offset = (row % 2) * (brickW / 2);
+          for (let col = 0; col < 4; col++) {
+            const bx = x + 3 + col * brickW - offset;
+            if (bx > x + 2 && bx + brickW < x + w - 2) {
+              ctx.fillRect(bx, y + 3 + row * brickH, brickW - 1, brickH - 1);
+            }
+          }
+        }
+        ctx.strokeStyle = '#5d4037';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        break;
+      }
+      case 'path_grass': {
+        // 초록 잔디길
+        ctx.fillStyle = '#66bb6a';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 잔디 잎 표현
+        ctx.strokeStyle = '#388e3c';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 12; i++) {
+          const gx = x + 4 + Math.floor(i / 3) * (w-8) / 3;
+          const gy = y + 4 + (i % 3) * (h-8) / 3 + ((Date.now() * 0.001 + i) % 2);
+          ctx.beginPath();
+          ctx.moveTo(gx + 2, gy + 5);
+          ctx.lineTo(gx + 2, gy);
+          ctx.lineTo(gx + 4, gy + 3);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'path_sand': {
+        // 노란 모랫길
+        ctx.fillStyle = '#fdd835';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.fillStyle = '#f9a825';
+        // 모래 알갱이
+        for (let i = 0; i < 20; i++) {
+          const sx = x + 3 + ((i * 7) % (w - 6));
+          const sy = y + 3 + ((i * 11) % (h - 6));
+          ctx.fillRect(sx, sy, 1.5, 1.5);
+        }
+        ctx.strokeStyle = '#f57f17';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        break;
+      }
+      case 'path_marble': {
+        // ⬜ 흰 대리석길 - 줄무늬 + 광택
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 회색 대리석 줄무늬
+        ctx.strokeStyle = '#bdbdbd';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.moveTo(x + 3 + i * (w-6) / 5, y + 3);
+          ctx.lineTo(x + 3 + i * (w-6) / 5 + 4, y + h - 3);
+          ctx.stroke();
+        }
+        // 반짝임 (시간에 따라 위치 이동)
+        const t = Date.now() * 0.001;
+        ctx.fillStyle = `rgba(255,255,255,${0.5 + Math.sin(t * 2) * 0.3})`;
+        const sparkleX = x + 4 + ((t * 5) % (w - 8));
+        ctx.fillRect(sparkleX, y + h / 2 - 1, 4, 2);
+        // 외곽 황금색
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        break;
+      }
+      case 'path_wood': {
+        // 🪵 나무 데크
+        ctx.fillStyle = '#8d6e63';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 나무 결
+        ctx.strokeStyle = '#6d4c41';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(x + 2, y + 4 + i * (h-8)/4);
+          ctx.lineTo(x + w - 2, y + 4 + i * (h-8)/4);
+          ctx.stroke();
+        }
+        // 못
+        ctx.fillStyle = '#424242';
+        ctx.beginPath();
+        ctx.arc(x + 4, y + 4, 1, 0, Math.PI * 2);
+        ctx.arc(x + w - 4, y + 4, 1, 0, Math.PI * 2);
+        ctx.arc(x + 4, y + h - 4, 1, 0, Math.PI * 2);
+        ctx.arc(x + w - 4, y + h - 4, 1, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 'path_glass': {
+        // 🟦 유리길 - 투명 + 반짝임
+        const t2 = Date.now() * 0.001;
+        const gradGlass = ctx.createLinearGradient(x, y, x + w, y + h);
+        gradGlass.addColorStop(0, 'rgba(129, 212, 250, 0.7)');
+        gradGlass.addColorStop(0.5, 'rgba(179, 229, 252, 0.9)');
+        gradGlass.addColorStop(1, 'rgba(129, 212, 250, 0.7)');
+        ctx.fillStyle = gradGlass;
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 반사 효과
+        ctx.fillStyle = `rgba(255,255,255,${0.6 + Math.sin(t2 * 3) * 0.3})`;
+        ctx.fillRect(x + 4, y + 4, w - 16, 3);
+        // 외곽 청록
+        ctx.strokeStyle = '#0288d1';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        break;
+      }
+      case 'path_gold': {
+        // 🟡 황금길 - 반짝이는 금색
+        const t3 = Date.now() * 0.001;
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 황금 무늬
+        ctx.fillStyle = '#ff9800';
+        for (let i = 0; i < 4; i++) {
+          const gx2 = x + 4 + i * (w-8)/4;
+          ctx.beginPath();
+          ctx.arc(gx2 + (w-8)/8, y + h/2, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // 반짝임
+        ctx.fillStyle = `rgba(255,255,255,${0.7 + Math.sin(t3 * 4) * 0.3})`;
+        const goldSparkX = x + 3 + ((t3 * 8) % (w - 6));
+        const goldSparkY = y + 3 + Math.sin(t3 * 5) * (h - 6) / 2 + h/2;
+        ctx.beginPath();
+        ctx.arc(goldSparkX, goldSparkY, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#f57c00';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        break;
+      }
+      case 'path_crystal': {
+        // 💎 수정길 - 보라 크리스탈
+        const t4 = Date.now() * 0.001;
+        const gradCry = ctx.createLinearGradient(x, y, x + w, y + h);
+        gradCry.addColorStop(0, '#7b1fa2');
+        gradCry.addColorStop(0.5, '#ba68c8');
+        gradCry.addColorStop(1, '#4a148c');
+        ctx.fillStyle = gradCry;
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 크리스탈 결정
+        ctx.strokeStyle = `rgba(255,255,255,${0.5 + Math.sin(t4 * 3) * 0.3})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + w/2, y + 4);
+        ctx.lineTo(x + w - 4, y + h/2);
+        ctx.lineTo(x + w/2, y + h - 4);
+        ctx.lineTo(x + 4, y + h/2);
+        ctx.closePath();
+        ctx.stroke();
+        // 글로우
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#ce93d8';
+        ctx.strokeStyle = '#e1bee7';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.shadowBlur = 0;
+        break;
+      }
+      case 'path_lava': {
+        // 🔥 용암길 - 빨간 + 펄럭이는 불꽃
+        const t5 = Date.now() * 0.001;
+        const gradLava = ctx.createLinearGradient(x, y, x, y + h);
+        gradLava.addColorStop(0, '#ff5722');
+        gradLava.addColorStop(0.5, '#bf360c');
+        gradLava.addColorStop(1, '#3e2723');
+        ctx.fillStyle = gradLava;
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 균열 (밝은 빨강)
+        ctx.strokeStyle = `rgba(255,193,7,${0.8 + Math.sin(t5 * 5) * 0.2})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 4, y + h/3);
+        ctx.lineTo(x + w/2, y + h/2);
+        ctx.lineTo(x + w - 4, y + 2*h/3);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + w/3, y + 4);
+        ctx.lineTo(x + w/2 + 5, y + h - 4);
+        ctx.stroke();
+        // 불꽃 파티클
+        for (let i = 0; i < 3; i++) {
+          const fx = x + 6 + ((t5 * 10 + i * 12) % (w - 12));
+          const fy = y + h/2 + Math.sin(t5 * 3 + i) * 4;
+          ctx.fillStyle = `rgba(255,200,0,${0.7 - i * 0.2})`;
+          ctx.beginPath();
+          ctx.arc(fx, fy, 2 - i * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'path_ice': {
+        // ❄️ 얼음길 - 청백 + 결정
+        const t6 = Date.now() * 0.001;
+        const gradIce = ctx.createLinearGradient(x, y, x + w, y + h);
+        gradIce.addColorStop(0, '#e3f2fd');
+        gradIce.addColorStop(0.5, '#90caf9');
+        gradIce.addColorStop(1, '#bbdefb');
+        ctx.fillStyle = gradIce;
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // 얼음 결정 (눈송이 모양)
+        ctx.strokeStyle = `rgba(255,255,255,${0.7 + Math.sin(t6 * 2) * 0.2})`;
+        ctx.lineWidth = 1;
+        const cx2 = x + w/2;
+        const cy2 = y + h/2;
+        for (let a = 0; a < 6; a++) {
+          const ang = (a / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(cx2, cy2);
+          ctx.lineTo(cx2 + Math.cos(ang) * w/3, cy2 + Math.sin(ang) * w/3);
+          ctx.stroke();
+        }
+        // 반짝이는 점들
+        ctx.fillStyle = `rgba(255,255,255,${0.8 + Math.sin(t6 * 4) * 0.2})`;
+        ctx.beginPath();
+        ctx.arc(x + 4, y + 4, 1, 0, Math.PI * 2);
+        ctx.arc(x + w - 4, y + h - 4, 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0277bd';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
         break;
       }
     }
@@ -13279,6 +13578,7 @@ function openShop() {
       <button class="friends-tab active" data-shop-tab="upgrade" type="button">⚡ 강화</button>
       <button class="friends-tab" data-shop-tab="combat" type="button">⚔ 전투</button>
       <button class="friends-tab" data-shop-tab="buff" type="button">🌟 버프</button>
+      <button class="friends-tab" data-shop-tab="boost" type="button">🚀 부스트</button>
       <button class="friends-tab" data-shop-tab="currency" type="button">💰 재화</button>
       <button class="friends-tab" data-shop-tab="capture" type="button">🪤 포획</button>
       <button class="friends-tab" data-shop-tab="social" type="button">🤝 외교</button>
@@ -17461,23 +17761,43 @@ function renderFriendsTab(tab) {
     btn.textContent = '🔄 새로고침 중...';
     showToast('🔄 친구 정보 동기화 중...', '');
     if (online) {
-      // 온라인 친구들의 최신 정보 가져오기
       try {
-        for (const f of game.friends) {
-          if (f.isOnline) {
+        let updated = 0;
+        let total = game.friends.length;
+        // 모든 친구 동기화 (온라인/오프라인 모두)
+        const promises = game.friends.map(async (f) => {
+          try {
             const profile = await searchPlayer(f.nickname);
             if (profile) {
-              f.level = profile.level || f.level;
-              f.power = profile.power || f.power;
-              f.avatar = profile.avatar || f.avatar;
-              f.petCount = profile.petCount || f.petCount;
+              // 다양한 필드 모두 동기화
+              f.level = profile.level || f.level || 1;
+              f.power = profile.power || profile.totalPower || profile.score || f.power || 100;
+              f.avatar = profile.avatar || f.avatar || '⛺';
+              f.petCount = profile.petCount || f.petCount || 0;
               f.vipLevel = profile.vipLevel || 0;
+              f.lastSeen = profile.lastSeen || 0;
+              // 온라인 상태 (5분 이내 접속)
+              f.isOnline = profile.lastSeen && (Date.now() - profile.lastSeen) < 5 * 60 * 1000;
+              // 추가 동기화 가능 필드
+              if (profile.pets) f.pets = profile.pets;
+              if (profile.tribe) f.tribe = profile.tribe;
+              if (profile.code) f.code = profile.code;
+              updated++;
             }
+          } catch (e) {
+            console.warn('friend sync failed for', f.nickname, e);
           }
+        });
+        await Promise.all(promises);
+        // 저장 + 클라우드 업로드
+        try { saveGame(); } catch (e) {}
+        if (typeof uploadCloudSave === 'function') {
+          try { uploadCloudSave(true); } catch (e) {}
         }
-        showToast('✅ 친구 정보 업데이트 완료!', 'gain');
+        showToast(`✅ ${updated}/${total}명 동기화 완료!`, 'gain');
       } catch (e) {
-        showToast('❌ 새로고침 실패', 'warn');
+        console.error('friend refresh failed', e);
+        showToast('❌ 새로고침 실패: ' + (e.message || ''), 'warn');
       }
     } else {
       showToast('📴 오프라인 모드 (로컬 정보 표시)', '');

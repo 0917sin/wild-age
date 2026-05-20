@@ -12605,6 +12605,8 @@ function saveGame() {
     petFavorites: game.petFavorites || {},
     autoEvolve: game.autoEvolve || false,
     autoEnhance: game.autoEnhance || false,
+    buildingMigratedV1: true,  // 마이그레이션 완료 표시
+    shopDailyCount: game.shopDailyCount || {},
     vipLevel: game.vipLevel || 0,
     vipExpiry: game.vipExpiry || 0,
     notifications: (game.notifications || []).slice(-30),  // 최근 30개만 저장
@@ -12688,6 +12690,7 @@ function loadGame() {
     game.petFavorites = d.petFavorites || {};
     game.autoEvolve = d.autoEvolve || false;
     game.autoEnhance = d.autoEnhance || false;
+    game.shopDailyCount = d.shopDailyCount || {};
     game.vipLevel = d.vipLevel || 0;
     game.vipExpiry = d.vipExpiry || 0;
     game.notifications = d.notifications || [];
@@ -12703,6 +12706,59 @@ function loadGame() {
     });
     // home과 tilemap은 beginGame에서 새로 생성됨 (무한맵). 다만 home 위치는 저장된 게 있으면 복원
     if (d.home) game.home = d.home;
+
+    // === 🔧 건물 위치 자동 재배치 마이그레이션 (한 번만) ===
+    if (!d.buildingMigratedV1 && game.buildings && game.buildings.length > 0) {
+      try {
+        const homeX = game.home ? game.home.gx : 0;
+        const homeY = game.home ? game.home.gy : 0;
+        // 모닥불 주위로 나선형 재배치 - 겹치지 않게
+        const spiral = [];
+        for (let r = 2; r <= 20; r++) {
+          for (let dx = -r; dx <= r; dx++) {
+            for (let dy = -r; dy <= r; dy++) {
+              if (Math.abs(dx) === r || Math.abs(dy) === r) {
+                spiral.push([dx, dy]);
+              }
+            }
+          }
+        }
+        const used = new Set();
+        used.add(`${homeX},${homeY}`);
+        for (const b of game.buildings) {
+          let placed = false;
+          for (const [dx, dy] of spiral) {
+            const nx = homeX + dx;
+            const ny = homeY + dy;
+            const key = `${nx},${ny}`;
+            if (used.has(key)) continue;
+            // 건물 크기 고려 (2x2 등)
+            const w = b.w || 1;
+            const h = b.h || 1;
+            let canPlace = true;
+            for (let ix = 0; ix < w; ix++) {
+              for (let iy = 0; iy < h; iy++) {
+                if (used.has(`${nx+ix},${ny+iy}`)) { canPlace = false; break; }
+              }
+              if (!canPlace) break;
+            }
+            if (!canPlace) continue;
+            b.gx = nx;
+            b.gy = ny;
+            for (let ix = 0; ix < w; ix++) {
+              for (let iy = 0; iy < h; iy++) {
+                used.add(`${nx+ix},${ny+iy}`);
+              }
+            }
+            placed = true;
+            break;
+          }
+        }
+        console.log('[Migration] 건물 위치 자동 재배치 완료:', game.buildings.length, '개');
+      } catch (e) {
+        console.warn('[Migration] 건물 재배치 실패', e);
+      }
+    }
 
     // offline gain calculation
     if (d.savedAt) {
@@ -13235,12 +13291,26 @@ function openShop() {
 function renderShopTab(category) {
   const c = document.getElementById('shop-content');
 
+  // === 일일 구매 횟수 ===
+  const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+  if (!game.shopDailyCount) game.shopDailyCount = {};
+  if (game.shopDailyCount.date !== today) game.shopDailyCount = { date: today };
+  const catUsedCount = game.shopDailyCount[category] || 0;
+  const MAX_PER_CAT = 3;
+  const isAdminUser = (typeof isAdmin === 'function') && isAdmin();
+
   // 정렬 모드
   if (!game._shopSortMode) game._shopSortMode = 'default';
   const sortMode = game._shopSortMode;
 
-  // 정렬 버튼 바
+  // 일일 카운트 헤더 + 정렬 버튼 바
   c.innerHTML = `
+    <div style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e); padding:8px 12px; border-radius:8px; margin-bottom:8px; border:1.5px solid rgba(255,215,0,0.3); display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:11px; color:#ce93d8; font-weight:bold;">🛒 ${category.toUpperCase()} 카테고리</div>
+      <div style="font-size:12px; font-weight:bold; color:${isAdminUser ? '#ffd700' : (catUsedCount >= MAX_PER_CAT ? '#ff5252' : '#43a047')};">
+        ${isAdminUser ? '⚜ 운영자 무제한' : `오늘 ${catUsedCount}/${MAX_PER_CAT}회`}
+      </div>
+    </div>
     <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap; align-items:center;">
       <span style="font-size:11px; color:var(--wood-dark); font-weight:bold;">정렬:</span>
       <button class="shop-sort-btn" data-sort="default" type="button" style="
@@ -13355,22 +13425,49 @@ function renderShopTab(category) {
     `;
     const btn = div.querySelector('.si-buy');
     btn.onclick = () => {
+      // === 🛒 카테고리별 일일 3회 제한 ===
+      const today = (typeof getTodayKey === 'function') ? getTodayKey() : new Date().toDateString();
+      if (!game.shopDailyCount) game.shopDailyCount = {};
+      if (game.shopDailyCount.date !== today) {
+        // 새 날짜 - 모든 카운트 리셋
+        game.shopDailyCount = { date: today };
+      }
+      const catKey = item.category || 'upgrade';
+      const usedCount = game.shopDailyCount[catKey] || 0;
+      const MAX_PER_CAT = 3;
+      // 운영자는 무제한
+      const isAdminUser = (typeof isAdmin === 'function') && isAdmin();
+      if (!isAdminUser && usedCount >= MAX_PER_CAT) {
+        showToast(`🛒 ${catKey} 카테고리 오늘 ${MAX_PER_CAT}번 모두 구매했어요!`, 'warn');
+        return;
+      }
+
       if (!canAfford(item.cost)) { showToast('자원 부족!', 'warn'); return; }
       // 구매 확인 다이얼로그
       const costDisplay = Object.entries(item.cost).map(([k,v]) => {
         const ico = { gold:'💰', food:'🍖', wood:'🪵', stone:'🪨', gem:'💎' }[k];
         return `${ico} ${v.toLocaleString()}`;
       }).join(' + ');
+      const remainText = isAdminUser ? '\n\n⚜ 운영자 무제한' : `\n\n오늘 남은 횟수: ${MAX_PER_CAT - usedCount}회`;
       showConfirmDialog(
         `${item.icon} ${item.name}`,
-        `${item.desc}\n\n비용: ${costDisplay}\n\n구매하시겠어요?`,
+        `${item.desc}\n\n비용: ${costDisplay}${remainText}\n\n구매하시겠어요?`,
         () => {
           if (!canAfford(item.cost)) { showToast('자원 부족!', 'warn'); return; }
+          // 한 번 더 횟수 체크 (모달 동안 다른 거 사면)
+          if (!isAdminUser && (game.shopDailyCount[catKey] || 0) >= MAX_PER_CAT) {
+            showToast(`🛒 횟수 초과!`, 'warn');
+            return;
+          }
           spendRes(item.cost);
           item.effect();
+          // 카테고리 카운트 증가
+          if (!isAdminUser) {
+            game.shopDailyCount[catKey] = (game.shopDailyCount[catKey] || 0) + 1;
+          }
           // 선행 잠금 해제용으로만 기록 (재구매 차단 안 함)
           if (!item.consumable) game.ownedItems[item.id] = true;
-          showToast(`${item.name} 구매!`, 'gain');
+          showToast(`${item.name} 구매! ${isAdminUser ? '' : '(' + (game.shopDailyCount[catKey]) + '/' + MAX_PER_CAT + ')'}`, 'gain');
           renderShopTab(category);
           updateHUD();
           rebuildBuildBar();
@@ -15583,6 +15680,32 @@ const TITLES = [
       flatPetDamage: 100_000_000,     // 펫 전투력 +1억 (고정)
     },
     effectDesc: '⚔ 전투력 +100 · 🦁 펫 전투력 +100,000,000',
+  },
+  // === 🔱 GM 칭호 — 모든 효과 +100억 ===
+  {
+    id: 'admin_gm',
+    icon: '👑',
+    name: '👑 GM',
+    desc: '⚜ 운영자 전용 — 무한한 권능 ⚜',
+    condition: () => isAdmin(),
+    color: '#c62828',
+    adminOnly: true,
+    special: true,
+    effect: {
+      flatPower: 10_000_000_000,         // 전투력 +100억
+      flatPetDamage: 10_000_000_000,     // 펫 전투력 +100억
+      gold: 10_000_000_000,              // 골드 +100억
+      food: 10_000_000_000,              // 식량 +100억
+      wood: 10_000_000_000,              // 나무 +100억
+      stone: 10_000_000_000,             // 돌 +100억
+      gem: 10_000_000_000,               // 보석 +100억
+      petPower: 100,                     // 펫 전투력 +10,000%
+      attack: 100,                       // 공격력 +10,000%
+      defense: 100,                      // 방어력 +10,000%
+      resourceGain: 100,                 // 자원 +10,000%
+      expGain: 100,                      // 경험치 +10,000%
+    },
+    effectDesc: '⚔ 모든 효과 +10,000,000,000 (GM 권능)',
   },
 ];
 
@@ -19736,6 +19859,33 @@ function generateArenaOpponents() {
         representPet: (p.pets && p.pets[0]) || 'wolf',
       });
     }
+  }
+  // 3) === 🤖 AI 50유저 추가 (랭킹 2등 전투력 기준) ===
+  try {
+    // 랭킹 2등의 전투력 추정
+    const ranking2nd = (game._globalPlayersCache && game._globalPlayersCache[1])
+      ? (game._globalPlayersCache[1].totalPower || game._globalPlayersCache[1].score || 0)
+      : 0;
+    const aiUsers = (typeof generateAIUsers === 'function') ? generateAIUsers(myPower, ranking2nd) : [];
+    for (const ai of aiUsers) {
+      if (candidates.some(c => c.nickname === ai.nickname)) continue;
+      // 펫 풀에서 랜덤 대표 펫
+      const petKeys = Object.keys(PETS);
+      const seed = (ai.nickname || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const petKey = petKeys[seed % petKeys.length];
+      candidates.push({
+        nickname: ai.nickname,
+        level: ai.level || 50,
+        totalPower: ai.score || ranking2nd || 1000,
+        petCount: ai.petCount || 100,
+        avatar: ai.avatar || '🤖',
+        isAI: true,
+        isFriend: false,
+        representPet: petKey,
+      });
+    }
+  } catch (e) {
+    console.warn('AI users for arena failed', e);
   }
 
   // 3) 비슷한 전투력 (±50%) 우선 + 랜덤 셔플
@@ -25884,7 +26034,16 @@ function renderPetCatalogTab(tab) {
         </div>
         <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px;">
     `;
-    for (const [key, count] of owned) {
+    // === 🚀 페이징 (한 번에 24마리만 표시, 서버 멈춤 방지) ===
+    const PAGE_SIZE = 24;
+    if (typeof game._mineTabPage !== 'number') game._mineTabPage = 0;
+    const totalPages = Math.max(1, Math.ceil(owned.length / PAGE_SIZE));
+    if (game._mineTabPage >= totalPages) game._mineTabPage = totalPages - 1;
+    if (game._mineTabPage < 0) game._mineTabPage = 0;
+    const pageStart = game._mineTabPage * PAGE_SIZE;
+    const pageEnd = Math.min(pageStart + PAGE_SIZE, owned.length);
+    const pageOwned = owned.slice(pageStart, pageEnd);
+    for (const [key, count] of pageOwned) {
       const def = PETS[key];
       const color = PET_TIER_COLORS[def.tier];
       const refund = { common:1, rare:2, epic:3, legendary:5, mythic:10 }[def.tier] || 1;
@@ -25978,11 +26137,38 @@ function renderPetCatalogTab(tab) {
     }
     html += `</div>
         </div>
+      ${totalPages > 1 ? `
+      <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:12px;">
+        <button id="pet-page-prev" type="button" ${game._mineTabPage <= 0 ? 'disabled' : ''} style="
+          background:${game._mineTabPage <= 0 ? 'rgba(0,0,0,0.3)' : 'linear-gradient(135deg,#42a5f5,#1565c0)'};
+          color:#fff; border:1.5px solid ${game._mineTabPage <= 0 ? 'rgba(255,255,255,0.1)' : '#42a5f5'};
+          border-radius:8px; padding:5px 14px; font-family:inherit; font-size:12px; font-weight:bold;
+          cursor:${game._mineTabPage <= 0 ? 'not-allowed' : 'pointer'};
+        ">◀ 이전</button>
+        <div style="background:rgba(0,0,0,0.5); border:1.5px solid rgba(255,215,0,0.5); border-radius:8px; padding:5px 14px; font-size:12px; font-weight:bold; color:#ffd700;">
+          ${game._mineTabPage + 1} / ${totalPages}
+        </div>
+        <button id="pet-page-next" type="button" ${game._mineTabPage >= totalPages - 1 ? 'disabled' : ''} style="
+          background:${game._mineTabPage >= totalPages - 1 ? 'rgba(0,0,0,0.3)' : 'linear-gradient(135deg,#42a5f5,#1565c0)'};
+          color:#fff; border:1.5px solid ${game._mineTabPage >= totalPages - 1 ? 'rgba(255,255,255,0.1)' : '#42a5f5'};
+          border-radius:8px; padding:5px 14px; font-family:inherit; font-size:12px; font-weight:bold;
+          cursor:${game._mineTabPage >= totalPages - 1 ? 'not-allowed' : 'pointer'};
+        ">다음 ▶</button>
+      </div>
+      <div style="text-align:center; margin-top:6px; font-size:10px; color:#ce93d8;">
+        ${pageStart + 1}~${pageEnd} / ${owned.length}마리
+      </div>` : ''}
       <button class="event-choice" style="margin-top:12px; text-align:center;" onclick="document.getElementById('m-pets').classList.remove('show'); openPetSummon();">
         🗿 더 소환하기
       </button>
     `;
     c.innerHTML = html;
+
+    // 페이지 버튼 핸들러
+    const prevBtn = c.querySelector('#pet-page-prev');
+    if (prevBtn) prevBtn.onclick = () => { if (game._mineTabPage > 0) { game._mineTabPage--; renderPetCatalogTab('mine'); } };
+    const nextBtn = c.querySelector('#pet-page-next');
+    if (nextBtn) nextBtn.onclick = () => { if (game._mineTabPage < totalPages - 1) { game._mineTabPage++; renderPetCatalogTab('mine'); } };
 
     // 정렬 버튼 핸들러
     c.querySelectorAll('.pet-sort-btn').forEach(btn => {
@@ -27769,6 +27955,22 @@ function tick(now) {
     if (game._autoEvolveTimer >= 30) {
       game._autoEvolveTimer = 0;
       try { if (typeof runAutoEvolveAndEnhance === 'function') runAutoEvolveAndEnhance(); } catch (e) {}
+    }
+
+    // === 🏟 투기장 포인트 자동 증가 (60초마다 +1) ===
+    if (!game._arenaPointTimer) game._arenaPointTimer = 0;
+    game._arenaPointTimer += dt;
+    if (game._arenaPointTimer >= 60) {
+      game._arenaPointTimer = 0;
+      if (!game.arena) game.arena = {};
+      if (typeof game.arena.score !== 'number') game.arena.score = 1000;
+      // 전투력 기반 자동 증가 (전투력이 높을수록 더 빨리 올라감)
+      const myPower = game.totalPower || 100;
+      // 기본 +1, 추가로 전투력 100당 +0.5
+      const gain = 1 + Math.floor(myPower / 200);
+      game.arena.score += gain;
+      // 캐시 무효화
+      if (game._arenaScoreCache) game._arenaScoreCache = null;
     }
 
     // === 퀘스트/업적/칭호 체크 (5초마다만 — 매 초 호출 시 버벅임 발생) ===

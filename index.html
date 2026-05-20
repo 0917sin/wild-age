@@ -50,16 +50,16 @@
 
   /* === PORTRAIT (세로 모드) OPTIMIZATION === */
   @media (max-aspect-ratio: 3/4) {
-    /* 자원 바: 모바일 세로에서 2줄로 자연스럽게 흐름 */
-    .topbar { gap: 4px; padding: 0 4px; }
+    /* 자원 바: 모바일 세로 — 작게해서 1줄에 다 들어가게 시도 */
+    .topbar { gap: 3px; padding: 0 3px; row-gap: 30px; }  /* 줄바꿈 시 두번째 줄 간격 ↑ (VIP 뱃지와 안 겹치게) */
     .resource {
-      padding: 3px 8px 3px 3px;
-      min-height: 30px;
-      font-size: 12px;
+      padding: 2px 6px 2px 2px;
+      min-height: 26px;
+      font-size: 11px;
       border-width: 2px;
       box-shadow: 0 2px 0 var(--wood-dark);
     }
-    .resource .icon { width: 22px; height: 22px; font-size: 13px; border-width: 1.5px; }
+    .resource .icon { width: 20px; height: 20px; font-size: 12px; border-width: 1.5px; }
     .level-box { width: 36px; height: 36px; font-size: 14px; }
     .level-box .lv-text { font-size: 7px; }
 
@@ -607,19 +607,21 @@
   /* VIP 뱃지: 경험치바 아래쪽 */
   .vip-badge-hud {
     position: absolute;
-    top: calc(100% + 14px);
+    /* level-box 바로 아래 (자원바와 겹치지 않게 위치 조정) */
+    top: calc(100% + 4px);
     left: 50%;
     transform: translateX(-50%);
     background: linear-gradient(135deg, #ffd700, #f57c00);
     color: #3e2723;
     border: 2px solid #3e2723;
     border-radius: 8px;
-    padding: 1px 6px;
-    font-size: 10px;
+    padding: 0px 5px;
+    font-size: 9px;
     font-weight: bold;
     white-space: nowrap;
-    box-shadow: 0 2px 0 #3e2723;
+    box-shadow: 0 1px 0 #3e2723;
     z-index: 5;
+    pointer-events: none;
   }
   .exp-bar-fill {
     height: 100%;
@@ -828,6 +830,12 @@
   .build-card:hover:not(.locked) { transform: translateY(-2px); }
   .build-card:active { transform: scaleX(1.08) scaleY(0.9); transition: transform 0.05s; }
   .build-card.selected { background: linear-gradient(to bottom, #fff59d, #fbc02d); border-color: #e65100; }
+  .build-card.dragging {
+    transform: scale(1.15);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 16px var(--gold);
+    cursor: grabbing;
+    z-index: 999;
+  }
   .build-card .preview {
     width: 56px; height: 50px;
     display: flex; align-items: center; justify-content: center;
@@ -3043,30 +3051,47 @@ function showTutorialStep(index) {
       finger.style.display = 'none';
     }
 
-    // 말풍선 위치: 타겟 아래/위에 (화면에서 안 벗어나게)
+    // 말풍선 위치: 타겟 아래/위에 (화면에서 절대 안 벗어나게)
     bubble.style.display = 'block';
     bubble.classList.remove('arrow-top', 'arrow-bottom', 'arrow-left', 'arrow-right');
+    // 일단 화면에 보여서 실제 크기 측정 가능하게
+    bubble.style.left = '0px';
+    bubble.style.top = '0px';
+    bubble.style.transform = '';
+    bubble.style.visibility = 'hidden';
 
-    const bubbleRect = bubble.getBoundingClientRect();
-    const winH = window.innerHeight;
-    const winW = window.innerWidth;
-    const targetCenterX = rect.left + rect.width / 2;
-    let bubbleLeft, bubbleTop;
+    // 다음 프레임에서 실제 크기 측정 후 위치 결정 (offsetHeight가 0이면 위치 어긋남 방지)
+    requestAnimationFrame(() => {
+      const winH = window.innerHeight;
+      const winW = window.innerWidth;
+      const bw = bubble.offsetWidth || 300;
+      const bh = bubble.offsetHeight || 180;
+      const targetCenterX = rect.left + rect.width / 2;
+      let bubbleTop;
 
-    // 타겟이 화면 아래쪽이면 말풍선 위에 표시
-    if (rect.top > winH / 2) {
-      bubbleTop = rect.top - bubble.offsetHeight - 25;
-      bubble.classList.add('arrow-bottom');
-    } else {
-      bubbleTop = rect.bottom + 25;
-      bubble.classList.add('arrow-top');
-    }
-    bubbleLeft = targetCenterX - bubble.offsetWidth / 2;
-    // 가로 화면 안 벗어나게
-    if (bubbleLeft < 10) bubbleLeft = 10;
-    if (bubbleLeft + bubble.offsetWidth > winW - 10) bubbleLeft = winW - bubble.offsetWidth - 10;
-    bubble.style.left = bubbleLeft + 'px';
-    bubble.style.top = bubbleTop + 'px';
+      // 타겟이 화면 위쪽 절반에 있으면 말풍선을 아래에, 아니면 위에
+      if (rect.top < winH * 0.4) {
+        // 타겟이 위쪽 → 말풍선은 아래
+        bubbleTop = rect.bottom + 25;
+        bubble.classList.add('arrow-top');
+      } else {
+        // 타겟이 아래쪽 → 말풍선은 위
+        bubbleTop = rect.top - bh - 25;
+        bubble.classList.add('arrow-bottom');
+      }
+      // 세로 화면 안 강제 (위/아래 가장자리)
+      if (bubbleTop < 10) bubbleTop = 10;
+      if (bubbleTop + bh > winH - 10) bubbleTop = winH - bh - 10;
+
+      let bubbleLeft = targetCenterX - bw / 2;
+      // 가로 화면 안 강제
+      if (bubbleLeft < 10) bubbleLeft = 10;
+      if (bubbleLeft + bw > winW - 10) bubbleLeft = winW - bw - 10;
+
+      bubble.style.left = bubbleLeft + 'px';
+      bubble.style.top = bubbleTop + 'px';
+      bubble.style.visibility = 'visible';
+    });
   } else {
     spotlight.style.display = 'none';
     finger.style.display = 'none';
@@ -3141,8 +3166,9 @@ function completeTutorial() {
     clearInterval(game._tutorialAutoCheckInterval);
     game._tutorialAutoCheckInterval = null;
   }
-  // 보상 지급 (마지막 단계까지 완료한 경우)
-  if (!game.tutorialCompleted) {
+  const wasCompleted = game.tutorialCompleted;
+  // 보상 지급 (한번만)
+  if (!wasCompleted) {
     game.tutorialCompleted = true;
     game.tutorialStep = 99;
     if (typeof addRes === 'function') {
@@ -3152,7 +3178,6 @@ function completeTutorial() {
       addRes('wood', 200);
       addRes('stone', 200);
     }
-    try { showToast('🎁 튜토리얼 보상 지급 완료!', 'gain'); } catch (e) {}
     try { playSound('levelUp'); } catch (e) {}
     // 화면 효과
     if (game.home) {
@@ -3162,9 +3187,67 @@ function completeTutorial() {
     try { saveGame(); } catch (e) {}
     try { if (typeof uploadCloudSave === 'function') uploadCloudSave(true); } catch (e) {}
   }
-  // 튜토리얼 UI 숨기기
+  // === 튜토리얼 UI 완전히 정리 (중요: 잔상 방지) ===
   const overlay = document.getElementById('tutorial-overlay');
-  if (overlay) overlay.classList.remove('show');
+  const spotlight = document.getElementById('tutorial-spotlight');
+  const finger = document.getElementById('tutorial-finger');
+  const bubble = document.getElementById('tutorial-bubble');
+  if (overlay) {
+    overlay.classList.remove('show');
+    overlay.classList.remove('see-through');
+    overlay.style.display = 'none';
+    overlay.style.background = '';
+    overlay.style.pointerEvents = '';
+  }
+  if (spotlight) {
+    spotlight.style.display = 'none';
+    spotlight.style.boxShadow = '';
+  }
+  if (finger) finger.style.display = 'none';
+  if (bubble) {
+    bubble.style.display = 'none';
+    bubble.style.visibility = '';
+  }
+  // 화면 정리 후 보상 모달
+  if (!wasCompleted) {
+    setTimeout(() => {
+      const rewardModal = document.createElement('div');
+      rewardModal.className = 'modal-bg show';
+      rewardModal.style.zIndex = '10002';
+      rewardModal.innerHTML = `
+        <div class="modal" style="max-width:340px;">
+          <div class="modal-header" style="background:linear-gradient(135deg, #43a047, #1b5e20); color:white;">
+            🎉 튜토리얼 완료!
+            <button class="modal-close" data-close>✕</button>
+          </div>
+          <div class="modal-body">
+            <div style="text-align:center; padding:14px;">
+              <div style="font-size:48px; margin-bottom:10px;">🎁</div>
+              <div style="font-size:16px; font-weight:bold; color:#3e2723; margin-bottom:8px;">시작 보상 지급!</div>
+              <div style="background:linear-gradient(to bottom, #fff8e1, #ffe082); border:2px solid #c69c6d; border-radius:10px; padding:12px; margin:10px 0;">
+                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; font-size:14px;">
+                  <div>💰 <b>5,000</b> 골드</div>
+                  <div>💎 <b>50</b> 보석</div>
+                  <div>🍖 <b>500</b> 식량</div>
+                  <div>🪵 <b>200</b> 목재</div>
+                  <div style="grid-column:1/-1; text-align:center;">🪨 <b>200</b> 석재</div>
+                </div>
+              </div>
+              <div style="font-size:11px; color:#5d4037; margin-top:8px; line-height:1.5;">
+                ⚙ <b>설정 → 튜토리얼 다시 보기</b>로<br>언제든 다시 볼 수 있어요!
+              </div>
+              <button id="tut-reward-close-btn" style="margin-top:14px; padding:10px 28px; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; border:3px solid #1b5e20; border-radius:10px; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 3px 0 #1b5e20;">🎮 게임 시작!</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(rewardModal);
+      const close = () => { rewardModal.remove(); };
+      rewardModal.querySelector('#tut-reward-close-btn').onclick = close;
+      rewardModal.querySelector('[data-close]').onclick = close;
+      rewardModal.onclick = (e) => { if (e.target === rewardModal) close(); };
+    }, 200);
+  }
   try { updateHUD(); } catch (e) {}
 }
 window.completeTutorial = completeTutorial;
@@ -8381,6 +8464,10 @@ function getTotalArmyPower() {
 // 병사 모집
 function recruitSoldier(type, qty) {
   qty = qty || 1;
+  if (qty <= 0) {
+    showToast('자원이 부족해요', 'warn');
+    return;
+  }
   const def = SOLDIER_TYPES[type];
   if (!def) return;
   if (game.level < def.unlock) {
@@ -8396,11 +8483,12 @@ function recruitSoldier(type, qty) {
   }
   spendRes(totalCost);
   game.army[type] = (game.army[type] || 0) + qty;
-  showToast(`${def.icon} ${def.name} ×${qty} 모집!`, 'gain');
-  // FX
+  showToast(`${def.icon} ${def.name} ×${qty.toLocaleString()} 모집!`, 'gain');
+  // FX (파티클은 최대 30개로 제한 — 대량 모집 시 성능 보호)
   if (game.home) {
-    for (let i = 0; i < 8 * qty; i++) {
-      const ang = (i / 8) * Math.PI * 2;
+    const fxCount = Math.min(8 * qty, 30);
+    for (let i = 0; i < fxCount; i++) {
+      const ang = (i / fxCount) * Math.PI * 2;
       spawnParticle({
         x: game.home.x, y: game.home.y - 20,
         vx: Math.cos(ang) * 80, vy: Math.sin(ang) * 60 - 40,
@@ -8538,20 +8626,44 @@ function renderArmyTab() {
             <div style="font-size:9px; color:var(--wood-dark);">보유</div>
           </div>
         </div>
-        ${!locked ? `
+        ${!locked ? (() => {
+          // 재화로 가능한 최대 모집 수 계산
+          let maxAffordable = Infinity;
+          for (const [k, v] of Object.entries(def.cost)) {
+            const have = game.res[k] || 0;
+            maxAffordable = Math.min(maxAffordable, Math.floor(have / v));
+          }
+          maxAffordable = Math.max(0, maxAffordable);
+          const cappedMax = Math.min(maxAffordable, 999);  // 한 번에 999명까지
+          return `
           <div style="display:flex; gap:4px; margin-top:8px;">
             <button onclick="recruitSoldier('${type}', 1)" type="button" style="
               flex:1; background:linear-gradient(to bottom, #81c784, #2e7d32);
               color:white; border:2px solid var(--wood-dark); border-radius:6px;
               padding:5px; font-family:inherit; font-size:11px; font-weight:bold;
               cursor:pointer; box-shadow:0 2px 0 var(--wood-dark);
-            ">+1 모집 ${costStr}</button>
+            ">+1 ${costStr}</button>
             <button onclick="recruitSoldier('${type}', 5)" type="button" style="
               flex:1; background:linear-gradient(to bottom, #64b5f6, #1565c0);
               color:white; border:2px solid var(--wood-dark); border-radius:6px;
               padding:5px; font-family:inherit; font-size:11px; font-weight:bold;
               cursor:pointer; box-shadow:0 2px 0 var(--wood-dark);
-            ">+5 모집</button>
+            ">+5</button>
+            <button onclick="recruitSoldier('${type}', 10)" type="button" style="
+              flex:1; background:linear-gradient(to bottom, #4dd0e1, #006064);
+              color:white; border:2px solid var(--wood-dark); border-radius:6px;
+              padding:5px; font-family:inherit; font-size:11px; font-weight:bold;
+              cursor:pointer; box-shadow:0 2px 0 var(--wood-dark);
+            ">+10</button>
+            <button onclick="recruitSoldier('${type}', ${cappedMax})" type="button" style="
+              flex:1; background:linear-gradient(to bottom, #ffb74d, #e65100);
+              color:white; border:2px solid var(--wood-dark); border-radius:6px;
+              padding:5px; font-family:inherit; font-size:11px; font-weight:bold;
+              cursor:${cappedMax > 0 ? 'pointer' : 'not-allowed'}; box-shadow:0 2px 0 var(--wood-dark);
+              ${cappedMax === 0 ? 'opacity:0.5;' : ''}
+            ">⚡ +${cappedMax.toLocaleString()}</button>
+          </div>
+          <div style="display:flex; gap:4px; margin-top:4px;">
             <button onclick="upgradeArmy('${type}')" type="button" style="
               flex:1; background:linear-gradient(to bottom, ${hasLab && upgradeLevel<5?'#ba68c8, #6a1b9a':'#bdbdbd, #757575'});
               color:white; border:2px solid var(--wood-dark); border-radius:6px;
@@ -8559,7 +8671,8 @@ function renderArmyTab() {
               cursor:${hasLab && upgradeLevel<5?'pointer':'not-allowed'}; box-shadow:0 2px 0 var(--wood-dark);
             ">${upgradeLevel >= 5 ? 'MAX' : hasLab ? `🧪 강화 💰${upgradeCost.gold} 💎${upgradeCost.gem}` : '연구소 필요'}</button>
           </div>
-        ` : ''}
+          `;
+        })() : ''}
       </div>
     `;
   }
@@ -10964,16 +11077,110 @@ function rebuildBuildBar() {
       <div class="preview">${def.icon}</div>
       <div class="bname">${def.name}</div>
       <div class="bcost">${costHTML}</div>
-      ${locked ? `<div class="lock">🔒 Lv.${def.levelReq}</div>` : ''}
+      ${locked ? `<div class="lock">🔂 Lv.${def.levelReq}</div>` : ''}
     `;
-    if (!locked) card.onclick = () => {
-      game.selectedBuild = game.selectedBuild === key ? null : key;
-      game.relocateMode = false;
-      rebuildBuildBar();
-    };
+    if (!locked) {
+      // 클릭: 기존 방식 (선택 후 캔버스 클릭)
+      card.onclick = () => {
+        // 드래그 중이었으면 무시 (dragend 직후 click 발생 방지)
+        if (game._buildCardDragJustFinished) {
+          game._buildCardDragJustFinished = false;
+          return;
+        }
+        game.selectedBuild = game.selectedBuild === key ? null : key;
+        game.relocateMode = false;
+        rebuildBuildBar();
+      };
+
+      // 🆕 드래그 기능: 빌드바에서 카드를 캔버스로 끌어다 놓기
+      const startCardDrag = (e) => {
+        if (locked || cant) return;
+        const isTouch = e.type === 'touchstart';
+        const point = isTouch ? e.touches[0] : e;
+
+        // 드래그 모드 진입
+        game.selectedBuild = key;
+        game._draggingFromBuildBar = true;
+        game._buildDragStartX = point.clientX;
+        game._buildDragStartY = point.clientY;
+        game._buildDragMoved = false;
+
+        // 시각적 표시 (카드 강조)
+        card.classList.add('dragging');
+        card.style.opacity = '0.5';
+
+        // 캔버스 좌표 업데이트
+        updateHoverFromScreen(point.clientX, point.clientY);
+
+        const moveHandler = (ev) => {
+          ev.preventDefault();
+          const p = ev.type === 'touchmove' ? ev.touches[0] : ev;
+          const dx = Math.abs(p.clientX - game._buildDragStartX);
+          const dy = Math.abs(p.clientY - game._buildDragStartY);
+          if (dx > 5 || dy > 5) game._buildDragMoved = true;
+          updateHoverFromScreen(p.clientX, p.clientY);
+        };
+
+        const endHandler = (ev) => {
+          window.removeEventListener('mousemove', moveHandler);
+          window.removeEventListener('mouseup', endHandler);
+          window.removeEventListener('touchmove', moveHandler);
+          window.removeEventListener('touchend', endHandler);
+          window.removeEventListener('touchcancel', endHandler);
+
+          card.classList.remove('dragging');
+          card.style.opacity = '';
+
+          if (game._draggingFromBuildBar && game._buildDragMoved) {
+            // 드래그 완료 → 현재 hover 위치에 배치
+            if (game.hoverGX !== undefined && game.hoverGY !== undefined) {
+              try { placeBuilding(game.hoverGX, game.hoverGY); } catch (e) { console.warn('place failed', e); }
+            }
+            game._buildCardDragJustFinished = true;  // click 이벤트 무시 플래그
+          }
+          // 종료 처리
+          game._draggingFromBuildBar = false;
+          game._buildDragMoved = false;
+          game.hoverGX = undefined;
+          game.hoverGY = undefined;
+        };
+
+        window.addEventListener('mousemove', moveHandler);
+        window.addEventListener('mouseup', endHandler);
+        window.addEventListener('touchmove', moveHandler, { passive: false });
+        window.addEventListener('touchend', endHandler);
+        window.addEventListener('touchcancel', endHandler);
+
+        if (isTouch) e.preventDefault();  // 스크롤 방지
+      };
+
+      card.addEventListener('mousedown', startCardDrag);
+      card.addEventListener('touchstart', startCardDrag, { passive: false });
+    }
     bar.appendChild(card);
   });
 }
+
+// === 화면 좌표를 게임 그리드로 변환 ===
+function updateHoverFromScreen(clientX, clientY) {
+  const canvas = document.getElementById('canvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const cssX = clientX - rect.left;
+  const cssY = clientY - rect.top;
+  // 캔버스 영역 안에 있을 때만 hover 표시
+  if (cssX < 0 || cssY < 0 || cssX > rect.width || cssY > rect.height) {
+    game.hoverGX = undefined;
+    game.hoverGY = undefined;
+    return;
+  }
+  // 캔버스 내부 좌표
+  const w = screenToWorld(cssX, cssY);
+  if (!w) return;
+  game.hoverGX = Math.floor(w.x / TILE);
+  game.hoverGY = Math.floor(w.y / TILE);
+}
+window.updateHoverFromScreen = updateHoverFromScreen;
 
 // === 재배치 모드 토글 ===
 function toggleRelocateMode() {
@@ -21782,13 +21989,18 @@ function renderArenaModal() {
     return;
   }
 
-  // 전체 전적
+  // 전체 전적 (game.arena 우선, petArenaStats는 백업)
   const allStats = game.petArenaStats || {};
-  let totalWins = 0, totalLosses = 0;
+  let totalWins = game.arena.wins || 0;
+  let totalLosses = game.arena.losses || 0;
+  // petArenaStats가 더 크면 그쪽 사용 (이전 기록 보존)
+  let petWins = 0, petLosses = 0;
   for (const k in allStats) {
-    totalWins += (allStats[k].wins || 0);
-    totalLosses += (allStats[k].losses || 0);
+    petWins += (allStats[k].wins || 0);
+    petLosses += (allStats[k].losses || 0);
   }
+  if (petWins > totalWins) totalWins = petWins;
+  if (petLosses > totalLosses) totalLosses = petLosses;
   const totalMatches = totalWins + totalLosses;
   const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : '0.0';
 
@@ -21995,11 +22207,26 @@ async function arenaChallenge(idx) {
   const scoreChange = Math.round(K * ((won ? 1 : 0) - expectedWin));
   game.arena.score = Math.max(0, (game.arena.score || 1000) + scoreChange);
 
-  // 승패 카운트
+  // 승패 카운트 (game.arena + petArenaStats 양쪽 동기화)
+  if (!game.petArenaStats) game.petArenaStats = {};
+  // 내 가장 강한 펫 키 (전적용)
+  let strongestPetKey = 'wolf';
+  let maxPow = 0;
+  for (const [k, c] of Object.entries(game.pets || {})) {
+    if (PETS[k] && c > 0 && PETS[k].power > maxPow) {
+      maxPow = PETS[k].power;
+      strongestPetKey = k;
+    }
+  }
+  if (!game.petArenaStats[strongestPetKey]) {
+    game.petArenaStats[strongestPetKey] = { wins: 0, losses: 0 };
+  }
   if (won) {
     game.arena.wins = (game.arena.wins || 0) + 1;
+    game.petArenaStats[strongestPetKey].wins = (game.petArenaStats[strongestPetKey].wins || 0) + 1;
   } else {
     game.arena.losses = (game.arena.losses || 0) + 1;
+    game.petArenaStats[strongestPetKey].losses = (game.petArenaStats[strongestPetKey].losses || 0) + 1;
   }
 
   // === 🎬 전투 애니메이션 (건너뛰기 아닐 때만) ===
@@ -22177,9 +22404,9 @@ function playBattleAnimation(myPetKey, opp, won) {
           ⚡ 전투 시작!
         </div>
 
-        <!-- 건너뛰기 버튼 -->
-        <div style="position:absolute; top:10px; right:10px;">
-          <button id="battle-skip-btn" style="background:rgba(0,0,0,0.5); color:white; border:2px solid rgba(255,255,255,0.5); border-radius:8px; padding:6px 12px; font-family:inherit; font-size:11px; cursor:pointer;">⏭ 건너뛰기</button>
+        <!-- 건너뛰기 버튼 (가운데 하단, 크게) -->
+        <div style="position:absolute; bottom:5%; left:50%; transform:translateX(-50%); z-index:10;">
+          <button id="battle-skip-btn" style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; border:3px solid #3e2723; border-radius:14px; padding:12px 32px; font-family:inherit; font-size:15px; font-weight:bold; cursor:pointer; box-shadow:0 4px 0 #3e2723, 0 6px 12px rgba(0,0,0,0.5);">⏭ 건너뛰기</button>
         </div>
       </div>
     `;
@@ -26131,6 +26358,24 @@ function render() {
       const sx = b.gx * TILE;
       const sy = b.gy * TILE;
       b.draw(ctx, sx, sy);
+      // 🔄 재배치 모드일 때 건물에 호버 효과 (드래그 가능 표시)
+      if (game.relocateMode && b.state === 'complete' && b !== game.draggingBuilding) {
+        const pulse = 0.4 + Math.sin(Date.now() * 0.005) * 0.3;
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 152, 0, ${pulse})`;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(sx + 2, sy + 2, b.def.size * TILE - 4, b.def.size * TILE - 4);
+        ctx.setLineDash([]);
+        // 손가락 아이콘 (작게)
+        if (game.zoom > 0.8) {
+          ctx.fillStyle = `rgba(255, 152, 0, ${0.7 + Math.sin(Date.now() * 0.008) * 0.3})`;
+          ctx.font = `${TILE * 0.4}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('✋', sx + b.def.size * TILE / 2, sy + 8);
+        }
+        ctx.restore();
+      }
     }});
   }
   // villager/pet도 새 카메라 변환에서는 camX 빼지 말고 월드 좌표 그대로
@@ -26154,16 +26399,54 @@ function render() {
   // floating texts
   for (const ft of game.floatingTexts) ft.draw(ctx, 0, 0);
 
-  // placement preview (월드 좌표)
+  // placement preview (월드 좌표) — 드래그 중이면 더 시각적으로
   if (game.selectedBuild && game.hoverGX !== undefined) {
     const def = BUILDING_TYPES[game.selectedBuild];
     const sx = game.hoverGX * TILE;
     const sy = game.hoverGY * TILE;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    // 충돌 검사 (간단)
+    let validSpot = true;
+    for (let dy = 0; dy < def.size && validSpot; dy++) {
+      for (let dx = 0; dx < def.size && validSpot; dx++) {
+        const gx = game.hoverGX + dx;
+        const gy = game.hoverGY + dy;
+        if (game.tilemap && game.tilemap.tileAt && game.tilemap.tileAt(gx, gy) === 'water') {
+          validSpot = false;
+          break;
+        }
+        for (const b of game.buildings) {
+          if (gx >= b.gx && gx < b.gx + b.def.size && gy >= b.gy && gy < b.gy + b.def.size) {
+            validSpot = false;
+            break;
+          }
+        }
+      }
+    }
+    const draggingFromBar = game._draggingFromBuildBar;
+    // 색상: 유효=초록, 불가=빨강
+    if (validSpot) {
+      ctx.fillStyle = draggingFromBar ? 'rgba(102, 187, 106, 0.4)' : 'rgba(255, 255, 255, 0.3)';
+      ctx.strokeStyle = draggingFromBar ? '#43a047' : '#fdd835';
+    } else {
+      ctx.fillStyle = 'rgba(239, 83, 80, 0.4)';
+      ctx.strokeStyle = '#c62828';
+    }
     ctx.fillRect(sx, sy, def.size * TILE, def.size * TILE);
-    ctx.strokeStyle = '#fdd835';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = draggingFromBar ? 3 : 2;
+    ctx.setLineDash(draggingFromBar ? [6, 4] : []);
     ctx.strokeRect(sx, sy, def.size * TILE, def.size * TILE);
+    ctx.setLineDash([]);
+    // 드래그 중일 땐 건물 아이콘 미리보기
+    if (draggingFromBar) {
+      ctx.save();
+      ctx.globalAlpha = 0.7;
+      ctx.font = `${def.size * TILE * 0.7}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = validSpot ? '#2e7d32' : '#b71c1c';
+      ctx.fillText(def.icon, sx + def.size * TILE / 2, sy + def.size * TILE / 2);
+      ctx.restore();
+    }
   }
 
   ctx.restore();
@@ -26582,7 +26865,7 @@ async function _initImpl() {
             startBuildingDrag(b);
             break;
           }
-          // 350ms 후에도 같은 자리에 있으면 드래그 모드 시작
+          // 200ms 후에도 같은 자리에 있으면 드래그 모드 시작 (재배치 모드 OFF일 때만)
           game.longPressTarget = b;
           game.longPressOriginalGx = b.gx;
           game.longPressOriginalGy = b.gy;
@@ -26591,7 +26874,7 @@ async function _initImpl() {
               startBuildingDrag(game.longPressTarget);
               showToast('🔄 드래그로 이동하세요', '');
             }
-          }, 350);
+          }, 200);
           break;
         }
       }
@@ -26750,7 +27033,7 @@ async function _initImpl() {
                 startBuildingDrag(game.longPressTarget);
                 showToast('🔄 손가락으로 옮기세요', '');
               }
-            }, 400);
+            }, 250);
             break;
           }
         }

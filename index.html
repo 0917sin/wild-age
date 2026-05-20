@@ -54,11 +54,14 @@
     .topbar {
       gap: 2px;
       padding: 0 2px;
-      flex-wrap: nowrap;
-      overflow: hidden;
+      flex-wrap: nowrap !important;  /* 🔧 절대 줄바꿈 안 함 */
+      overflow-x: auto;
+      overflow-y: hidden;
       align-items: center;
       white-space: nowrap;
+      width: 100%;
     }
+    .topbar::-webkit-scrollbar { display: none; }
     .resource {
       padding: 1px 4px 1px 1px;
       min-height: 22px;
@@ -69,7 +72,7 @@
       gap: 2px;
       flex-shrink: 1;
       min-width: 0;
-      max-width: 70px;
+      max-width: 75px;
     }
     .resource .icon {
       width: 15px;
@@ -95,7 +98,7 @@
     /* 사이드 버튼들을 더 작게 (세로 화면은 폭이 좁음) + 스크롤 */
     .side-btns { 
       top: 110px; 
-      bottom: 230px;  /* 곡괭이/빌드바 공간 확보 */
+      bottom: 280px;  /* 곡괭이(200+64=264) + 여유 */
       gap: 4px; right: 6px; 
     }
     .icon-btn {
@@ -109,19 +112,19 @@
     .cam-btn { width: 34px; height: 34px; font-size: 14px; }
     .cam-hint { font-size: 9px; }
 
-    /* 건설 메뉴: 모바일에서도 여러 줄 표시 */
-    .buildbar { padding: 6px; gap: 4px; max-height: 160px; }
+    /* 건설 메뉴: 모바일은 한 줄 가로 스크롤 */
+    .buildbar { padding: 6px; gap: 4px; max-height: 110px; flex-wrap: nowrap; }
     .build-card { width: 62px; padding: 3px; }
     .build-card .preview { width: 48px; height: 42px; font-size: 26px; }
     .build-card .bname { font-size: 10px; }
     .build-card .bcost { font-size: 8px; }
-    .build-cat-bar { padding: 4px; gap: 4px; bottom: 176px; }
+    .build-cat-bar { padding: 4px; gap: 4px; bottom: 130px; }
     .build-cat-bar .build-cat-btn { padding: 6px 4px; font-size: 11px; }
 
-    /* 탭 버튼 위치 - 오른쪽 아래 정확히 (빌드바 위) */
+    /* 탭 버튼 위치 - 카테고리바 위에 깨끗하게 */
     .tap-btn {
-      width: 70px; height: 70px; font-size: 32px;
-      bottom: 238px; right: 10px;
+      width: 64px; height: 64px; font-size: 28px;
+      bottom: 200px; right: 10px;
       border-width: 3px;
     }
 
@@ -622,8 +625,15 @@
 
   .topbar {
     position: absolute; top: 8px; left: 8px; right: 8px;
-    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    display: flex; gap: 6px; align-items: center;
+    flex-wrap: nowrap;  /* 🔧 무조건 한 줄에 표시 */
+    overflow-x: auto;   /* 넘치면 가로 스크롤 */
+    scrollbar-width: thin;
+    -ms-overflow-style: none;
   }
+  .topbar::-webkit-scrollbar { height: 3px; }
+  .topbar::-webkit-scrollbar-thumb { background: var(--wood-dark); border-radius: 2px; }
+  .topbar > * { flex-shrink: 0; }  /* 자식 요소 줄어들지 않게 */
   .resource {
     background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
     border: 3px solid var(--wood-dark);
@@ -633,6 +643,7 @@
     box-shadow: 0 3px 0 var(--wood-dark), 0 4px 6px rgba(0,0,0,0.2);
     min-height: 36px;
     font-size: 14px; font-weight: bold;
+    flex-shrink: 0;  /* 줄어들지 않게 */
   }
   .resource .icon {
     width: 28px; height: 28px;
@@ -850,7 +861,7 @@
   /* BUILD CATEGORY BAR — 빌드바 바로 위에 딱 붙는 카탈로그 헤더 */
   .build-cat-bar {
     position: absolute; left: 8px; right: 8px;
-    bottom: 196px;  /* 빌드바(180px)+여백 위에 띄움 */
+    bottom: 126px;  /* 빌드바 위에 4px 띄워서 겹치지 않게 */
     background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
     border: 4px solid var(--wood-dark);
     border-radius: 16px;
@@ -879,15 +890,14 @@
     border: 4px solid var(--wood-dark);
     border-radius: 16px;
     padding: 8px;
-    display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden;
-    flex-wrap: wrap;  /* 🔧 2줄 표시 가능하게 */
+    display: flex; gap: 6px; overflow-x: auto;
+    flex-wrap: nowrap;  /* 한 줄 */
     box-shadow: 0 4px 0 var(--wood-dark);
     scrollbar-width: thin;
-    max-height: 180px;  /* 2줄 공간 확보 */
-    overflow-y: auto;  /* 세로 스크롤 가능 */
+    max-height: 110px;
     z-index: 50;
   }
-  .buildbar::-webkit-scrollbar { height: 4px; width: 4px; }
+  .buildbar::-webkit-scrollbar { height: 4px; }
   .buildbar::-webkit-scrollbar-thumb { background: var(--wood-dark); border-radius: 2px; }
 
   .build-card {
@@ -6254,6 +6264,335 @@ class Building {
         ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
         break;
       }
+      // === 🎨 장식 건물 그리기 ===
+      case 'sphinx': {
+        // 스핑크스 - 황금 머리
+        ctx.fillStyle = '#fdd835';
+        ctx.fillRect(x + w*0.2, y + h*0.5, w*0.6, h*0.45);
+        ctx.fillStyle = '#fbc02d';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.4, w*0.25, h*0.2, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#3e2723';
+        ctx.fillRect(x + w*0.4, y + h*0.4, 3, 2);
+        ctx.fillRect(x + w*0.55, y + h*0.4, 3, 2);
+        ctx.strokeStyle = '#f57f17'; ctx.strokeRect(x + w*0.2, y + h*0.5, w*0.6, h*0.45);
+        break;
+      }
+      case 'skull_totem': {
+        // 해골 토템
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(x + w*0.4, y + h*0.5, w*0.2, h*0.45);
+        ctx.fillStyle = '#eceff1';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h*0.35, w*0.18, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(x + w*0.43, y + h*0.33, 2, 0, Math.PI*2);
+        ctx.arc(x + w*0.57, y + h*0.33, 2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillRect(x + w*0.46, y + h*0.42, w*0.08, 3);
+        break;
+      }
+      case 'stone_altar': {
+        // 돌 제단
+        ctx.fillStyle = '#90a4ae';
+        ctx.fillRect(x + 4, y + h*0.4, w - 8, h*0.55);
+        ctx.fillStyle = '#607d8b';
+        ctx.fillRect(x + 6, y + h*0.35, w - 12, h*0.1);
+        // 룬 새겨진 자국
+        ctx.strokeStyle = '#37474f';
+        ctx.strokeRect(x + 8, y + h*0.5, w - 16, h*0.35);
+        ctx.fillStyle = '#fdd835';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h*0.65, 3, 0, Math.PI*2);
+        ctx.fill();
+        break;
+      }
+      case 'flower_garden':
+      case 'garden_flower': {
+        // 꽃 정원
+        ctx.fillStyle = '#7cb342';
+        ctx.fillRect(x + 2, y + h*0.4, w - 4, h*0.55);
+        // 꽃들
+        const flowerColors = ['#e91e63', '#ffeb3b', '#fff', '#ff9800'];
+        for (let i = 0; i < 6; i++) {
+          ctx.fillStyle = flowerColors[i % flowerColors.length];
+          const fx = x + 5 + (i % 3) * (w-10)/3;
+          const fy = y + h*0.5 + Math.floor(i/3) * (h*0.3);
+          ctx.beginPath();
+          ctx.arc(fx + 5, fy, 2.5, 0, Math.PI*2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = '#558b2f'; ctx.strokeRect(x + 2, y + h*0.4, w - 4, h*0.55);
+        break;
+      }
+      case 'garden_rose': {
+        // 장미 정원
+        ctx.fillStyle = '#558b2f';
+        ctx.fillRect(x + 2, y + h*0.4, w - 4, h*0.55);
+        for (let i = 0; i < 4; i++) {
+          ctx.fillStyle = '#c62828';
+          const fx = x + 6 + (i % 2) * (w-12)/2;
+          const fy = y + h*0.55 + Math.floor(i/2) * (h*0.25);
+          ctx.beginPath();
+          ctx.arc(fx + 5, fy, 3, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = '#1b5e20';
+          ctx.fillRect(fx + 4, fy + 2, 1, 6);
+        }
+        break;
+      }
+      case 'garden_tulip': {
+        // 튤립 정원
+        ctx.fillStyle = '#7cb342';
+        ctx.fillRect(x + 2, y + h*0.4, w - 4, h*0.55);
+        const tulipColors = ['#e91e63', '#ffc107', '#9c27b0'];
+        for (let i = 0; i < 5; i++) {
+          ctx.fillStyle = tulipColors[i % 3];
+          const fx = x + 5 + i * (w-10)/5;
+          const fy = y + h*0.55;
+          ctx.fillRect(fx + 2, fy - 2, 3, 4);
+          ctx.fillStyle = '#388e3c';
+          ctx.fillRect(fx + 3, fy + 2, 1, 5);
+        }
+        break;
+      }
+      case 'tribal_flag': {
+        // 부족 깃발
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(x + w*0.45, y + 2, 3, h - 4);
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(x + w*0.5, y + 4, w*0.4, h*0.4);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x + w*0.55, y + 8, w*0.1, h*0.1);
+        ctx.strokeStyle = '#b71c1c'; ctx.strokeRect(x + w*0.5, y + 4, w*0.4, h*0.4);
+        break;
+      }
+      case 'torch':
+      case 'campfire_deco': {
+        // 횃불 - 깜빡임
+        const t = Date.now() * 0.005;
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(x + w*0.45, y + h*0.5, w*0.1, h*0.45);
+        // 불꽃
+        const flame = Math.sin(t) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(255, 152, 0, ${flame})`;
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.35, w*0.12, h*0.2, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255, 235, 59, ${flame * 0.9})`;
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.4, w*0.07, h*0.12, 0, 0, Math.PI*2);
+        ctx.fill();
+        break;
+      }
+      case 'palm_tree':
+      case 'palm_big': {
+        // 야자수
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(x + w*0.45, y + h*0.3, w*0.1, h*0.65);
+        ctx.fillStyle = '#2e7d32';
+        // 잎 5개 (방사형)
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI - Math.PI/2;
+          ctx.beginPath();
+          ctx.ellipse(
+            x + w/2 + Math.cos(ang) * w*0.25,
+            y + h*0.25 + Math.sin(ang) * w*0.1,
+            w*0.22, h*0.06, ang, 0, Math.PI*2
+          );
+          ctx.fill();
+        }
+        break;
+      }
+      case 'bench': {
+        // 벤치
+        ctx.fillStyle = '#a1887f';
+        ctx.fillRect(x + w*0.1, y + h*0.55, w*0.8, h*0.1);
+        ctx.fillStyle = '#6d4c41';
+        ctx.fillRect(x + w*0.15, y + h*0.35, w*0.7, h*0.2);
+        ctx.fillRect(x + w*0.15, y + h*0.65, 3, h*0.3);
+        ctx.fillRect(x + w*0.85 - 3, y + h*0.65, 3, h*0.3);
+        break;
+      }
+      case 'pet_pedestal': {
+        // 펫 진열대
+        ctx.fillStyle = '#90a4ae';
+        ctx.fillRect(x + w*0.2, y + h*0.5, w*0.6, h*0.45);
+        ctx.fillStyle = '#607d8b';
+        ctx.fillRect(x + w*0.15, y + h*0.45, w*0.7, h*0.08);
+        ctx.fillStyle = '#fdd835';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h*0.35, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#f57f17';
+        ctx.fillRect(x + w/2 - 1, y + h*0.4, 2, 4);
+        break;
+      }
+      case 'hedge': {
+        // 울타리
+        ctx.fillStyle = '#43a047';
+        ctx.fillRect(x + 3, y + h*0.4, w - 6, h*0.55);
+        ctx.fillStyle = '#2e7d32';
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.arc(x + 6 + i * (w-12)/3, y + h*0.45, 4, 0, Math.PI*2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'big_tree': {
+        // 큰 나무
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(x + w*0.42, y + h*0.55, w*0.16, h*0.4);
+        ctx.fillStyle = '#388e3c';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h*0.4, w*0.35, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#2e7d32';
+        ctx.beginPath();
+        ctx.arc(x + w*0.4, y + h*0.5, w*0.15, 0, Math.PI*2);
+        ctx.arc(x + w*0.6, y + h*0.5, w*0.15, 0, Math.PI*2);
+        ctx.fill();
+        break;
+      }
+      case 'cherry_tree': {
+        // 벚꽃 나무
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(x + w*0.42, y + h*0.6, w*0.16, h*0.35);
+        ctx.fillStyle = '#f8bbd0';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h*0.4, w*0.35, 0, Math.PI*2);
+        ctx.fill();
+        // 분홍 꽃잎 점들
+        ctx.fillStyle = '#e91e63';
+        for (let i = 0; i < 8; i++) {
+          const ang = (i/8) * Math.PI*2;
+          ctx.beginPath();
+          ctx.arc(
+            x + w/2 + Math.cos(ang) * w*0.25,
+            y + h*0.4 + Math.sin(ang) * w*0.2, 2, 0, Math.PI*2
+          );
+          ctx.fill();
+        }
+        break;
+      }
+      case 'rock_small': {
+        // 작은 바위
+        ctx.fillStyle = '#78909c';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.7, w*0.3, h*0.25, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#546e7a';
+        ctx.beginPath();
+        ctx.ellipse(x + w*0.4, y + h*0.65, w*0.1, h*0.08, 0, 0, Math.PI*2);
+        ctx.fill();
+        break;
+      }
+      case 'rock_big': {
+        // 큰 바위
+        ctx.fillStyle = '#607d8b';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.6, w*0.42, h*0.35, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#455a64';
+        ctx.beginPath();
+        ctx.ellipse(x + w*0.35, y + h*0.55, w*0.12, h*0.1, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#37474f';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.6, w*0.42, h*0.35, 0, 0, Math.PI*2);
+        ctx.stroke();
+        break;
+      }
+      case 'waterfall': {
+        // 폭포 - 흐르는 물
+        const t2 = Date.now() * 0.005;
+        ctx.fillStyle = '#607d8b';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.fillStyle = `rgba(33, 150, 243, ${0.7 + Math.sin(t2) * 0.2})`;
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(x + 4 + i * (w-8)/3, y + 4 + ((t2 * 5 + i * 5) % (h - 8)), 5, h*0.3);
+        }
+        ctx.fillStyle = '#90caf9';
+        ctx.fillRect(x + 2, y + h*0.85, w - 4, h*0.1);
+        break;
+      }
+      case 'pond': {
+        // 연못
+        ctx.fillStyle = '#1976d2';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.6, w*0.4, h*0.3, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#42a5f5';
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h*0.55, w*0.35, h*0.25, 0, 0, Math.PI*2);
+        ctx.fill();
+        // 반사 광
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillRect(x + w*0.35, y + h*0.5, w*0.15, 2);
+        break;
+      }
+      case 'mushroom': {
+        // 버섯
+        ctx.fillStyle = '#eeeeee';
+        ctx.fillRect(x + w*0.45, y + h*0.55, w*0.1, h*0.4);
+        ctx.fillStyle = '#d32f2f';
+        ctx.beginPath();
+        ctx.arc(x + w/2, y + h*0.5, w*0.25, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + w*0.4, y + h*0.45, 1.5, 0, Math.PI*2);
+        ctx.arc(x + w*0.6, y + h*0.42, 1.5, 0, Math.PI*2);
+        ctx.fill();
+        break;
+      }
+      case 'crystal': {
+        // 수정
+        const t3 = Date.now() * 0.003;
+        ctx.fillStyle = '#9c27b0';
+        ctx.beginPath();
+        ctx.moveTo(x + w/2, y + h*0.2);
+        ctx.lineTo(x + w*0.65, y + h*0.6);
+        ctx.lineTo(x + w/2, y + h*0.9);
+        ctx.lineTo(x + w*0.35, y + h*0.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255,255,255,${0.6 + Math.sin(t3 * 2) * 0.3})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = `rgba(225, 190, 231, ${0.7 + Math.sin(t3) * 0.2})`;
+        ctx.beginPath();
+        ctx.moveTo(x + w/2, y + h*0.25);
+        ctx.lineTo(x + w*0.55, y + h*0.4);
+        ctx.lineTo(x + w/2, y + h*0.55);
+        ctx.lineTo(x + w*0.45, y + h*0.4);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case 'ice_pillar': {
+        // 얼음 기둥
+        ctx.fillStyle = '#b3e5fc';
+        ctx.fillRect(x + w*0.35, y + h*0.25, w*0.3, h*0.7);
+        ctx.fillStyle = '#e1f5fe';
+        ctx.fillRect(x + w*0.37, y + h*0.28, w*0.06, h*0.65);
+        ctx.fillStyle = '#0277bd';
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.35, y + h*0.25);
+        ctx.lineTo(x + w/2, y + h*0.1);
+        ctx.lineTo(x + w*0.65, y + h*0.25);
+        ctx.closePath();
+        ctx.fill();
+        // 반짝임
+        const t4 = Date.now() * 0.004;
+        ctx.fillStyle = `rgba(255,255,255,${0.6 + Math.sin(t4) * 0.4})`;
+        ctx.fillRect(x + w*0.4, y + h*0.5, 2, 2);
+        break;
+      }
     }
   }
 }
@@ -7793,9 +8132,23 @@ function getBuildingImage(buildingType) {
   return loadImage(filename, 'buildings');
 }
 
+// === 🚀 PETS 키 캐시 (lazy init) ===
+let _PET_KEY_CACHE = null;
+function _getPetKey(def) {
+  if (!_PET_KEY_CACHE) {
+    _PET_KEY_CACHE = new WeakMap();
+    for (const k in PETS) {
+      if (Object.prototype.hasOwnProperty.call(PETS, k)) {
+        _PET_KEY_CACHE.set(PETS[k], k);
+      }
+    }
+  }
+  return _PET_KEY_CACHE.get(def);
+}
+
 // === HTML용 펫 이미지 태그 생성 (SVG 대체) ===
 function petImageHTML(def, size) {
-  const key = Object.keys(PETS).find(k => PETS[k] === def);
+  const key = _getPetKey(def);
   if (!key) return petSVG(def, size);
 
   const filename = PET_IMAGES[key];
@@ -13966,10 +14319,6 @@ function openSettings() {
     <div class="settings-row">
       <span class="lbl">수동 저장</span>
       <button class="danger-btn" style="background:linear-gradient(to bottom,#66bb6a,#388e3c);" onclick="manualSave()">💾 지금 저장</button>
-    </div>
-    <div class="settings-row">
-      <span class="lbl">🎓 튜토리얼 다시 보기</span>
-      <button class="danger-btn" style="background:linear-gradient(to bottom,#42a5f5,#1565c0);" onclick="document.getElementById('m-settings').classList.remove('show'); game.tutorialCompleted = false; startTutorial();">🎓 시작</button>
     </div>
     ${online ? `
       <div class="settings-row">

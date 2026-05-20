@@ -7610,36 +7610,11 @@ const ICON_IMAGES_OVERRIDE = {
 
 // === 자동 인식: Proxy로 동적으로 파일명 생성 ===
 // PET_IMAGES['wolf']를 호출하면 자동으로 'wolf.png' 반환
-// 오버라이드에 있으면 그것 사용
-const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
-  get(target, key) {
-    if (typeof key !== 'string') return undefined;
-    if (key in target) return target[key];  // 오버라이드 우선
-    if (key === 'constructor' || key.startsWith('__')) return undefined;
-    return `${key}.png`;  // 자동: {key}.png
-  },
-  has(target, key) { return typeof key === 'string' && !key.startsWith('__'); }
-});
-
-const BUILDING_IMAGES = new Proxy(BUILDING_IMAGES_OVERRIDE, {
-  get(target, key) {
-    if (typeof key !== 'string') return undefined;
-    if (key in target) return target[key];
-    if (key === 'constructor' || key.startsWith('__')) return undefined;
-    return `${key}.png`;
-  },
-  has(target, key) { return typeof key === 'string' && !key.startsWith('__'); }
-});
-
-const ICON_IMAGES = new Proxy(ICON_IMAGES_OVERRIDE, {
-  get(target, key) {
-    if (typeof key !== 'string') return undefined;
-    if (key in target) return target[key];
-    if (key === 'constructor' || key.startsWith('__')) return undefined;
-    return `${key}.png`;
-  },
-  has(target, key) { return typeof key === 'string' && !key.startsWith('__'); }
-});
+// 명시적 매핑만 사용 (Proxy 제거 - 깨진 이미지 방지)
+// 매핑 없는 펫은 자동으로 SVG 폴백
+const PET_IMAGES = PET_IMAGES_OVERRIDE;
+const BUILDING_IMAGES = BUILDING_IMAGES_OVERRIDE;
+const ICON_IMAGES = ICON_IMAGES_OVERRIDE;
 
 // === 이미지 로딩 (비동기, 캐시됨) ===
 function loadImage(filename, category = 'pets') {
@@ -7676,14 +7651,41 @@ function petImageHTML(def, size) {
   if (!key) return petSVG(def, size);
 
   const filename = PET_IMAGES[key];
-  if (!filename) return petSVG(def, size);  // 폴백: SVG
+  if (!filename) return petSVG(def, size);  // 매핑 없으면 SVG 폴백
 
-  // 이미지 태그 (픽셀 아트 선명하게)
-  return `<img src="${ASSET_BASE}/pets/${filename}" width="${size}" height="${size}" 
-    style="image-rendering: pixelated; image-rendering: crisp-edges; display: inline-block; vertical-align: middle;" 
-    onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', window._petSVGFallback(${JSON.stringify(key)}, ${size}));" 
-    alt="${def.name}">`;
+  // 이미 로딩 실패 확인된 파일이면 SVG 직접 반환
+  const cacheKey = `pets/${filename}`;
+  if (IMG_LOAD_STATUS[cacheKey] === 'failed') {
+    return petSVG(def, size);
+  }
+
+  // 컨테이너로 감싸기 (이미지 실패 시 SVG가 들어갈 자리)
+  const escapedKey = key.replace(/'/g, "\\'");
+  return `<span class="pet-img-wrap" style="display:inline-flex; align-items:center; justify-content:center; width:${size}px; height:${size}px; vertical-align:middle;"><img src="${ASSET_BASE}/pets/${filename}" width="${size}" height="${size}" style="image-rendering: pixelated; image-rendering: crisp-edges; max-width:100%; max-height:100%;" onerror="window._handlePetImgError(this, '${escapedKey}', ${size});" alt="${def.name}"></span>`;
 }
+
+// 이미지 로딩 실패 시: img를 SVG로 완전 교체
+window._handlePetImgError = function(imgEl, petKey, size) {
+  try {
+    const def = PETS[petKey];
+    if (!def) { imgEl.style.display = 'none'; return; }
+    // 캐시에 실패 표시 (다음번엔 바로 SVG)
+    const filename = PET_IMAGES[petKey];
+    if (filename) IMG_LOAD_STATUS[`pets/${filename}`] = 'failed';
+    // img를 SVG로 교체
+    const wrap = imgEl.parentElement;
+    const svgHTML = petSVG(def, size);
+    if (wrap && wrap.classList.contains('pet-img-wrap')) {
+      wrap.innerHTML = svgHTML;
+    } else {
+      // 부모가 wrap이 아니면 img 다음에 삽입
+      imgEl.insertAdjacentHTML('afterend', svgHTML);
+      imgEl.remove();
+    }
+  } catch (e) {
+    imgEl.style.display = 'none';
+  }
+};
 
 // SVG 폴백을 위한 전역 함수
 window._petSVGFallback = function(petKey, size) {
@@ -7696,8 +7698,12 @@ window._petSVGFallback = function(petKey, size) {
 window._petSVGFallbackFull = function(petKey, size) {
   const def = PETS[petKey];
   if (!def) return '';
-  // PET_IMAGES 일시 우회: 이 펫만 잠시 매핑 제거 후 SVG 그리기
+  // 실패 캐시에 기록 (다음번 호출 시 바로 SVG)
   const savedFilename = PET_IMAGES[petKey];
+  if (savedFilename) {
+    IMG_LOAD_STATUS[`pets/${savedFilename}`] = 'failed';
+  }
+  // PET_IMAGES 일시 우회: 이 펫만 잠시 매핑 제거 후 SVG 그리기
   delete PET_IMAGES[petKey];
   const svg = petSVG(def, size);
   if (savedFilename) PET_IMAGES[petKey] = savedFilename;  // 복구
@@ -8313,8 +8319,8 @@ const PET_ART = {
 // === 펫을 SVG 문자열로 그리기 (카드/UI용) ===
 function petSVG(def, size) {
   const key = Object.keys(PETS).find(k => PETS[k] === def);
-  // === 🖼 이미지 에셋 우선 사용 (PET_IMAGES에 매핑되어 있으면) ===
-  if (key && PET_IMAGES[key]) {
+  // === 🖼 이미지 에셋 우선 사용 (PET_IMAGES에 매핑되어 있고 로딩 실패 안 했으면) ===
+  if (key && PET_IMAGES[key] && IMG_LOAD_STATUS[`pets/${PET_IMAGES[key]}`] !== 'failed') {
     const tierColor = PET_TIER_COLORS[def.tier] || '#999';
     const glowStyle = (def.tier === 'mythic' || def.tier === 'legendary')
       ? `box-shadow: 0 0 ${size*0.3}px ${tierColor}, 0 0 ${size*0.15}px ${tierColor};`

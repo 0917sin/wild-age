@@ -7384,23 +7384,262 @@ const ASSET_BASE = './assets';  // GitHub Pages에서 상대 경로
 const IMG_CACHE = {};            // 로딩된 Image 객체 캐시
 const IMG_LOAD_STATUS = {};      // 'loading' | 'loaded' | 'failed'
 
-// 펫 이미지 매핑 (key → 파일명, 비어있으면 SVG 폴백)
-// 예: { rat: 'rat.png', wolf: 'wolf.png', ... }
-const PET_IMAGES = {
-  // 여기에 펫 이미지 매핑 추가됨 (뚜릴님이 GitHub 올린 후 매핑 작성)
+// === 🎨 자동 인식 시스템 ===
+// assets/pets/{petKey}.png 파일이 있으면 자동으로 사용 (예: wolf.png → wolf 펫)
+// 별도 매핑 작성 없이 파일만 올리면 됨!
+// 명시적 매핑이 필요한 경우 (파일명이 다른 경우)만 아래에 추가
+
+// 펫 이미지 매핑 (수동 오버라이드용 — 비워두면 자동 인식)
+// 자동 인식: assets/pets/{petKey}.png  (예: assets/pets/wolf.png)
+const PET_IMAGES_OVERRIDE = {
+  // 🎨 게임 펫 → 업로드된 에셋 자동 매핑 (200개+)
+  // 비슷한 외형/등급의 에셋을 자동 할당
+  alligator: 'BestialLizardfolkIdleSide.png',
+  amaterasu: 'DivinePlanetar.png',
+  angel: 'ResoluteAngel.png',
+  ant: 'SoldierAnt.png',
+  anubis: 'BoundCadaver.png',
+  ape_silver: 'MadBoar.png',
+  armadillo: 'SlowTurtle.png',
+  baboon: 'MadBoar.png',
+  badger: 'CarcassFeeder.png',
+  bahamut: 'AdultWhiteDragon.png',
+  baihu: 'MeowingCat.png',
+  banshee: 'VileWitch.png',
+  basilisk: 'PoisonDrake.png',
+  basilisk_b: 'AquaDrake.png',
+  bat: 'PlagueBat.png',
+  bat_small: 'PlagueBat.png',
+  bear: 'MadBoar.png',
+  bear_black: 'MadBoar.png',
+  bear_polar: 'MadBoar.png',
+  beaver: 'MawingBeaver.png',
+  bee: 'AcidAnt.png',
+  beetle: 'RhinoBeetle.png',
+  behemoth: 'MadBoar.png',
+  bison: 'MadBoar.png',
+  blowfish: 'CoralCrab.png',
+  boar: 'MadBoar.png',
+  bobcat: 'MeowingCat.png',
+  buffalo: 'MadBoar.png',
+  bull: 'MadBoar.png',
+  bull_giant: 'MadBoar.png',
+  bunny: 'AntleredRascal.png',
+  butterfly: 'FlutteringPixie.png',
+  capybara: 'CarcassFeeder.png',
+  caribou: 'AntleredRascal.png',
+  cat: 'MeowingCat.png',
+  centaur: 'LizardfolkScout.png',
+  cerberus: 'ToxicHound.png',
+  cheetah: 'MeowingCat.png',
+  chick: 'TinyChick.png',
+  chicken: 'CluckingChicken.png',
+  chimera: 'TimberWolf.png',
+  cobra: 'DungBeetle.png',
+  cosmic_god: 'DivinePlanetar.png',
+  cow: 'PasturingSheep.png',
+  coyote: 'ToxicHound.png',
+  crab: 'CoralCrab.png',
+  cricket: 'AcidAnt.png',
+  croc: 'BestialLizardfolkIdleSide.png',
+  crow: 'VampireBat.png',
+  cthulhu: 'MerfolkAquamancer.png',
+  cyclops: 'IronGolem.png',
+  deer: 'AntleredRascal.png',
+  demon: 'FledglingDemon.png',
+  dingo: 'ToxicHound.png',
+  djinn: 'FireElemental.png',
+  dog: 'ToxicHound.png',
+  donkey: 'AntleredRascal.png',
+  dragon: 'AdultGreenDragon.png',
+  dragon_red: 'YoungRedDragon.png',
+  duck: 'HonkingGoose.png',
+  eagle: 'VampireBat.png',
+  elephant: 'MadBoar.png',
+  elk: 'AntleredRascal.png',
+  emu: 'HonkingGoose.png',
+  falcon: 'VampireBat.png',
+  fenghuang: 'FireElemental.png',
+  fenrir: 'TimberWolf.png',
+  ferret: 'CarcassFeeder.png',
+  firefly: 'GlowingWisp.png',
+  fish: 'AcidAnt.png',
+  flamingo: 'HonkingGoose.png',
+  fox: 'SnowFox.png',
+  frog: 'LeapingFrog.png',
+  garuda: 'SwoopingBat.png',
+  giraffe: 'AntleredRascal.png',
+  goat: 'PasturingSheep.png',
+  golem_iron: 'IronGolem.png',
+  goose: 'HonkingGoose.png',
+  gorilla: 'MadBoar.png',
+  griffin: 'SwoopingBat.png',
+  hamster: 'InfectedMouse.png',
+  hawk: 'VampireBat.png',
+  hedgehog: 'SpikeyPorcupine.png',
+  hippo: 'MadBoar.png',
+  horse: 'AntleredRascal.png',
+  hydra: 'PoisonDrake.png',
+  hyena: 'ToxicHound.png',
+  ifrit: 'FireElemental.png',
+  iguana: 'BestialLizardfolkIdleSide.png',
+  jackal: 'ToxicHound.png',
+  jaguar: 'MeowingCat.png',
+  jellyfish: 'MerfolkMystic.png',
+  kangaroo: 'AntleredRascal.png',
+  kitten: 'MeowingCat.png',
+  koala: 'CarcassFeeder.png',
+  kraken: 'MerfolkAquamancer.png',
+  ladybug: 'RhinoBeetle.png',
+  leopard: 'MeowingCat.png',
+  leviathan: 'MerfolkImpaler.png',
+  lion: 'MeowingCat.png',
+  lioness: 'MeowingCat.png',
+  lizard: 'BestialLizardfolkIdleSide.png',
+  llama: 'PasturingSheep.png',
+  llama_baby: 'PasturingSheep.png',
+  lynx: 'MeowingCat.png',
+  manta_ray: 'MerfolkScout.png',
+  manticore: 'TimberWolf.png',
+  marlin: 'MerfolkScout.png',
+  meerkat: 'CarcassFeeder.png',
+  minotaur: 'MadBoar.png',
+  mole: 'TunnelingMole.png',
+  mongoose: 'CarcassFeeder.png',
+  monkey: 'CarcassFeeder.png',
+  moose: 'AntleredRascal.png',
+  mouse2: 'InfectedMouse.png',
+  nine_tail: 'SnowFox.png',
+  octolord: 'MerfolkAquamancer.png',
+  octopus: 'MerfolkAquamancer.png',
+  odin_raven: 'VampireBat.png',
+  okapi: 'AntleredRascal.png',
+  orangutan: 'MadBoar.png',
+  orca: 'MerfolkImpaler.png',
+  ostrich: 'HonkingGoose.png',
+  otter: 'MawingBeaver.png',
+  ouroboros: 'DungBeetle.png',
+  owl: 'FloatingEye.png',
+  oyster: 'CoralCrab.png',
+  panda: 'MadBoar.png',
+  panther: 'MeowingCat.png',
+  parrot: 'TinyChick.png',
+  peacock: 'HonkingGoose.png',
+  pegasus: 'AntleredRascal.png',
+  pegasus_w: 'AntleredRascal.png',
+  pelican: 'HonkingGoose.png',
+  penguin: 'TinyChick.png',
+  phoenix: 'FireElemental.png',
+  pig: 'DaintyPig.png',
+  pigeon: 'HonkingGoose.png',
+  pony: 'AntleredRascal.png',
+  porcupine: 'SpikeyPorcupine.png',
+  python: 'DungBeetle.png',
+  qilin: 'AntleredRascal.png',
+  qinglong: 'AdultGreenDragon.png',
+  ra: 'DivinePlanetar.png',
+  rabbit: 'AntleredRascal.png',
+  raccoon: 'CarcassFeeder.png',
+  rat: 'InfectedMouse.png',
+  raven: 'VampireBat.png',
+  rhino: 'MadBoar.png',
+  roc: 'SwoopingBat.png',
+  rooster: 'CluckingChicken.png',
+  scorpion: 'GiantRoyalScarab.png',
+  seal: 'MawingBeaver.png',
+  shark: 'MerfolkImpaler.png',
+  sheep: 'PasturingSheep.png',
+  shenlong: 'AdultGreenDragon.png',
+  shrimp: 'CoralCrab.png',
+  skunk: 'StinkySkunk.png',
+  sleipnir: 'AntleredRascal.png',
+  sloth: 'CarcassFeeder.png',
+  snail: 'CoralCrab.png',
+  snake: 'DungBeetle.png',
+  sparrow: 'TinyChick.png',
+  sphinx: 'MeowingCat.png',
+  spider: 'GiantRoyalScarab.png',
+  squid: 'MerfolkAquamancer.png',
+  squid_baby: 'MerfolkAquamancer.png',
+  squirrel: 'SpikeyPorcupine.png',
+  starling: 'TinyChick.png',
+  susanoo: 'SwordArchon.png',
+  swan: 'HonkingGoose.png',
+  swordfish: 'MerfolkScout.png',
+  tapir: 'MadBoar.png',
+  tiamat: 'YoungRedDragon.png',
+  tiger: 'MeowingCat.png',
+  tigercub: 'MeowingCat.png',
+  toad: 'CroakingToad.png',
+  treant: 'CorruptedTreant.png',
+  tropical: 'MerfolkScout.png',
+  turtle: 'SlowTurtle.png',
+  unicorn: 'AntleredRascal.png',
+  vulture: 'VampireBat.png',
+  walrus: 'MadBoar.png',
+  weasel: 'CarcassFeeder.png',
+  whale: 'MerfolkImpaler.png',
+  wolf: 'TimberWolf.png',
+  wolf_alpha: 'TimberWolf.png',
+  wolf_dire: 'TimberWolf.png',
+  wolfpup: 'GoblinWolfRider.png',
+  woodpecker: 'TinyChick.png',
+  worldgod: 'DivinePlanetar.png',
+  worm: 'ForagingMaggot.png',
+  wyrm: 'MudWyvern.png',
+  xuanwu: 'SlowTurtle.png',
+  yak: 'PasturingSheep.png',
+  yamato: 'SwordArchon.png',
+  yeti: 'IceGolem.png',
+  ymir: 'IceGolem.png',
+  zebra: 'AntleredRascal.png',
+  zhuque: 'YoungRedDragon.png',
+  ziz: 'SwoopingBat.png',
 };
 
-// 건물 이미지 매핑
-const BUILDING_IMAGES = {
-  // hut: 'hut.png',
-  // farm: 'farm.png',
+// 건물 이미지 매핑 (수동 오버라이드용)
+// 자동 인식: assets/buildings/{buildingType}.png
+const BUILDING_IMAGES_OVERRIDE = {
+  // 예: hut: 'wooden_hut.png'
 };
 
-// 자원/UI 아이콘 이미지 매핑
-const ICON_IMAGES = {
-  // gold: 'gold.png',
-  // gem: 'gem.png',
+// 아이콘 매핑
+const ICON_IMAGES_OVERRIDE = {
+  // gold: 'gold_coin.png',
 };
+
+// === 자동 인식: Proxy로 동적으로 파일명 생성 ===
+// PET_IMAGES['wolf']를 호출하면 자동으로 'wolf.png' 반환
+// 오버라이드에 있으면 그것 사용
+const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
+  get(target, key) {
+    if (typeof key !== 'string') return undefined;
+    if (key in target) return target[key];  // 오버라이드 우선
+    if (key === 'constructor' || key.startsWith('__')) return undefined;
+    return `${key}.png`;  // 자동: {key}.png
+  },
+  has(target, key) { return typeof key === 'string' && !key.startsWith('__'); }
+});
+
+const BUILDING_IMAGES = new Proxy(BUILDING_IMAGES_OVERRIDE, {
+  get(target, key) {
+    if (typeof key !== 'string') return undefined;
+    if (key in target) return target[key];
+    if (key === 'constructor' || key.startsWith('__')) return undefined;
+    return `${key}.png`;
+  },
+  has(target, key) { return typeof key === 'string' && !key.startsWith('__'); }
+});
+
+const ICON_IMAGES = new Proxy(ICON_IMAGES_OVERRIDE, {
+  get(target, key) {
+    if (typeof key !== 'string') return undefined;
+    if (key in target) return target[key];
+    if (key === 'constructor' || key.startsWith('__')) return undefined;
+    return `${key}.png`;
+  },
+  has(target, key) { return typeof key === 'string' && !key.startsWith('__'); }
+});
 
 // === 이미지 로딩 (비동기, 캐시됨) ===
 function loadImage(filename, category = 'pets') {
@@ -10934,7 +11173,7 @@ function updateHUD() {
     document.getElementById('res-wood').parentElement.title = '🪵 목재: ' + Math.floor(game.res.wood || 0).toLocaleString();
     document.getElementById('res-stone').parentElement.title = '🪨 석재: ' + Math.floor(game.res.stone || 0).toLocaleString();
     document.getElementById('res-gem').parentElement.title = '💎 보석: ' + Math.floor(game.res.gem || 0).toLocaleString();
-    document.getElementById('lv-num').textContent = (game.level || 1) >= MAX_LEVEL ? 'MAX' : (game.level || 1);
+    document.getElementById('lv-num').textContent = (game.level || 1);
     // === VIP HUD 뱃지 (레벨 박스 아래) ===
     const vipBadgeHud = document.getElementById('vip-badge-hud');
     const vipLevelText = document.getElementById('vip-level-text');
@@ -11014,7 +11253,7 @@ function updateHUD() {
   document.getElementById('att-badge').style.display = att ? 'flex' : 'none';
   // ❌ 매 HUD 갱신마다 quest/achievement/title 체크는 너무 무거움 → tick의 5초 타이머로 이동됨
 }
-const MAX_LEVEL = 250;
+const MAX_LEVEL = 999;
 
 // 레벨 N에서 N+1로 가는데 필요한 경험치 = N * 2000
 // Lv1→2: 2000, Lv2→3: 4000, Lv30→31: 60000, Lv59→60: 118000
@@ -13511,7 +13750,10 @@ const ACHIEVEMENTS = [
   { id: 'lv100', icon: '💎', title: '제국의 시조',    desc: '레벨 100 달성', check: () => game.level >= 100, reward: { gold: 500000, gem: 500 } },
   { id: 'lv150', icon: '🌟', title: '신화 속 부족장', desc: '레벨 150 달성', check: () => game.level >= 150, reward: { gold: 1500000, gem: 1000 } },
   { id: 'lv200', icon: '🌌', title: '하늘의 지배자',  desc: '레벨 200 달성', check: () => game.level >= 200, reward: { gold: 3000000, gem: 2000 } },
-  { id: 'lv250', icon: '✨', title: '와일드 에이지의 신', desc: '레벨 250 (만렙)', check: () => game.level >= 250, reward: { gold: 10000000, gem: 5000 } },
+  { id: 'lv250', icon: '✨', title: '와일드 에이지의 영웅', desc: '레벨 250 달성', check: () => game.level >= 250, reward: { gold: 10000000, gem: 5000 } },
+  { id: 'lv500', icon: '🌠', title: '시간의 지배자', desc: '레벨 500 달성', check: () => game.level >= 500, reward: { gold: 50000000, gem: 15000 } },
+  { id: 'lv750', icon: '⚡', title: '운명의 개척자', desc: '레벨 750 달성', check: () => game.level >= 750, reward: { gold: 200000000, gem: 30000 } },
+  { id: 'lv999', icon: '👁', title: '와일드 에이지의 신', desc: '레벨 999 (만렙)', check: () => game.level >= 999, reward: { gold: 999999999, gem: 99999 } },
   // 펫 업적
   { id: 'pet5',  icon: '🐾', title: '동물 친구', desc: '펫 5종 수집', check: () => Object.keys(game.pets || {}).length >= 5, reward: { gold: 500, gem: 5 } },
   { id: 'pet20', icon: '🦁', title: '동물원 주인', desc: '펫 20종 수집', check: () => Object.keys(game.pets || {}).length >= 20, reward: { gold: 3000, gem: 15 } },
@@ -13581,7 +13823,10 @@ const TITLES = [
   { id: 'lv100_title',  icon: '💎', name: '제국의 시조',      desc: '레벨 100 달성',       condition: () => game.level >= 100, color: '#00bcd4', effect: { allRes: 0.30, power: 0.25 }, effectDesc: '모든 자원 +30%, 전투력 +25%' },
   { id: 'lv150_title',  icon: '🌟', name: '신화 속 부족장',   desc: '레벨 150 달성',       condition: () => game.level >= 150, color: '#e91e63', effect: { allRes: 0.40, power: 0.35 }, effectDesc: '모든 자원 +40%, 전투력 +35%' },
   { id: 'lv200_title',  icon: '🌌', name: '하늘의 지배자',    desc: '레벨 200 달성',       condition: () => game.level >= 200, color: '#9c27b0', effect: { allRes: 0.50, power: 0.50 }, effectDesc: '모든 자원 +50%, 전투력 +50%' },
-  { id: 'lv250_title',  icon: '✨', name: '와일드의 신',      desc: '레벨 250 (만렙)',     condition: () => game.level >= 250, color: '#311b92', effect: { allRes: 0.75, power: 0.75 }, effectDesc: '모든 자원 +75%, 전투력 +75%' },
+  { id: 'lv250_title',  icon: '✨', name: '와일드의 영웅',    desc: '레벨 250 달성',       condition: () => game.level >= 250, color: '#311b92', effect: { allRes: 0.75, power: 0.75 }, effectDesc: '모든 자원 +75%, 전투력 +75%' },
+  { id: 'lv500_title',  icon: '🌠', name: '시간의 지배자',    desc: '레벨 500 달성',       condition: () => game.level >= 500, color: '#1a237e', effect: { allRes: 1.00, power: 1.00 }, effectDesc: '모든 자원 +100%, 전투력 +100%' },
+  { id: 'lv750_title',  icon: '⚡', name: '운명의 개척자',    desc: '레벨 750 달성',       condition: () => game.level >= 750, color: '#0d47a1', effect: { allRes: 1.50, power: 1.50 }, effectDesc: '모든 자원 +150%, 전투력 +150%' },
+  { id: 'lv999_title',  icon: '👁', name: '와일드의 신',      desc: '레벨 999 (만렙)',     condition: () => game.level >= 999, color: '#000000', effect: { allRes: 3.00, power: 3.00 }, effectDesc: '모든 자원 +300%, 전투력 +300%' },
   // 펫 칭호 — 펫 전투력 보너스
   { id: 'pet_collector',icon: '🐾', name: '동물 친구',        desc: '펫 10종 보유',        condition: () => Object.keys(game.pets || {}).length >= 10, color: '#ff9800', effect: { petPower: 0.05 },  effectDesc: '펫 전투력 +5%' },
   { id: 'pet_master',   icon: '🦁', name: '동물원 주인',      desc: '펫 30종 보유',        condition: () => Object.keys(game.pets || {}).length >= 30, color: '#ef6c00', effect: { petPower: 0.10 },  effectDesc: '펫 전투력 +10%' },

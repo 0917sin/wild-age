@@ -4157,9 +4157,11 @@ class Building {
         this.completionFlash = 1;
         triggerShake(this.type === 'altar' ? 6 : 3, 0.25);
 
-        // Hut completion → 3 new villagers join!
+        // Hut completion → 3 new villagers join (단, 최대 100명까지 — 성능 최적화)
         if (this.type === 'hut' && game.home) {
-          for (let i = 0; i < 3; i++) {
+          const MAX_VILLAGERS = 100;
+          const toAdd = Math.min(3, Math.max(0, MAX_VILLAGERS - (game.villagers ? game.villagers.length : 0)));
+          for (let i = 0; i < toAdd; i++) {
             const v = new Villager(
               (this.gx + this.def.size / 2) * TILE + (Math.random() - 0.5) * 30,
               (this.gy + this.def.size) * TILE - 4 + Math.random() * 20
@@ -5548,7 +5550,7 @@ function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 // Lightweight: each particle is a plain object so we don't allocate classes
 // during gameplay. A free-list pool keeps allocations near zero per frame.
 // ============================================================================
-const PARTICLE_POOL_MAX = 400;
+const PARTICLE_POOL_MAX = 200;  // 모바일 성능 최적화 (이전 400)
 
 const fx = {
   particles: [],
@@ -10426,6 +10428,10 @@ function spawnFloatNum(res, amount) {
   setTimeout(() => el.remove(), 1200);
 }
 function updateHUD() {
+  // === 🚀 throttle: 50ms 내 중복 호출 무시 (탭 연타 시 성능 보호) ===
+  const _now = Date.now();
+  if (game._lastHudUpdate && (_now - game._lastHudUpdate) < 50) return;
+  game._lastHudUpdate = _now;
   // res 안전성
   if (!game.res) game.res = { gold: 0, food: 0, wood: 0, stone: 0, gem: 0 };
   try {
@@ -24677,18 +24683,44 @@ function tick(now) {
     let _hasteBonus = 1;
     if (game.hasteUntil && _now < game.hasteUntil) _hasteBonus = 1.5;
 
-    // update entities
+    // === 건물 update: 뷰포트 컬링 (화면 밖이면 update 누적 후 한 번에 처리) ===
+    // 화면 밖 건물은 dt를 누적해서 0.5초마다 한 번씩만 update → 시뮬레이션 정확도 유지하면서 부하 감소
+    const cw_ = canvas.logicalW || canvas.width;
+    const ch_ = canvas.logicalH || canvas.height;
+    const viewW_ = cw_ / (game.zoom || 1);
+    const viewH_ = ch_ / (game.zoom || 1);
+    const vpMinX_ = (game.camX || 0) - TILE * 4;
+    const vpMinY_ = (game.camY || 0) - TILE * 4;
+    const vpMaxX_ = (game.camX || 0) + viewW_ + TILE * 4;
+    const vpMaxY_ = (game.camY || 0) + viewH_ + TILE * 4;
     for (const b of game.buildings) {
       let bdt = dt;
       if (b.state === 'under_construction') bdt *= game.buildSpeed;
       if (b.state === 'complete' || b.state === 'ready_to_harvest') bdt *= game.productionMult * _hasteBonus;
-      try { b.update(bdt); } catch (e) { console.warn('building update error', e); }
+      // 화면 밖 + 완성된 건물: 누적해서 0.5초마다만 update
+      const bx = b.gx * TILE;
+      const by = b.gy * TILE;
+      const bw = b.def.size * TILE;
+      const inView = !(bx + bw < vpMinX_ || bx > vpMaxX_ || by + bw < vpMinY_ || by > vpMaxY_);
+      if (!inView && b.state === 'complete') {
+        b._offscreenDt = (b._offscreenDt || 0) + bdt;
+        if (b._offscreenDt >= 0.5) {
+          try { b.update(b._offscreenDt); } catch (e) {}
+          b._offscreenDt = 0;
+        }
+      } else {
+        if (b._offscreenDt) { bdt += b._offscreenDt; b._offscreenDt = 0; }
+        try { b.update(bdt); } catch (e) { console.warn('building update error', e); }
+      }
     }
+    // 화면 밖 마을 사람은 update 스킵 (시각용이라 영향 없음)
     for (const v of game.villagers) {
+      if (v.x < vpMinX_ || v.x > vpMaxX_ || v.y < vpMinY_ || v.y > vpMaxY_) continue;
       try { v.update(dt); } catch (e) {}
     }
     if (game.petCompanions) {
       for (const p of game.petCompanions) {
+        if (p.x < vpMinX_ || p.x > vpMaxX_ || p.y < vpMinY_ || p.y > vpMaxY_) continue;
         try { p.update(dt); } catch (e) {}
       }
     }

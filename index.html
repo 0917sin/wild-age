@@ -809,13 +809,25 @@
   .side-btns {
     position: absolute; right: 8px; top: 140px;
     bottom: 280px;  /* 빌드바(110) + 카테고리바(50) + 곡괭이 + 마진 */
-    display: flex; flex-direction: column; gap: 6px;
+    display: flex; flex-direction: column; gap: 8px;
     overflow-y: auto;
     overflow-x: visible;
-    padding: 6px 4px;  /* 그림자가 안 잘리도록 */
+    padding: 8px 4px;  /* 그림자가 안 잘리도록 */
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     z-index: 50;
+    /* 위/아래 fade-out 마스크 - 스크롤 가능 시각적 힌트 */
+    mask-image: linear-gradient(to bottom, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%);
+  }
+  /* 가로 모드 / 데스크탑: 2열 그리드로 표시 */
+  @media (min-aspect-ratio: 3/4) and (min-width: 600px) {
+    .side-btns {
+      flex-direction: row;
+      flex-wrap: wrap;
+      width: 124px;
+      justify-content: center;
+    }
   }
   .side-btns::-webkit-scrollbar {
     width: 4px;
@@ -828,24 +840,24 @@
     background: transparent;
   }
   .icon-btn {
-    width: 52px; height: 52px;
+    width: 54px; height: 54px;
     flex-shrink: 0;  /* 스크롤되어도 아이콘 크기 유지 */
     background: linear-gradient(to bottom, #fff, var(--parchment-dark));
     border: 3px solid var(--wood-dark);
     border-radius: 14px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-size: 22px;
+    font-size: 24px;
     box-shadow: 0 3px 0 var(--wood-dark), 0 4px 6px rgba(0,0,0,0.2);
     cursor: pointer; position: relative;
-    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.1s;
+    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.1s, filter 0.15s;
   }
-  .icon-btn:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 5px 0 var(--wood-dark), 0 6px 10px rgba(0,0,0,0.25); }
+  .icon-btn:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 5px 0 var(--wood-dark), 0 6px 10px rgba(0,0,0,0.25); filter: brightness(1.05); }
   .icon-btn:active {
     transform: translateY(3px) scaleY(0.85) scaleX(1.08);
     box-shadow: 0 1px 0 var(--wood-dark);
     transition: transform 0.05s;
   }
-  .icon-btn .label { font-size: 8px; margin-top: -2px; color: var(--wood-dark); }
+  .icon-btn .label { font-size: 9px; margin-top: -1px; color: var(--wood-dark); font-weight: bold; }
   .icon-btn .badge {
     position: absolute; top: -4px; right: -4px;
     background: var(--red); color: white;
@@ -4861,6 +4873,62 @@ const BUILDING_TYPES = {
     buildTime: 15, levelReq: 8,
     capacity: 0, decoration: true,
     desc: '신비한 얼음 기둥.',
+  },
+  // === 🧱 성벽 시스템: 마을 방어력 증가 ===
+  wood_wall: {
+    name: '나무 성벽', icon: '🪵', size: 1,
+    cost: { wood: 50, stone: 10 },
+    buildTime: 8, levelReq: 3,
+    yield: {}, yieldTime: 0,
+    capacity: 0,
+    desc: '기본 방어. 전투력 +50, 약탈 방어 +5%',
+    bonusPower: 50,
+    defenseBonus: 0.05,
+    isWall: true,
+  },
+  stone_wall: {
+    name: '돌 성벽', icon: '🧱', size: 1,
+    cost: { stone: 120, wood: 30 },
+    buildTime: 15, levelReq: 7,
+    yield: {}, yieldTime: 0,
+    capacity: 0,
+    desc: '튼튼한 돌 성벽. 전투력 +150, 약탈 방어 +12%',
+    bonusPower: 150,
+    defenseBonus: 0.12,
+    isWall: true,
+  },
+  iron_wall: {
+    name: '강철 성벽', icon: '⚙', size: 1,
+    cost: { stone: 250, wood: 80, gold: 200 },
+    buildTime: 25, levelReq: 12,
+    yield: {}, yieldTime: 0,
+    capacity: 0,
+    desc: '강철로 보강된 성벽. 전투력 +400, 약탈 방어 +25%',
+    bonusPower: 400,
+    defenseBonus: 0.25,
+    isWall: true,
+  },
+  magic_wall: {
+    name: '마법 성벽', icon: '✨', size: 1,
+    cost: { stone: 500, gem: 15, gold: 500 },
+    buildTime: 40, levelReq: 18,
+    yield: {}, yieldTime: 0,
+    capacity: 0,
+    desc: '룬으로 강화된 성벽. 전투력 +1200, 약탈 방어 +45%',
+    bonusPower: 1200,
+    defenseBonus: 0.45,
+    isWall: true,
+  },
+  watchtower: {
+    name: '망루', icon: '🗼', size: 2,
+    cost: { wood: 200, stone: 200, gold: 300 },
+    buildTime: 30, levelReq: 10,
+    yield: {}, yieldTime: 0,
+    capacity: 0,
+    desc: '높은 망루. 전투력 +500, 점령 시간 -20%',
+    bonusPower: 500,
+    occupyResist: 0.2,
+    isWall: true,
   },
 };
 
@@ -16467,6 +16535,315 @@ function ensureFriendsState() {
   if (!game.friendRequests) game.friendRequests = [];
 }
 
+// ============================================================================
+// 🔱 운영자 자동 친구 동기화 (실시간)
+// - DB에 있는 모든 유저 자동 친구 추가
+// - DB에서 사라진 유저(또는 30일+ 비활동) 자동 삭제
+// - Firebase realtime listener로 진짜 실시간
+// ============================================================================
+let _adminFriendListener = null;
+let _adminFriendSyncTimer = null;
+
+async function syncAdminFriends(showToastMsg = false) {
+  if (!(typeof isAdmin === 'function' && isAdmin())) return;
+  if (!(typeof isOnlineMode === 'function' && isOnlineMode())) return;
+  if (typeof _firebaseDB === 'undefined' || !_firebaseDB) return;
+  try {
+    ensureFriendsState();
+    // Firebase에서 모든 플레이어 가져오기
+    let allPlayers = [];
+    try {
+      const snap = await _firebaseDB.ref('players').once('value');
+      if (snap.exists()) {
+        snap.forEach(child => {
+          const data = child.val();
+          if (data && (data.nickname || data.name)) allPlayers.push(data);
+        });
+      }
+    } catch (e) {
+      console.warn('[AdminSync] DB 조회 실패', e);
+      return;
+    }
+    const myNick = game.player && game.player.nickname;
+    const dbNicks = new Set();
+    let added = 0;
+    // 1) 추가: DB에 있고 친구에 없으면 추가
+    for (const p of allPlayers) {
+      const nick = p.nickname || p.name;
+      if (!nick || nick === myNick) continue;
+      dbNicks.add(nick);
+      const existing = game.friends.find(f => f.nickname === nick);
+      if (!existing) {
+        game.friends.push({
+          nickname: nick,
+          level: p.level || 1,
+          power: p.power || p.totalPower || 0,
+          petCount: p.petCount || 0,
+          avatar: p.avatar || '⛺',
+          vipLevel: p.vipLevel || 0,
+          pets: {},
+          addedAt: Date.now(),
+          autoAdded: true,
+          lastSeen: p.lastSeen || p.lastActive || Date.now(),
+        });
+        added++;
+      } else {
+        // 기존 친구도 최신 데이터로 갱신
+        existing.level = p.level || existing.level;
+        existing.power = p.power || p.totalPower || existing.power;
+        existing.petCount = p.petCount || existing.petCount;
+        existing.avatar = p.avatar || existing.avatar;
+        existing.vipLevel = p.vipLevel || existing.vipLevel || 0;
+        existing.lastSeen = p.lastSeen || p.lastActive || existing.lastSeen || Date.now();
+      }
+    }
+    // 2) 삭제: autoAdded 친구 중 DB에 없는 유저 제거 (수동 추가 친구는 유지)
+    const before = game.friends.length;
+    game.friends = game.friends.filter(f => {
+      // 수동 추가는 보존
+      if (!f.autoAdded) return true;
+      // DB에 닉네임이 있으면 유지
+      if (dbNicks.has(f.nickname)) return true;
+      // DB에 없으면 삭제
+      return false;
+    });
+    const removed = before - game.friends.length;
+    if (added > 0 || removed > 0) {
+      try { saveGame(); } catch (e) {}
+      if (typeof uploadCloudSave === 'function') { try { uploadCloudSave(true); } catch (e) {} }
+      // 친구 모달이 열려있으면 다시 렌더
+      const mFriends = document.getElementById('m-friends');
+      if (mFriends && mFriends.classList.contains('show')) {
+        const listTab = document.querySelector('.friends-tab[data-tab="list"]');
+        if (listTab) listTab.textContent = `친구 (${game.friends.length})`;
+        if (typeof renderFriendsTab === 'function') {
+          try { renderFriendsTab('list'); } catch (e) {}
+        }
+      }
+      if (showToastMsg) {
+        const msgs = [];
+        if (added > 0) msgs.push(`+${added} 추가`);
+        if (removed > 0) msgs.push(`-${removed} 삭제`);
+        try { showToast(`🔱 자동 동기화: ${msgs.join(', ')}`, 'gain'); } catch (e) {}
+      }
+    }
+  } catch (e) {
+    console.warn('[AdminSync] 실패', e);
+  }
+}
+window.syncAdminFriends = syncAdminFriends;
+
+function startAdminFriendSync() {
+  if (!(typeof isAdmin === 'function' && isAdmin())) return;
+  if (!(typeof isOnlineMode === 'function' && isOnlineMode())) return;
+  if (typeof _firebaseDB === 'undefined' || !_firebaseDB) return;
+  // 1) Firebase 실시간 리스너 (players 노드 변경 시 즉시 반영)
+  if (_adminFriendListener) {
+    try { _firebaseDB.ref('players').off('value', _adminFriendListener); } catch (e) {}
+  }
+  _adminFriendListener = _firebaseDB.ref('players').on('value', () => {
+    // 너무 자주 호출되지 않게 디바운싱
+    if (_adminFriendSyncTimer) clearTimeout(_adminFriendSyncTimer);
+    _adminFriendSyncTimer = setTimeout(() => syncAdminFriends(false), 2000);
+  }, (err) => {
+    console.warn('[AdminSync] listener error', err);
+  });
+  console.log('[AdminSync] 실시간 친구 동기화 시작');
+}
+window.startAdminFriendSync = startAdminFriendSync;
+
+function stopAdminFriendSync() {
+  if (_adminFriendListener && typeof _firebaseDB !== 'undefined' && _firebaseDB) {
+    try { _firebaseDB.ref('players').off('value', _adminFriendListener); } catch (e) {}
+    _adminFriendListener = null;
+  }
+  if (_adminFriendSyncTimer) {
+    clearTimeout(_adminFriendSyncTimer);
+    _adminFriendSyncTimer = null;
+  }
+}
+window.stopAdminFriendSync = stopAdminFriendSync;
+
+// ============================================================================
+// 🤖 AI 유저 액션 시스템 - 실시간 침략/원조/점령/해방
+// - 5~10분 간격으로 AI 1명이 랜덤 행동
+// - 침략: 자원 약탈 (작게)
+// - 원조: 자원 선물
+// - 점령 시도: 침략 후 일정 확률로 점령
+// - 해방: 점령 상태 자동 해제 (다른 AI가 구출)
+// ============================================================================
+const AI_ACTION_MIN_MS = 5 * 60 * 1000;  // 5분
+const AI_ACTION_MAX_MS = 10 * 60 * 1000; // 10분
+const AI_IMMUNITY_MS = 30 * 60 * 1000;   // 30분 신규 보호
+let _aiActionTimer = null;
+
+function _aiPickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function _aiIsImmune() {
+  // 신규 유저 보호: 게임 시작 30분 이내면 면제
+  if (game.player && game.player.createdAt) {
+    if (Date.now() - game.player.createdAt < AI_IMMUNITY_MS) return true;
+  }
+  // 점령 해제 직후 30분 보호
+  if (game.lastLiberatedAt && Date.now() - game.lastLiberatedAt < AI_IMMUNITY_MS) return true;
+  return false;
+}
+
+function startAiPlayerActions() {
+  if (_aiActionTimer) clearTimeout(_aiActionTimer);
+  _scheduleNextAiAction();
+}
+window.startAiPlayerActions = startAiPlayerActions;
+
+function stopAiPlayerActions() {
+  if (_aiActionTimer) { clearTimeout(_aiActionTimer); _aiActionTimer = null; }
+}
+window.stopAiPlayerActions = stopAiPlayerActions;
+
+function _scheduleNextAiAction() {
+  const delay = AI_ACTION_MIN_MS + Math.random() * (AI_ACTION_MAX_MS - AI_ACTION_MIN_MS);
+  _aiActionTimer = setTimeout(() => {
+    try { _performRandomAiAction(); } catch (e) { console.warn('[AI Action]', e); }
+    _scheduleNextAiAction();
+  }, delay);
+}
+
+function _performRandomAiAction() {
+  if (!game.player || !game.player.nickname) return;
+  if (typeof AI_USER_POOL === 'undefined' || !AI_USER_POOL.length) return;
+  const ai = _aiPickRandom(AI_USER_POOL);
+  // 1) 점령 상태이면 50% 확률로 해방 우선
+  if (game.occupiedByMe && Math.random() < 0.5) {
+    _aiLiberateAction(ai);
+    return;
+  }
+  // 2) 보호 기간이면 원조만
+  if (_aiIsImmune()) {
+    if (Math.random() < 0.5) _aiHelpAction(ai);
+    return;
+  }
+  // 3) 일반 액션 (가중치)
+  const roll = Math.random();
+  if (roll < 0.35) _aiInvadeAction(ai);
+  else if (roll < 0.70) _aiHelpAction(ai);
+  else if (roll < 0.85) _aiConquerAttempt(ai);
+  // 나머지 15%는 평화 (액션 없음)
+}
+
+// === 침략: 자원 1~3% 약탈 (성벽 방어 적용) ===
+function _aiInvadeAction(aiName) {
+  // 성벽 방어 효과 합산 (최대 80%까지)
+  let defenseBonus = 0;
+  if (game.buildings) {
+    for (const b of game.buildings) {
+      if (b.def && b.def.defenseBonus && b.state !== 'under_construction') {
+        defenseBonus += b.def.defenseBonus;
+      }
+    }
+  }
+  defenseBonus = Math.min(0.8, defenseBonus);
+  const lootMult = 1 - defenseBonus;
+  const lootPct = (0.01 + Math.random() * 0.02) * lootMult;  // 1~3% × (1 - 방어)
+  const loot = {};
+  ['gold','food','wood','stone'].forEach(r => {
+    const cur = (game.res && game.res[r]) || 0;
+    const amt = Math.min(Math.floor(cur * lootPct), 500);  // 최대 500
+    if (amt > 0) {
+      game.res[r] = Math.max(0, cur - amt);
+      loot[r] = amt;
+    }
+  });
+  const lootStr = Object.entries(loot)
+    .map(([k,v]) => {
+      const icon = {gold:'💰',food:'🍖',wood:'🪵',stone:'🪨'}[k] || '';
+      return `${icon}${v}`;
+    }).join(' ');
+  const defenseStr = defenseBonus > 0 ? ` (성벽 방어 ${Math.round(defenseBonus*100)}%)` : '';
+  try { addNotification('battle', `⚔ ${aiName}의 침략! 자원 약탈됨: ${lootStr}${defenseStr}`, '⚔'); } catch (e) {}
+  try { showToast(`⚔ ${aiName} 침략! ${lootStr} 손실${defenseStr}`, 'warn'); } catch (e) {}
+  // 전투기록
+  if (!game.battleHistory) game.battleHistory = [];
+  game.battleHistory.unshift({
+    id: 'ai_inv_' + Date.now(),
+    type: 'defended_loss',
+    opponent: aiName,
+    time: Date.now(),
+    won: false,
+    loot,
+    byAi: true,
+  });
+  if (game.battleHistory.length > 50) game.battleHistory = game.battleHistory.slice(0, 50);
+  try { updateHUD(); } catch (e) {}
+  try { saveGame(); } catch (e) {}
+}
+
+// === 원조: 자원 500~2000 선물 ===
+function _aiHelpAction(aiName) {
+  const gifts = {};
+  const pool = ['gold','food','wood','stone'];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const amt = 500 + Math.floor(Math.random() * 1500);
+  gifts[pick] = amt;
+  // 가끔 보석도
+  if (Math.random() < 0.15) gifts.gem = 1 + Math.floor(Math.random() * 5);
+  Object.entries(gifts).forEach(([k,v]) => {
+    if (typeof addRes === 'function') {
+      try { addRes(k, v); } catch (e) { game.res[k] = (game.res[k] || 0) + v; }
+    } else {
+      game.res[k] = (game.res[k] || 0) + v;
+    }
+  });
+  const giftStr = Object.entries(gifts)
+    .map(([k,v]) => ({gold:'💰',food:'🍖',wood:'🪵',stone:'🪨',gem:'💎'}[k] + v))
+    .join(' ');
+  try { addNotification('gift', `💝 ${aiName}이(가) 원조 보냄: ${giftStr}`, '💝'); } catch (e) {}
+  try { showToast(`💝 ${aiName} 원조! ${giftStr}`, 'gain'); } catch (e) {}
+  try { updateHUD(); } catch (e) {}
+  try { saveGame(); } catch (e) {}
+}
+
+// === 점령 시도: 침략 + 30% 확률로 5~10분 점령 ===
+function _aiConquerAttempt(aiName) {
+  _aiInvadeAction(aiName);
+  if (game.occupiedByMe) return;  // 이미 점령된 상태면 패스
+  if (Math.random() < 0.3) {
+    const duration = (5 + Math.random() * 5) * 60 * 1000;
+    game.occupiedByMe = true;
+    game.occupiedBy = {
+      nickname: aiName,
+      code: '#AI',
+      occupiedAt: Date.now(),
+      occupiedUntil: Date.now() + duration,
+      attackerRemainingPower: 1000,
+      taxPaid: 0,
+      byAi: true,
+    };
+    try { addNotification('battle', `🚩 ${aiName}이(가) 마을을 점령! 자원 생산 50% 감소`, '🚩', 'important'); } catch (e) {}
+    try { showToast(`🚩 ${aiName}에게 마을 점령됨! (5~10분)`, 'warn'); } catch (e) {}
+    try { saveGame(); } catch (e) {}
+    // 자동 해방 타이머 (안전망)
+    setTimeout(() => {
+      if (game.occupiedByMe && game.occupiedBy && game.occupiedBy.byAi) {
+        _aiLiberateAction('시간 경과');
+      }
+    }, duration);
+  }
+}
+
+// === 해방: 점령 상태 해제 + 30분 안전 보장 ===
+function _aiLiberateAction(aiName) {
+  if (!game.occupiedByMe) return;
+  const occupier = (game.occupiedBy && game.occupiedBy.nickname) || '?';
+  game.occupiedByMe = false;
+  game.occupiedBy = null;
+  game.lastLiberatedAt = Date.now();
+  try { addNotification('battle', `🕊 ${aiName}이(가) 마을을 해방! (${occupier}의 점령 해제) 30분 안전 보장`, '🕊', 'important'); } catch (e) {}
+  try { showToast(`🕊 ${aiName}이(가) 해방 도움! 30분 안전`, 'gain'); } catch (e) {}
+  try { saveGame(); } catch (e) {}
+}
+
 // ----- Generate a deterministic friend village -----
 function buildFriendVillage(nickname, code) {
   const seed = strHash(nickname + ':' + (code || ''));
@@ -17172,6 +17549,24 @@ const TITLES = [
       gem: 100000,
     },
     effectDesc: '⚔ 전투력 +20000 · 🦁 펫 +30% · 공방 +20% · 💎+10만',
+  },
+  {
+    id: 'pvp_challenger',
+    icon: '🏆',
+    name: '🏆 PvP 챌린저',
+    desc: '시즌 챌린저 티어 달성 (3000+)',
+    condition: () => game.titles && game.titles['pvp_challenger'],
+    color: '#ffeb3b',
+    special: true,
+    effect: {
+      flatPower: 50000,
+      petPower: 0.50,
+      attack: 0.35,
+      defense: 0.35,
+      allRes: 0.30,
+      gem: 500000,
+    },
+    effectDesc: '⚔ 전투력 +5만 · 🦁 펫 +50% · 공방 +35% · 자원 +30% · 💎+50만',
   },
 ];
 
@@ -18106,7 +18501,8 @@ async function renderPvpRankingInTab(c) {
       <div style="font-size:10px; color:var(--wood-dark); line-height:1.5;">
         🥉 브론즈: 💎10 / 🥈 실버: 💎30 / 🥇 골드: 💎70<br>
         💠 플래티넘: 💎150 / 💎 다이아: 💎300<br>
-        👑 마스터: 💎600 + 칭호 / ⚜ 그랜드마스터: 💎1000 + 한정 펫
+        👑 마스터: 💎600 + 칭호 / ⚜ 그랜드마스터: 💎1000 + 한정 펫<br>
+        🏆 챌린저: 💎2500 + 챌린저 칭호 + 신화 펫 1마리
       </div>
     </div>
     <div id="pvp-rank-list">⏳ 로딩 중...</div>
@@ -18266,6 +18662,7 @@ function claimPvpSeasonReward() {
     diamond: { gem: 300, title: null, pet: null },
     master: { gem: 600, title: 'pvp_master', pet: null },
     grandmaster: { gem: 1000, title: 'pvp_grandmaster', pet: 'legendary_phoenix' },
+    challenger: { gem: 2500, title: 'pvp_challenger', pet: 'mythic_dragon' },
   };
   const r = rewardTable[tier.id] || rewardTable.bronze;
   addRes('gem', r.gem);
@@ -18613,77 +19010,12 @@ function openFriends() {
   const body = document.getElementById('friends-body');
   const pending = window.__pendingFriendRequests || 0;
 
-  // === 🔱 운영자라면 글로벌 유저들 자동으로 친구에 추가 ===
-  (async () => {
-    if (!(typeof isAdmin === 'function' && isAdmin())) return;
-    if (!(typeof isOnlineMode === 'function' && isOnlineMode())) {
-      try { showToast('⚠ 온라인 모드가 아니어서 자동 친구 추가 불가', 'warn'); } catch (e) {}
-      return;
-    }
-    try {
-      console.log('[Admin Auto-Friend] 시작...');
-      // Firebase에서 모든 플레이어 데이터 직접 가져오기
-      let allPlayers = [];
-      try {
-        const snap = await _firebaseDB.ref('players').once('value');
-        if (snap.exists()) {
-          snap.forEach(child => {
-            const data = child.val();
-            if (data && (data.nickname || data.name)) {
-              allPlayers.push(data);
-            }
-          });
-        }
-        console.log('[Admin Auto-Friend] DB에서', allPlayers.length, '명 가져옴');
-      } catch (e) {
-        console.warn('[Admin Auto-Friend] DB 직접 조회 실패, fetchGlobalRanking 사용', e);
-        allPlayers = await fetchGlobalRanking(100);
-      }
-
-      if (!allPlayers || allPlayers.length === 0) {
-        try { showToast('⚠ 서버에 다른 유저가 없어요', 'warn'); } catch (e) {}
-        return;
-      }
-
-      const myNick = game.player && game.player.nickname;
-      let added = 0;
-      for (const p of allPlayers) {
-        // 양쪽 필드명 모두 지원 (nickname 우선)
-        const nick = p.nickname || p.name;
-        if (!nick || nick === myNick) continue;
-        // 이미 친구면 스킵
-        if (game.friends.some(f => f.nickname === nick)) continue;
-        // 친구로 자동 추가
-        game.friends.push({
-          nickname: nick,
-          level: p.level || 1,
-          power: p.power || p.totalPower || 0,
-          petCount: p.petCount || 0,
-          avatar: p.avatar || '⛺',
-          vipLevel: p.vipLevel || 0,
-          pets: {},
-          addedAt: Date.now(),
-          autoAdded: true,
-        });
-        added++;
-      }
-      console.log(`[Admin Auto-Friend] ${added}명 추가됨 (전체 ${allPlayers.length}명 중)`);
-      if (added > 0) {
-        try { showToast(`🔱 운영자 권한: ${added}명 자동 친구 추가!`, 'gain'); } catch (e) {}
-        try { saveGame(); } catch (e) {}
-        if (typeof uploadCloudSave === 'function') { try { uploadCloudSave(true); } catch (e) {} }
-        // 친구 탭 다시 렌더
-        const listTab = document.querySelector('.friends-tab[data-tab="list"]');
-        if (listTab) listTab.textContent = `친구 (${game.friends.length})`;
-        renderFriendsTab('list');
-      } else if (allPlayers.length > 0) {
-        try { showToast('ℹ 새로 추가할 유저 없음 (이미 모두 친구)', ''); } catch (e) {}
-      }
-    } catch (e) {
-      console.warn('[Admin Auto-Friend] 실패', e);
-      try { showToast('❌ 자동 친구 추가 실패: ' + e.message, 'warn'); } catch (ee) {}
-    }
-  })();
+  // === 🔱 운영자라면 글로벌 유저들 자동으로 친구에 추가 + 비활성 자동 삭제 ===
+  if (typeof isAdmin === 'function' && isAdmin() && typeof isOnlineMode === 'function' && isOnlineMode()) {
+    syncAdminFriends(true);  // showToast=true (메뉴 열 때 안내)
+  } else if (typeof isAdmin === 'function' && isAdmin() && !(typeof isOnlineMode === 'function' && isOnlineMode())) {
+    try { showToast('⚠ 온라인 모드가 아니어서 자동 친구 추가 불가', 'warn'); } catch (e) {}
+  }
 
   body.innerHTML = `
     <div style="display:flex; gap:6px; margin-bottom:12px; border-bottom:2px dashed var(--wood-dark); padding-bottom:8px; flex-wrap:wrap;">
@@ -26335,6 +26667,7 @@ const PVP_TIERS = [
   { id: 'diamond',   name: '다이아',     icon: '💎', minRating: 2100, color: '#42a5f5' },
   { id: 'master',    name: '마스터',     icon: '👑', minRating: 2400, color: '#ab47bc' },
   { id: 'grandmaster', name: '그랜드마스터', icon: '⚜', minRating: 2700, color: '#ef5350' },
+  { id: 'challenger',  name: '챌린저',     icon: '🏆', minRating: 3000, color: '#ffeb3b' },
 ];
 
 function getPvpTier(rating) {
@@ -32135,10 +32468,13 @@ function beginGame() {
     game.tilemap.rows = 99999;
   }
   // home = campfire at "origin" (centered on a pleasant area)
-  game.home = {
-    x: 32 * TILE,    // gx=32, gy=32 부근에 마을 시작
-    y: 32 * TILE,
-  };
+  // 🔧 저장된 home이 있으면 유지 (loadGame에서 복원된 위치 보존)
+  if (!game.home || typeof game.home.x !== 'number' || typeof game.home.y !== 'number') {
+    game.home = {
+      x: 32 * TILE,    // gx=32, gy=32 부근에 마을 시작
+      y: 32 * TILE,
+    };
+  }
   if (game.villagers.length === 0) {
     // 초기 6명 부족원 (이전 4명에서 증가)
     for (let i = 0; i < 6; i++) {
@@ -32177,7 +32513,7 @@ function beginGame() {
       setTimeout(() => {
         try { uploadPlayerProfile(); } catch (e) {}
         try { uploadMyVillage(); } catch (e) {}
-        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {} try { ensureSeasonPassData(); updateSeasonBadge(); } catch (e) {} try { updateMailboxBadge(); } catch (e) {}
+        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {} try { ensureSeasonPassData(); updateSeasonBadge(); } catch (e) {} try { updateMailboxBadge(); } catch (e) {} try { startAdminFriendSync(); } catch (e) {} try { startAiPlayerActions(); } catch (e) {}
       }, 1500);
     }
   } catch (e) {}

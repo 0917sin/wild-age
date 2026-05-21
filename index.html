@@ -2,9 +2,46 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>와일드 에이지 - 원시 부족 타이쿤</title>
-<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+
+<!-- === 📱 PWA / 모바일 앱 메타 === -->
+<meta name="theme-color" content="#5d4424">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="와일드 에이지">
+<meta name="application-name" content="와일드 에이지">
+<meta name="msapplication-TileColor" content="#5d4424">
+<meta name="format-detection" content="telephone=no">
+
+<!-- 앱 아이콘 (SVG inline - 단일 HTML 유지) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%235d4424'/%3E%3Ctext x='50' y='68' font-size='60' text-anchor='middle'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%235d4424'/%3E%3Ctext x='90' y='125' font-size='110' text-anchor='middle'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E">
+
+<!-- === 한글 게임 폰트 === -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&family=Do+Hyeon&family=Black+Han+Sans&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2105_2@1.0/Cafe24Ssurround.woff" rel="preload" as="font" crossorigin>
+<style>
+  /* === 픽셀 게임 폰트 (DungGeunMo) === */
+  @font-face {
+    font-family: 'DungGeunMo';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.2/DungGeunMo.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  /* === 둥근 만화체 (Cafe24Ssurround) === */
+  @font-face {
+    font-family: 'Cafe24Ssurround';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2105_2@1.0/Cafe24Ssurround.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+</style>
 
 <!-- Firebase SDK (다중 사용자 시스템용) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -86,12 +123,68 @@
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
-    font-family: 'Jua', 'Gaegu', sans-serif;
+    font-family: 'Cafe24Ssurround', 'Jua', 'Gaegu', -apple-system, BlinkMacSystemFont, sans-serif;
     color: var(--text);
     background: linear-gradient(to bottom, #87ceeb, #b4e7a0);
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
     touch-action: manipulation;
+    overscroll-behavior: none;
+    /* iOS notch / 안드로이드 punch-hole 안전 영역 */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    box-sizing: border-box;
+  }
+  /* 게임 컨테이너가 safe-area 무시 (캔버스는 전체 화면) */
+  #game {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; height: 100vh;
+    width: 100dvw; height: 100dvh;  /* 동적 viewport (모바일 주소창 대응) */
+    overflow: hidden;
+  }
+  /* HUD/탑바는 safe-area 안에 위치 */
+  .topbar {
+    padding-top: max(env(safe-area-inset-top), 4px) !important;
+  }
+  .side-btns {
+    padding-right: max(env(safe-area-inset-right), 4px);
+  }
+  /* 모달은 safe-area 고려 (위/아래 잘리지 않게) */
+  .modal-bg, .confirm-bg {
+    padding-top: max(env(safe-area-inset-top), 20px);
+    padding-bottom: max(env(safe-area-inset-bottom), 20px);
+    padding-left: max(env(safe-area-inset-left), 20px);
+    padding-right: max(env(safe-area-inset-right), 20px);
+  }
+  /* 모달 내부 폰트는 가독성 우선 */
+  .modal, .confirm-box {
+    font-family: 'Jua', 'Cafe24Ssurround', sans-serif;
+  }
+  /* 버튼/제목은 임팩트 폰트 */
+  .modal-header, .modal h2, .modal h3, .btn {
+    font-family: 'Do Hyeon', 'Jua', sans-serif;
+    letter-spacing: 0.5px;
+  }
+  /* 숫자/자원은 픽셀 폰트 (게임 느낌) */
+  .resource, .level-box, .day-display, .power-display {
+    font-family: 'DungGeunMo', 'Jua', sans-serif;
+    letter-spacing: 0;
+  }
+  /* 모바일 앱 느낌: 부드러운 스크롤 + 관성 */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  /* PWA 설치 후 standalone 모드 디테일 */
+  @media (display-mode: standalone) {
+    body {
+      /* 앱처럼 보이게 - 상태바 영역 보강 */
+      background: #5d4424;
+    }
   }
   #game { position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: hidden; }
   canvas { 
@@ -1060,21 +1153,78 @@
   /* === MODALS === */
   .modal-bg {
     position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.6); backdrop-filter: blur(3px);
+    background: rgba(0,0,0,0);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
     display: none; align-items: center; justify-content: center;
     padding: 20px;
+    transition: background 0.25s ease-out, backdrop-filter 0.25s ease-out;
   }
-  .modal-bg.show { display: flex; }
+  .modal-bg.show {
+    display: flex;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
   .modal {
     background: linear-gradient(to bottom, var(--parchment), var(--parchment-dark));
     border: 5px solid var(--wood-dark);
     border-radius: 20px;
     max-width: 480px; width: 100%;
     max-height: 85vh; overflow-y: auto;
-    box-shadow: 0 8px 0 var(--wood-dark), 0 12px 30px rgba(0,0,0,0.4);
-    animation: popIn 0.25s;
+    box-shadow: 0 8px 0 var(--wood-dark), 0 20px 50px rgba(0,0,0,0.4);
+    animation: sheetUp 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    transform-origin: center bottom;
+  }
+  /* iOS 시트 스타일 슬라이드업 - 더 자연스러운 모바일 앱 느낌 */
+  @keyframes sheetUp {
+    from {
+      transform: translateY(50px) scale(0.92);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
   }
   @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  /* 모바일 세로 모드: 진짜 시트처럼 하단에서 올라오기 */
+  @media (max-aspect-ratio: 3/4) {
+    .modal-bg {
+      align-items: flex-end;
+      padding: 0;
+    }
+    .modal {
+      max-width: 100%;
+      max-height: 90vh;
+      border-radius: 24px 24px 0 0;
+      border-bottom: none;
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.4);
+      animation: sheetSlideUp 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    @keyframes sheetSlideUp {
+      from {
+        transform: translateY(100%);
+        opacity: 0.5;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+    /* 시트 인디케이터 (상단 손잡이) */
+    .modal::before {
+      content: '';
+      display: block;
+      width: 40px; height: 4px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 2px;
+      margin: 8px auto 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+  }
   .modal-header {
     background: linear-gradient(to bottom, var(--wood), var(--wood-dark));
     color: white;
@@ -1090,8 +1240,138 @@
     width: 32px; height: 32px;
     font-size: 16px; font-weight: bold;
     cursor: pointer; line-height: 1;
+    transition: transform 0.15s, box-shadow 0.15s;
   }
+  .modal-close:active { transform: scale(0.9); }
   .modal-body { padding: 16px; }
+
+  /* === ✨ 버튼 ripple 효과 (Material Design) === */
+  .icon-btn, button {
+    position: relative;
+    overflow: hidden;
+  }
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    transform: scale(0);
+    animation: rippleExpand 0.6s ease-out;
+  }
+  @keyframes rippleExpand {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  /* === 탭 전환 페이드 === */
+  .tab-content {
+    animation: tabFadeIn 0.3s ease-out;
+  }
+  @keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === 🦁 펫 카드 비주얼 강화 — 진짜 일러스트처럼 === */
+  .pet-card-svg {
+    animation: petFloat 3s ease-in-out infinite;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+  }
+  @keyframes petFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  /* mythic 펫 회전 오라 */
+  .pet-aura-mythic {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(255, 0, 200, 0.3) 60deg,
+      transparent 120deg,
+      rgba(255, 200, 0, 0.3) 180deg,
+      transparent 240deg,
+      rgba(0, 200, 255, 0.3) 300deg,
+      transparent 360deg
+    );
+    animation: auraSpin 4s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(8px);
+  }
+  @keyframes auraSpin {
+    to { transform: rotate(360deg); }
+  }
+  /* legendary 펫 황금 오라 */
+  .pet-aura-legendary {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    box-shadow:
+      0 0 12px rgba(255, 215, 0, 0.6),
+      0 0 24px rgba(255, 152, 0, 0.4),
+      inset 0 0 12px rgba(255, 215, 0, 0.2);
+    animation: legendaryPulse 2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes legendaryPulse {
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.03); }
+  }
+  /* 떠다니는 파티클 (mythic/legendary) */
+  .pet-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+  .pet-particles::before,
+  .pet-particles::after {
+    content: '✨';
+    position: absolute;
+    font-size: 12px;
+    animation: particleFloat 3s ease-in-out infinite;
+    opacity: 0.7;
+  }
+  .pet-particles::before {
+    top: 10%; left: 15%;
+    animation-delay: 0s;
+  }
+  .pet-particles::after {
+    top: 60%; right: 15%;
+    animation-delay: 1.5s;
+  }
+  @keyframes particleFloat {
+    0%, 100% { transform: translateY(0) rotate(0); opacity: 0.4; }
+    50% { transform: translateY(-12px) rotate(180deg); opacity: 1; }
+  }
+  /* 펫 카드 hover/active 효과 */
+  .pet-card-enhanced {
+    position: relative;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .pet-card-enhanced:active {
+    transform: scale(0.96);
+  }
+  /* 등급별 펫 카드 배경 그라데이션 강화 */
+  .pet-bg-mythic {
+    background: radial-gradient(ellipse at center, rgba(156, 39, 176, 0.5), rgba(20, 10, 40, 0.95)) !important;
+  }
+  .pet-bg-legendary {
+    background: radial-gradient(ellipse at center, rgba(255, 152, 0, 0.4), rgba(40, 20, 10, 0.95)) !important;
+  }
+  .pet-bg-epic {
+    background: radial-gradient(ellipse at center, rgba(33, 150, 243, 0.35), rgba(10, 20, 40, 0.95)) !important;
+  }
+  .pet-bg-rare {
+    background: radial-gradient(ellipse at center, rgba(76, 175, 80, 0.3), rgba(15, 30, 15, 0.9)) !important;
+  }
 
   /* SHOP / OUTFITS GRID */
   .grid-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -1460,24 +1740,46 @@
   </div>
 </div>
 
-<!-- Loading fallback - script 안 로드되거나 에러시 보임 -->
-<div id="loading-fallback" style="position:fixed; inset:0; background:#3e2723; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:99999; font-family:sans-serif; padding:20px; text-align:center;">
-  <div style="font-size:48px; animation: spin 2s linear infinite;">⛺</div>
-  <div style="margin-top:16px; font-size:18px; font-weight:bold;">와일드 에이지</div>
-  <div style="margin-top:8px; font-size:13px; opacity:0.7;" id="loading-msg">로딩 중...</div>
+<!-- Loading fallback - 진짜 모바일 앱 스플래시 느낌 -->
+<div id="loading-fallback" style="position:fixed; inset:0; background:linear-gradient(135deg, #5d4424, #3e2723, #1a0e08); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:99999; padding:max(env(safe-area-inset-top),20px) 20px max(env(safe-area-inset-bottom),20px); text-align:center; font-family:'Cafe24Ssurround','Jua',sans-serif;">
+  <!-- 앱 로고 + 펄스 애니메이션 -->
+  <div style="position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center;">
+    <div style="position:absolute; inset:0; border-radius:30px; background:radial-gradient(circle, rgba(249,168,37,0.4), transparent 70%); animation: pulseGlow 2s ease-in-out infinite;"></div>
+    <div style="font-size:80px; animation: bounce 1.6s ease-in-out infinite;">🔥</div>
+  </div>
+  <div style="margin-top:24px; font-size:32px; font-weight:bold; background:linear-gradient(135deg, #ffd700, #ff9800); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:2px;">와일드 에이지</div>
+  <div style="margin-top:6px; font-size:13px; opacity:0.7; letter-spacing:1px;">원시 부족 타이쿤</div>
+  <!-- 로딩 바 -->
+  <div style="margin-top:24px; width:200px; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden;">
+    <div style="height:100%; background:linear-gradient(90deg, #ffd700, #ff9800); animation: loadingBar 1.5s ease-in-out infinite; width:40%;"></div>
+  </div>
+  <div style="margin-top:12px; font-size:12px; opacity:0.6;" id="loading-msg">로딩 중...</div>
   <button onclick="localStorage.removeItem('wildage_save_v1'); location.reload();" style="
-    margin-top: 24px;
-    background: linear-gradient(to bottom, #ef5350, #c62828);
-    color: white; border: 3px solid #fff; border-radius: 12px;
-    padding: 12px 24px; font-family: inherit; font-size: 14px;
+    margin-top: 28px;
+    background: rgba(239,83,80,0.2); backdrop-filter: blur(8px);
+    color: #ff8a80; border: 1.5px solid rgba(239,83,80,0.5); border-radius: 12px;
+    padding: 10px 22px; font-family: inherit; font-size: 12px;
     cursor: pointer; font-weight: bold;
-  ">🔄 게임 초기화하고 다시 시작</button>
-  <div style="margin-top:14px; font-size:11px; opacity:0.5; max-width:300px;">
+  ">🔄 게임 초기화</button>
+  <div style="margin-top:14px; font-size:10px; opacity:0.4; max-width:280px;">
     화면이 5초 후에도 검정이면 위 버튼을 누르세요
   </div>
 </div>
 <style>
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.05); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.6; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  @keyframes loadingBar {
+    0% { transform: translateX(-200%); width: 30%; }
+    50% { width: 60%; }
+    100% { transform: translateX(400%); width: 30%; }
+  }
 </style>
 
 <!-- GAME -->
@@ -8735,9 +9037,30 @@ const ICON_IMAGES_OVERRIDE = {
 
 // === 자동 인식: Proxy로 동적으로 파일명 생성 ===
 // PET_IMAGES['wolf']를 호출하면 자동으로 'wolf.png' 반환
-// 명시적 매핑만 사용 (Proxy 제거 - 깨진 이미지 방지)
-// 매핑 없는 펫은 자동으로 SVG 폴백
-const PET_IMAGES = PET_IMAGES_OVERRIDE;
+// 사용자가 GitHub repo에 assets/pets/wolf.png 같은 파일을 올리면 자동 사용
+// 파일이 없으면 onerror 핸들러가 SVG 폴백으로 전환
+const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
+  get(target, prop) {
+    // 오버라이드 매핑이 있으면 우선 사용
+    if (prop in target) return target[prop];
+    // 자동 매핑: petKey → petKey.png (단, 펫 키일 때만)
+    if (typeof prop === 'string' && PETS && PETS[prop]) {
+      // 이전에 로드 실패한 파일은 안 반환 (SVG로 폴백)
+      const path = `pets/${prop}.png`;
+      if (IMG_LOAD_STATUS[path] === 'failed') return undefined;
+      return `${prop}.png`;
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    if (prop in target) return true;
+    if (typeof prop === 'string' && PETS && PETS[prop]) {
+      const path = `pets/${prop}.png`;
+      return IMG_LOAD_STATUS[path] !== 'failed';
+    }
+    return false;
+  },
+});
 const BUILDING_IMAGES = BUILDING_IMAGES_OVERRIDE;
 const ICON_IMAGES = ICON_IMAGES_OVERRIDE;
 
@@ -13768,7 +14091,7 @@ const game = {
   totalPower: 0,
 
   // settings
-  settings: { autoSave: true, soundOn: true, autoHarvest: false, darkMode: false },
+  settings: { autoSave: true, soundOn: true, autoHarvest: false, darkMode: false, hapticOff: false, bgmOn: true, bgmVolume: 0.10 },
   autoHarvestTimer: 0,
 
   // selection / UI
@@ -14193,6 +14516,12 @@ function showToast(text, type = '') {
   t.textContent = safeText;
   document.getElementById('toasts').appendChild(t);
   setTimeout(() => t.remove(), 1800);
+  // 햅틱: type별 다른 진동
+  try {
+    if (type === 'gain') haptic('success');
+    else if (type === 'warn') haptic('error');
+    else haptic('light');
+  } catch (e) {}
 }
 function spawnFloatNum(res, amount) {
   const el = document.createElement('div');
@@ -14341,6 +14670,7 @@ function checkLevelUp() {
     game.level++;
     addRes('gem', 1);
     try { playSound('levelUp'); } catch (e) {}
+    try { haptic('levelup'); } catch (e) {}
     if (game.level >= MAX_LEVEL) {
       // 만렙 달성!
       game.level = MAX_LEVEL;
@@ -14987,8 +15317,24 @@ function openSettings() {
       <div class="toggle ${game.settings.soundOn?'on':''}" id="t-sound"><div class="knob"></div></div>
     </div>
     <div class="settings-row">
+      <span class="lbl">🎵 배경음악 (BGM)</span>
+      <div class="toggle ${game.settings.bgmOn!==false?'on':''}" id="t-bgm"><div class="knob"></div></div>
+    </div>
+    <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+      <span class="lbl" style="text-align:left;">🎚 BGM 볼륨: <span id="bgm-vol-display">${Math.round((game.settings.bgmVolume||0.10)*100)}%</span></span>
+      <input type="range" id="bgm-vol-slider" min="0" max="30" value="${Math.round((game.settings.bgmVolume||0.10)*100)}" style="width:100%; accent-color: var(--gold);">
+    </div>
+    <div class="settings-row">
       <span class="lbl">🌙 다크모드</span>
       <div class="toggle ${game.settings.darkMode?'on':''}" id="t-dark"><div class="knob"></div></div>
+    </div>
+    <div class="settings-row">
+      <span class="lbl">📳 진동 (햅틱)</span>
+      <div class="toggle ${!game.settings.hapticOff?'on':''}" id="t-haptic"><div class="knob"></div></div>
+    </div>
+    <div class="settings-row" style="border-top:2px dashed var(--wood-dark); margin-top:6px; padding-top:10px;">
+      <span class="lbl">📱 홈 화면 추가</span>
+      <button id="btn-install-app" style="background:linear-gradient(135deg, #66bb6a, #2e7d32); color:white; border:2px solid var(--wood-dark); border-radius:8px; padding:6px 14px; font-family:inherit; font-weight:bold; cursor:pointer; font-size:12px;">📲 설치</button>
     </div>
     <div class="settings-row">
       <span class="lbl">수동 저장</span>
@@ -15034,12 +15380,62 @@ function openSettings() {
     game.settings.soundOn = !game.settings.soundOn;
     e.currentTarget.classList.toggle('on');
   };
+  const tBgm = body.querySelector('#t-bgm');
+  if (tBgm) {
+    tBgm.onclick = (e) => {
+      game.settings.bgmOn = !game.settings.bgmOn;
+      e.currentTarget.classList.toggle('on');
+      if (typeof BGM !== 'undefined') {
+        BGM.enabled = game.settings.bgmOn;
+        if (game.settings.bgmOn) {
+          BGM.play('peaceful');
+          showToast('🎵 배경음악 ON', 'gain');
+        } else {
+          BGM.stop();
+          showToast('🎵 배경음악 OFF', '');
+        }
+      }
+      try { localStorage.setItem('wildage_bgm_on', game.settings.bgmOn.toString()); } catch (e) {}
+    };
+  }
+  const bgmSlider = body.querySelector('#bgm-vol-slider');
+  const bgmDisplay = body.querySelector('#bgm-vol-display');
+  if (bgmSlider) {
+    bgmSlider.oninput = (e) => {
+      const v = parseInt(e.target.value, 10);
+      game.settings.bgmVolume = v / 100;
+      if (bgmDisplay) bgmDisplay.textContent = v + '%';
+      if (typeof BGM !== 'undefined') {
+        BGM.setVolume(game.settings.bgmVolume);
+      }
+    };
+  }
   body.querySelector('#t-dark').onclick = (e) => {
     game.settings.darkMode = !game.settings.darkMode;
     e.currentTarget.classList.toggle('on');
     applyDarkMode();
     showToast(game.settings.darkMode ? '🌙 다크모드 ON' : '☀️ 라이트모드 ON', 'gain');
   };
+  const tHaptic = body.querySelector('#t-haptic');
+  if (tHaptic) {
+    tHaptic.onclick = (e) => {
+      game.settings.hapticOff = !game.settings.hapticOff;
+      e.currentTarget.classList.toggle('on');
+      // 토글이 ON일 때 진동 활성화 = hapticOff=false
+      if (!game.settings.hapticOff) {
+        haptic('medium');
+        showToast('📳 진동 ON', 'gain');
+      } else {
+        showToast('📳 진동 OFF', '');
+      }
+    };
+  }
+  const btnInstall = body.querySelector('#btn-install-app');
+  if (btnInstall) {
+    btnInstall.onclick = () => {
+      promptInstallApp();
+    };
+  }
   document.getElementById('m-settings').classList.add('show');
 }
 function manualSave() {
@@ -16889,6 +17285,8 @@ function _aiConquerAttempt(aiName) {
     };
     try { addNotification('battle', `🚩 ${aiName}이(가) 마을을 점령! 자원 생산 50% 감소`, '🚩', 'important'); } catch (e) {}
     try { showToast(`🚩 ${aiName}에게 마을 점령됨! (5~10분)`, 'warn'); } catch (e) {}
+    try { playSound('conquer'); } catch (e) {}
+    try { haptic([100, 50, 100]); } catch (e) {}
     try { saveGame(); } catch (e) {}
     // 자동 해방 타이머 (안전망)
     setTimeout(() => {
@@ -16908,6 +17306,8 @@ function _aiLiberateAction(aiName) {
   game.lastLiberatedAt = Date.now();
   try { addNotification('battle', `🕊 ${aiName}이(가) 마을을 해방! (${occupier}의 점령 해제) 30분 안전 보장`, '🕊', 'important'); } catch (e) {}
   try { showToast(`🕊 ${aiName}이(가) 해방 도움! 30분 안전`, 'gain'); } catch (e) {}
+  try { playSound('rescue'); } catch (e) {}
+  try { haptic('success'); } catch (e) {}
   try { saveGame(); } catch (e) {}
 }
 
@@ -20664,6 +21064,8 @@ window.showDeployModal = showDeployModal;
 
 // 실제 전투 시작 (병사/펫 모두 반영)
 function startBattle(friend, village, isRevenge, deployedSoldiers) {
+  // 🎵 BGM: 전투 트랙으로 전환
+  try { if (BGM && BGM.enabled) BGM.play('battle'); } catch (e) {}
   try {
     _startBattleImpl(friend, village, isRevenge, deployedSoldiers);
   } catch (e) {
@@ -20778,6 +21180,8 @@ function showBattleResult(opts) {
     if (m) m.remove();
     const ov = document.getElementById('battle-overlay');
     if (ov) ov.classList.remove('show');
+    // 🎵 BGM: 평화 트랙으로 복귀
+    try { if (BGM && BGM.enabled) BGM.play('peaceful'); } catch (e) {}
   };
   if (closeBtn) {
     closeBtn.onclick = closeModal;
@@ -24773,7 +25177,13 @@ function evolvePet(petKey) {
   game.petEvolutions[petKey] = (game.petEvolutions[petKey] || 0) + 1;
   // 전투력 재계산
   try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
-  try { playSound('victory'); } catch (e) {}
+  try { playSound('evolve'); } catch (e) {}
+  try { haptic([20, 30, 20, 30, 50]); } catch (e) {}
+  // 진화 시 화면 효과
+  if (game.home) {
+    try { emitConfetti(game.home.x, game.home.y - 20, 40); } catch (e) {}
+    try { emitLevelUpBurst(game.home.x, game.home.y); } catch (e) {}
+  }
   const def = PETS[petKey];
   const newStars = game.petEvolutions[petKey];
   showToast(`🌟 ${def.emoji} ${def.name} ${newStars}성 진화 성공!`, 'gain');
@@ -24947,7 +25357,23 @@ function fusePets(tier) {
 
   // 전투력 재계산
   try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
-  try { playSound('victory'); } catch (e) {}
+  // 등급별 효과 차별화
+  const tierIdx = ['common','rare','epic','legendary','mythic'].indexOf(upTier);
+  if (tierIdx >= 3) {
+    try { playSound('rare'); } catch (e) {}
+    try { haptic([30, 50, 30, 50, 80]); } catch (e) {}
+    if (game.home) {
+      try { emitConfetti(game.home.x, game.home.y - 20, 80); } catch (e) {}
+      try { emitLevelUpBurst(game.home.x, game.home.y); } catch (e) {}
+      try { triggerShake(10, 0.4); } catch (e) {}
+    }
+  } else {
+    try { playSound('fusion'); } catch (e) {}
+    try { haptic('success'); } catch (e) {}
+    if (game.home) {
+      try { emitConfetti(game.home.x, game.home.y - 20, 30); } catch (e) {}
+    }
+  }
 
   showToast(`✨ ${newDef.emoji} ${newDef.name} 합성 성공! [${PET_TIER_NAMES[upTier]}]`, 'gain');
   try { addNotification('pet', `✨ 합성: ${newDef.name} [${PET_TIER_NAMES[upTier]}]`, newDef.emoji); } catch (e) {}
@@ -25193,7 +25619,250 @@ const SOUND_SYSTEM = {
       setTimeout(() => this.tone(400 + i * 50, 0.05, 'square', 0.2), i * 100);
     }
   },
+  // 🆕 추가 SFX들
+  evolve()    {
+    // 펫 진화 - 상승하는 마법 효과
+    [262, 330, 392, 523, 659, 784, 1047].forEach((f, i) => {
+      setTimeout(() => this.tone(f, 0.15, 'triangle', 0.6), i * 60);
+    });
+    setTimeout(() => this.tone(1568, 0.4, 'sine', 0.7), 420);
+  },
+  fusion()    {
+    // 펫 합성 - 신비로운 마법
+    [196, 247, 311, 392, 494].forEach((f, i) => {
+      setTimeout(() => this.tone(f, 0.2, 'sine', 0.4), i * 80);
+    });
+    setTimeout(() => {
+      this.tone(880, 0.3, 'triangle', 0.7);
+      this.tone(1320, 0.5, 'sine', 0.5);
+    }, 400);
+  },
+  conquer()   {
+    // 점령됨 - 위협적인 저음
+    this.tone(98, 0.4, 'sawtooth', 0.7);
+    setTimeout(() => this.tone(73, 0.6, 'sawtooth', 0.6), 200);
+  },
+  rescue()    {
+    // 해방/구출 - 영웅적 팡파레
+    [392, 523, 659, 784].forEach((f, i) => {
+      setTimeout(() => this.tone(f, 0.18, 'triangle', 0.7), i * 100);
+    });
+  },
+  gemGet()    {
+    // 보석 획득 - 반짝
+    this.tone(1568, 0.05, 'triangle', 0.5);
+    setTimeout(() => this.tone(1976, 0.1, 'sine', 0.4), 30);
+    setTimeout(() => this.tone(2349, 0.15, 'sine', 0.3), 70);
+  },
+  swoosh()    {
+    // 메뉴 전환
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => this.tone(800 - i*100, 0.05, 'sine', 0.3), i * 20);
+    }
+  },
+  rare()      {
+    // 희귀 펫/아이템 - 화려한 효과
+    [523, 659, 784, 1047, 1319].forEach((f, i) => {
+      setTimeout(() => this.tone(f, 0.12, 'triangle', 0.65), i * 50);
+    });
+    setTimeout(() => this.tone(1568, 0.4, 'sine', 0.7), 280);
+  },
 };
+
+// ============================================================================
+// 🎵 BGM 시스템 - 절차적 ambient music (외부 음원 없이 게임 분위기)
+// ============================================================================
+const BGM = {
+  ctx: null,
+  enabled: true,
+  volume: 0.10,        // 매우 작게 (배경)
+  currentTrack: null,
+  masterGain: null,
+  lowpass: null,
+  oscillators: [],
+  loopTimer: null,
+
+  init(ctx) {
+    if (this.masterGain) return;
+    if (!ctx) return;
+    this.ctx = ctx;
+    this.masterGain = ctx.createGain();
+    this.masterGain.gain.value = 0;
+    // 따뜻한 음색을 위한 lowpass
+    this.lowpass = ctx.createBiquadFilter();
+    this.lowpass.type = 'lowpass';
+    this.lowpass.frequency.value = 1800;
+    this.lowpass.Q.value = 0.5;
+    this.masterGain.connect(this.lowpass);
+    this.lowpass.connect(ctx.destination);
+  },
+
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(0.3, v));
+    if (this.masterGain && this.currentTrack) {
+      this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 0.5);
+    }
+  },
+
+  play(track) {
+    if (!this.enabled || !this.ctx) return;
+    if (this.currentTrack === track) return;
+    this.stop();
+    this.currentTrack = track;
+    // 페이드 인
+    this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+    this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 2);
+    // 트랙별 진행
+    if (track === 'peaceful') this._playPeaceful();
+    else if (track === 'battle') this._playBattle();
+    else if (track === 'mystery') this._playMystery();
+    else if (track === 'victory') this._playVictoryLoop();
+  },
+
+  stop() {
+    if (this.loopTimer) { clearTimeout(this.loopTimer); this.loopTimer = null; }
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.masterGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.8);
+    }
+    // 오실레이터 정리는 자연 종료 (페이드 아웃 위해)
+    setTimeout(() => {
+      this.oscillators.forEach(o => { try { o.stop(); } catch (e) {} });
+      this.oscillators = [];
+    }, 900);
+    this.currentTrack = null;
+  },
+
+  _addOsc(freq, type, duration, vol, delay) {
+    delay = delay || 0;
+    setTimeout(() => {
+      if (!this.ctx || !this.enabled) return;
+      try {
+        const osc = this.ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.value = freq;
+        const g = this.ctx.createGain();
+        const t = this.ctx.currentTime;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.3);
+        g.gain.linearRampToValueAtTime(vol * 0.7, t + duration * 0.7);
+        g.gain.linearRampToValueAtTime(0, t + duration);
+        osc.connect(g).connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + duration);
+        this.oscillators.push(osc);
+        // 자동 정리
+        setTimeout(() => {
+          const i = this.oscillators.indexOf(osc);
+          if (i >= 0) this.oscillators.splice(i, 1);
+        }, duration * 1000 + 100);
+      } catch (e) {}
+    }, delay);
+  },
+
+  // 평화 트랙: C major / A minor / F major / G major 진행 (4 chords)
+  // 부드러운 padded chord progression + 가벼운 멜로디
+  _playPeaceful() {
+    const chords = [
+      [130.81, 164.81, 196.00, 261.63],  // C major (C-E-G-C)
+      [110.00, 138.59, 164.81, 220.00],  // A minor (A-Db-E-A)
+      [87.31, 110.00, 130.81, 174.61],   // F major (F-A-C-F)
+      [98.00, 123.47, 146.83, 196.00],   // G major (G-B-D-G)
+    ];
+    // 멜로디 노트 (C major scale)
+    const melody = [523.25, 587.33, 659.25, 784.00, 880.00, 784.00, 659.25, 587.33];
+    let chordIdx = 0;
+    const playPattern = () => {
+      if (this.currentTrack !== 'peaceful') return;
+      const chord = chords[chordIdx % 4];
+      // 코드 (4초간 길게)
+      chord.forEach(f => this._addOsc(f, 'sine', 4, 0.3));
+      // 멜로디 (랜덤 음 2~3개, 부드럽게)
+      const melodyCount = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < melodyCount; i++) {
+        const note = melody[Math.floor(Math.random() * melody.length)];
+        this._addOsc(note, 'triangle', 0.4, 0.15, 200 + i * 500 + Math.random() * 300);
+      }
+      chordIdx++;
+      this.loopTimer = setTimeout(playPattern, 3800);
+    };
+    playPattern();
+  },
+
+  // 전투 트랙: A minor / D minor / E7 / A minor — 긴장감 있는 마이너 키
+  _playBattle() {
+    const chords = [
+      [110.00, 138.59, 164.81],   // A minor
+      [73.42, 87.31, 110.00],     // D minor
+      [82.41, 103.83, 123.47],    // E7
+      [110.00, 138.59, 164.81],   // A minor
+    ];
+    // 빠른 베이스 라인
+    const bassline = [55, 110, 73, 87, 82, 110];
+    let chordIdx = 0;
+    const playPattern = () => {
+      if (this.currentTrack !== 'battle') return;
+      const chord = chords[chordIdx % 4];
+      // 짧은 강한 코드
+      chord.forEach(f => this._addOsc(f, 'sawtooth', 2, 0.25));
+      // 베이스 펄스 (긴장감)
+      for (let i = 0; i < 4; i++) {
+        const bass = bassline[(chordIdx * 4 + i) % bassline.length];
+        this._addOsc(bass, 'square', 0.3, 0.2, i * 500);
+      }
+      chordIdx++;
+      this.loopTimer = setTimeout(playPattern, 2200);
+    };
+    playPattern();
+  },
+
+  // 신비 트랙: 모달/메뉴 — 차분하고 미스터리
+  _playMystery() {
+    const chords = [
+      [146.83, 220.00, 277.18],   // D minor (Dm)
+      [164.81, 207.65, 246.94],   // E diminished
+      [174.61, 207.65, 261.63],   // F major (F)
+      [146.83, 220.00, 261.63],   // Dm with C
+    ];
+    let chordIdx = 0;
+    const playPattern = () => {
+      if (this.currentTrack !== 'mystery') return;
+      const chord = chords[chordIdx % 4];
+      chord.forEach(f => this._addOsc(f, 'sine', 5, 0.3));
+      // 가끔 높은 종소리
+      if (Math.random() < 0.4) {
+        const bell = [1046, 1318, 1568, 1976][Math.floor(Math.random() * 4)];
+        this._addOsc(bell, 'triangle', 1.5, 0.15, 1000 + Math.random() * 2000);
+      }
+      chordIdx++;
+      this.loopTimer = setTimeout(playPattern, 4500);
+    };
+    playPattern();
+  },
+
+  // 승리 짧은 루프
+  _playVictoryLoop() {
+    const playPattern = () => {
+      if (this.currentTrack !== 'victory') return;
+      // C major - F - G - C 진행 (밝게)
+      const chords = [
+        [261.63, 329.63, 392.00, 523.25],   // C
+        [349.23, 440.00, 523.25],            // F
+        [392.00, 493.88, 587.33],            // G
+        [261.63, 329.63, 392.00, 523.25],   // C
+      ];
+      const melody = [523, 587, 659, 783, 880];
+      chords[0].forEach(f => this._addOsc(f, 'triangle', 1.2, 0.4));
+      // 짧은 fanfare
+      melody.forEach((n, i) => this._addOsc(n, 'triangle', 0.3, 0.5, i * 150));
+      this.loopTimer = setTimeout(playPattern, 6000);
+    };
+    playPattern();
+  },
+};
+window.BGM = BGM;
 
 // 첫 사용자 입력에서 오디오 컨텍스트 초기화
 let _soundInitialized = false;
@@ -25205,6 +25874,23 @@ function initSoundOnFirstInteraction() {
   if (SOUND_SYSTEM.ctx && SOUND_SYSTEM.ctx.state === 'suspended') {
     SOUND_SYSTEM.ctx.resume();
   }
+  // BGM 초기화 + 평화 트랙 자동 시작 (사용자가 BGM 끄지 않았다면)
+  try {
+    BGM.init(SOUND_SYSTEM.ctx);
+    // 저장된 BGM 설정 복원
+    if (game && game.settings) {
+      BGM.enabled = game.settings.bgmOn !== false;  // 기본 ON
+      if (typeof game.settings.bgmVolume === 'number') BGM.volume = game.settings.bgmVolume;
+    } else {
+      try {
+        const savedBgm = localStorage.getItem('wildage_bgm_on');
+        if (savedBgm !== null) BGM.enabled = savedBgm === 'true';
+      } catch (e) {}
+    }
+    if (BGM.enabled) {
+      setTimeout(() => BGM.play('peaceful'), 500);
+    }
+  } catch (e) {}
 }
 document.addEventListener('click', initSoundOnFirstInteraction, { once: false });
 document.addEventListener('touchstart', initSoundOnFirstInteraction, { once: false });
@@ -29797,16 +30483,17 @@ function renderPetCatalogTab(tab) {
       const evoBonusPct = [0, 50, 120, 250][evoLevel] || 0;
       const lvBonusPct = (petLv - 1) * 10;
       html += `
-        <div style="background:linear-gradient(135deg, rgba(0,0,0,0.7), rgba(20,10,40,0.8)); border: 2px solid ${isSummoned ? '#4caf50' : color}; border-radius: 12px; padding: 8px; position: relative; box-shadow: 0 0 ${isSummoned ? '18px #4caf5099' : '14px ' + color + '77, inset 0 0 14px ' + color + '22'};">
-          ${isSummoned ? '<div style="position:absolute; top:-7px; right:-4px; background:#4caf50; color:white; border-radius:10px; padding:2px 7px; font-size:9px; font-weight:bold; border:1.5px solid #1b5e20; box-shadow:0 0 6px #4caf50;">✦ 소환중</div>' : ''}
-          ${stars ? '<div style="position:absolute; top:-6px; left:-4px; background:linear-gradient(135deg, #ffd700, #f9a825); color:#3e2723; border-radius:10px; padding:2px 6px; font-size:10px; font-weight:bold; border:1.5px solid #f57f17; box-shadow:0 0 8px rgba(255,215,0,0.6);">' + stars + '</div>' : ''}
-          <div style="position:absolute; top:6px; right:6px; background:linear-gradient(135deg,#1976d2,#0d47a1); color:#fff; border-radius:8px; padding:1px 6px; font-size:9px; font-weight:bold; border:1px solid #42a5f5; box-shadow:0 0 6px rgba(33,150,243,0.5);">Lv.${petLv}${isMaxLv ? ' MAX' : ''}</div>
-          <div style="background:${tierBgRgba}; color:#fff; font-size:9px; padding:1px 7px; border-radius:8px; display:inline-block; font-weight:bold; border:1px solid ${color}; text-shadow:0 1px 1px rgba(0,0,0,0.5); margin-bottom:2px;">[${PET_TIER_NAMES[def.tier]}]</div>
-          <div style="text-align:center; line-height: 0; margin:2px 0;">
+        <div class="pet-card-enhanced pet-bg-${def.tier}" style="border: 2px solid ${isSummoned ? '#4caf50' : color}; border-radius: 12px; padding: 8px; position: relative; box-shadow: 0 0 ${isSummoned ? '18px #4caf5099' : '14px ' + color + '77, inset 0 0 14px ' + color + '22'}; overflow: hidden;">
+          ${def.tier === 'mythic' ? '<div class="pet-aura-mythic"></div><div class="pet-particles"></div>' : def.tier === 'legendary' ? '<div class="pet-aura-legendary"></div><div class="pet-particles"></div>' : ''}
+          ${isSummoned ? '<div style="position:absolute; top:-7px; right:-4px; background:#4caf50; color:white; border-radius:10px; padding:2px 7px; font-size:9px; font-weight:bold; border:1.5px solid #1b5e20; box-shadow:0 0 6px #4caf50; z-index:5;">✦ 소환중</div>' : ''}
+          ${stars ? '<div style="position:absolute; top:-6px; left:-4px; background:linear-gradient(135deg, #ffd700, #f9a825); color:#3e2723; border-radius:10px; padding:2px 6px; font-size:10px; font-weight:bold; border:1.5px solid #f57f17; box-shadow:0 0 8px rgba(255,215,0,0.6); z-index:5;">' + stars + '</div>' : ''}
+          <div style="position:absolute; top:6px; right:6px; background:linear-gradient(135deg,#1976d2,#0d47a1); color:#fff; border-radius:8px; padding:1px 6px; font-size:9px; font-weight:bold; border:1px solid #42a5f5; box-shadow:0 0 6px rgba(33,150,243,0.5); z-index:5;">Lv.${petLv}${isMaxLv ? ' MAX' : ''}</div>
+          <div style="background:${tierBgRgba}; color:#fff; font-size:9px; padding:1px 7px; border-radius:8px; display:inline-block; font-weight:bold; border:1px solid ${color}; text-shadow:0 1px 1px rgba(0,0,0,0.5); margin-bottom:2px; position:relative; z-index:2;">[${PET_TIER_NAMES[def.tier]}]</div>
+          <div class="pet-card-svg" style="text-align:center; line-height: 0; margin:2px 0; position:relative; z-index:2;">
             ${petSVG(def, 60)}
           </div>
-          <div style="font-size:12px; font-weight:bold; margin-top:2px; text-align:center; color:${color}; text-shadow:0 0 4px ${color}aa;">${def.name}${count > 1 ? ' x' + count : ''}</div>
-          <div style="font-size:11px; color:#ff5252; text-align:center; margin-top:2px; font-weight:bold;">⚔ ${evoBonus}${evoBonusPct > 0 ? ' <span style="color:#ffa000;">+' + evoBonusPct + '%</span>' : ''}${lvBonusPct > 0 ? ' <span style="color:#42a5f5;">+' + lvBonusPct + '%</span>' : ''}</div>
+          <div style="font-size:12px; font-weight:bold; margin-top:2px; text-align:center; color:${color}; text-shadow:0 0 4px ${color}aa; position:relative; z-index:2;">${def.name}${count > 1 ? ' x' + count : ''}</div>
+          <div style="font-size:11px; color:#ff5252; text-align:center; margin-top:2px; font-weight:bold; position:relative; z-index:2;">⚔ ${evoBonus}${evoBonusPct > 0 ? ' <span style="color:#ffa000;">+' + evoBonusPct + '%</span>' : ''}${lvBonusPct > 0 ? ' <span style="color:#42a5f5;">+' + lvBonusPct + '%</span>' : ''}</div>
           ${(() => {
             const sk = getPetSkill(key);
             if (!sk) return '';
@@ -32700,6 +33387,165 @@ function resizeCanvas() {
   canvas.logicalH = h;
 }
 
+// ============================================================================
+// 📱 PWA (Progressive Web App) - 모바일 앱처럼 설치 가능
+// ============================================================================
+function initPWA() {
+  // manifest를 Blob URL로 동적 등록 (단일 HTML 유지)
+  try {
+    const manifest = {
+      name: '와일드 에이지 - 원시 부족 타이쿤',
+      short_name: '와일드 에이지',
+      description: '석기시대 부족장이 되어 마을을 키우고 펫을 모으는 모바일 타이쿤 게임',
+      start_url: '.',
+      display: 'standalone',
+      orientation: 'any',
+      background_color: '#5d4424',
+      theme_color: '#5d4424',
+      lang: 'ko',
+      categories: ['games', 'entertainment'],
+      icons: [
+        {
+          src: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%235d4424'/%3E%3Ctext x='96' y='130' font-size='110' text-anchor='middle'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E",
+          sizes: '192x192',
+          type: 'image/svg+xml',
+          purpose: 'any maskable',
+        },
+        {
+          src: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%235d4424'/%3E%3Ctext x='256' y='348' font-size='300' text-anchor='middle'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E",
+          sizes: '512x512',
+          type: 'image/svg+xml',
+          purpose: 'any maskable',
+        },
+      ],
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = url;
+    document.head.appendChild(link);
+  } catch (e) {
+    console.warn('[PWA] manifest 등록 실패', e);
+  }
+
+  // 설치 프롬프트 캐치 (Android Chrome)
+  window._pwaInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window._pwaInstallPrompt = e;
+    console.log('[PWA] 설치 가능 - 설정에서 "앱 설치" 버튼 노출');
+  });
+  window.addEventListener('appinstalled', () => {
+    console.log('[PWA] 앱 설치 완료');
+    try { showToast('📱 홈 화면에 설치됨!', 'gain'); } catch (e) {}
+    window._pwaInstallPrompt = null;
+  });
+}
+
+function promptInstallApp() {
+  // iOS는 beforeinstallprompt 미지원 → 수동 안내
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS) {
+    showConfirmDialog(
+      '📱 홈 화면에 추가',
+      'Safari 하단의 공유 버튼(□↑) 탭 → "홈 화면에 추가"를 눌러주세요!',
+      null, null
+    );
+    return;
+  }
+  if (window._pwaInstallPrompt) {
+    window._pwaInstallPrompt.prompt();
+    window._pwaInstallPrompt.userChoice.then(choice => {
+      if (choice.outcome === 'accepted') {
+        showToast('📱 설치 중...', 'gain');
+      }
+      window._pwaInstallPrompt = null;
+    });
+  } else {
+    showToast('이미 설치되었거나 지원하지 않는 브라우저예요', 'warn');
+  }
+}
+window.promptInstallApp = promptInstallApp;
+
+// ============================================================================
+// 📳 햅틱 피드백 (진동) - 모바일 앱 느낌의 핵심
+// ============================================================================
+const HAPTIC = {
+  light: 10,      // 가벼운 탭
+  medium: 25,     // 일반 버튼
+  heavy: 50,      // 중요 액션
+  success: [15, 30, 15],  // 성공/보상
+  error: [50, 30, 50],    // 실패/경고
+  levelup: [20, 40, 20, 40, 60],  // 레벨업
+};
+
+function haptic(type) {
+  // 사용자 설정에 따라 진동 끄기 가능
+  if (game && game.settings && game.settings.hapticOff) return;
+  if (!navigator.vibrate) return;
+  try {
+    if (typeof type === 'string') {
+      navigator.vibrate(HAPTIC[type] || HAPTIC.light);
+    } else if (Array.isArray(type) || typeof type === 'number') {
+      navigator.vibrate(type);
+    }
+  } catch (e) {}
+}
+window.haptic = haptic;
+
+// 모든 버튼 클릭에 자동 햅틱 부착 (옵션)
+function attachAutoHaptic() {
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t) return;
+    // 버튼, icon-btn, btn 클래스에만
+    if (t.tagName === 'BUTTON' ||
+        t.classList.contains('icon-btn') ||
+        t.classList.contains('btn') ||
+        (t.closest && t.closest('.icon-btn, button, .btn'))) {
+      haptic('light');
+      // ✨ ripple 효과 - Material Design
+      try {
+        const btn = t.closest('.icon-btn, button, .btn') || t;
+        const rect = btn.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+        ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+        btn.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+      } catch (err) {}
+    }
+  }, { passive: true });
+}
+
+// ============================================================================
+// 🖼 모바일 앱 풀스크린 / 주소창 자동 숨김
+// ============================================================================
+function enableMobileFullscreen() {
+  // viewport 단위 동적 갱신 (모바일 주소창 대응)
+  const setVH = () => {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  };
+  setVH();
+  window.addEventListener('resize', setVH);
+  window.addEventListener('orientationchange', () => setTimeout(setVH, 100));
+
+  // 첫 터치 시 스크롤로 주소창 숨김 (안드로이드 Chrome)
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    const hideAddressBar = () => {
+      window.scrollTo(0, 1);
+      setTimeout(() => window.scrollTo(0, 0), 0);
+    };
+    window.addEventListener('load', hideAddressBar);
+    document.addEventListener('touchstart', hideAddressBar, { once: true, passive: true });
+  }
+}
+
 async function init() {
   try {
     await _initImpl();
@@ -32728,6 +33574,11 @@ async function init() {
 }
 
 async function _initImpl() {
+  // === 📱 PWA + 모바일 앱 초기화 (최우선) ===
+  try { initPWA(); } catch (e) {}
+  try { enableMobileFullscreen(); } catch (e) {}
+  try { attachAutoHaptic(); } catch (e) {}
+
   // === 전역 에러 핸들러: 작은 에러로 게임 전체가 멈추지 않게 ===
   window.addEventListener('error', (e) => {
     // line 0 / cross-origin script 에러는 의미없는 가짜 에러이므로 무시
@@ -33395,7 +34246,8 @@ async function _initImpl() {
   // page-hidden save + 포커스 복귀 시 즉시 동기화 (모든 시스템)
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // 페이지 숨겨질 때: 마지막 저장 + 클라우드 업로드
+      // 페이지 숨겨질 때: BGM 일시정지 + 저장
+      try { if (typeof BGM !== 'undefined' && BGM.stop) BGM.stop(); } catch (e) {}
       if (game.settings.autoSave) saveGame();
       if (typeof isOnlineMode === 'function' && isOnlineMode()) {
         try { uploadPlayerProfile(); } catch (e) {}
@@ -33403,7 +34255,12 @@ async function _initImpl() {
         try { uploadCloudSave(true); } catch (e) {}  // force
       }
     } else {
-      // 페이지 다시 보일 때: 친구/AI 동기화 + 알림 갱신
+      // 페이지 다시 보일 때: BGM 재개 + 동기화
+      try {
+        if (typeof BGM !== 'undefined' && BGM.enabled && game.settings && game.settings.bgmOn !== false) {
+          setTimeout(() => BGM.play('peaceful'), 300);
+        }
+      } catch (e) {}
       if (typeof isOnlineMode === 'function' && isOnlineMode()) {
         try { syncAdminFriends(false); } catch (e) {}
         try { uploadPlayerProfile(); } catch (e) {}

@@ -2139,19 +2139,38 @@ const AI_USER_POOL = [
   '대장간의왕','부족의대족장'
 ];
 
-// AI 유저 생성 — 랭킹 2등의 전투력 기준
+// AI 유저 생성 — 일반 게임 시스템 최대치 기준 (운영자 칭호 제외)
 function generateAIUsers(myPower, ranking2ndPower) {
-  const targetPower = ranking2ndPower || myPower || 10000;
+  // === 일반 유저가 게임 시스템으로 도달 가능한 최대 전투력 추정 ===
+  // 펫 504마리 × 평균 600 power × 진화 max(+250%) × 강화 max(+90%) = 약 100만
+  // 칭호/테두리 보너스 적용 시 약 150만 ~ 200만
+  // 군대 + 건물 + 연구 등 합계: 약 500만
+  // → 일반 유저 시스템 최대치: 약 5,000,000 (운영자 GM 칭호 +100억은 제외)
+  const SYSTEM_MAX_POWER = 5_000_000;
+  
+  // AI 풀의 상한: 시스템 최대치의 70% (일반 유저보다 낮게)
+  const AI_MAX = SYSTEM_MAX_POWER * 0.7;  // 350만
+  const AI_MIN = 100;  // 최저 100
+  
+  // 내 전투력 기준 동적 조정 (단, AI_MAX 초과 금지)
+  // 내가 약하면 AI도 약하게, 내가 강해도 AI는 SYSTEM_MAX의 70% 캡
+  const myEffectivePower = Math.min(myPower || 100, AI_MAX);
+  // 내 power의 80% ~ 110% (조금 약하거나 비슷)
+  const basePower = Math.floor(myEffectivePower * 0.9);
+  
   const out = [];
   for (let i = 0; i < AI_USER_POOL.length; i++) {
     const name = AI_USER_POOL[i];
-    // ±15% 변동
-    const variance = 0.85 + Math.random() * 0.30;
-    const score = Math.floor(targetPower * variance);
     // 시드 기반 일관된 데이터
     const seed = strHash(name);
     const rng = seededRng(seed);
-    const level = 50 + Math.floor(rng() * 200);
+    // AI별 강도: 0.5 ~ 1.1 (대부분 나보다 약하고, 일부만 비슷)
+    const strength = 0.5 + rng() * 0.6;
+    let score = Math.floor(basePower * strength);
+    // 시스템 최대치 캡 (AI는 절대 시스템 최대치의 70% 이상 못 가짐)
+    score = Math.min(score, AI_MAX);
+    score = Math.max(score, AI_MIN);
+    const level = 30 + Math.floor(rng() * 170);
     const code = '#' + (1000 + Math.floor(rng() * 9000));
     out.push({
       uid: 'ai_' + name,
@@ -17474,14 +17493,23 @@ async function renderPvpRankingInTab(c) {
           players[myIdx].isMe = true;
         }
       }
-      // AI 50명 - 시즌 점수 시드 기반 일관성 유지
+      // AI 50명 - 시즌 점수 시드 기반 일관성 유지 (대부분 브론즈~다이아, 마스터+는 소수)
       if (typeof AI_USER_POOL !== 'undefined') {
         for (let i = 0; i < AI_USER_POOL.length; i++) {
           const name = AI_USER_POOL[i];
           // 시즌+이름 기반 시드
           const seed = season * 1000 + i;
-          // 600 ~ 3000 범위
-          const aiRating = 600 + ((seed * 13 + 47) % 2401);
+          // 분포: 80%는 800~2100 (브론즈~다이아), 15%는 2100~2400 (다이아~마스터 경계), 5%는 2400~2700 (마스터)
+          // 그랜드마스터(2700+)는 실제 유저만
+          const rand = ((seed * 13 + 47) % 100);
+          let aiRating;
+          if (rand < 80) {
+            aiRating = 800 + ((seed * 17 + 31) % 1301);  // 800 ~ 2100
+          } else if (rand < 95) {
+            aiRating = 2100 + ((seed * 19 + 11) % 301);  // 2100 ~ 2400
+          } else {
+            aiRating = 2400 + ((seed * 23 + 7) % 251);   // 2400 ~ 2650 (마스터 상한)
+          }
           players.push({
             nickname: name,
             rating: aiRating,
@@ -23783,8 +23811,9 @@ function openFusionModal() {
   const modal = document.createElement('div');
   modal.id = 'fusion-modal';
   modal.style.cssText = `
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 99999;
     display: flex; align-items: center; justify-content: center; padding: 20px;
+    pointer-events: auto;
   `;
   let html = `
     <div style="background:linear-gradient(135deg,#1a0a2e,#2d1b4e,#1a0a2e); border-radius:14px; padding:18px; max-width:420px; width:100%; max-height:85vh; overflow-y:auto; border:2px solid rgba(255,215,0,0.4); box-shadow:0 0 30px rgba(255,215,0,0.3);">
@@ -26055,7 +26084,16 @@ async function openPvpLeaderboard() {
         for (let i = 0; i < AI_USER_POOL.length; i++) {
           const name = AI_USER_POOL[i];
           const seed = currentSeason * 1000 + i;
-          const aiRating = 600 + ((seed * 13 + 47) % 2401);
+          // 분포: 80% 브론즈~다이아, 15% 마스터 경계, 5% 마스터 상한
+          const rand = ((seed * 13 + 47) % 100);
+          let aiRating;
+          if (rand < 80) {
+            aiRating = 800 + ((seed * 17 + 31) % 1301);
+          } else if (rand < 95) {
+            aiRating = 2100 + ((seed * 19 + 11) % 301);
+          } else {
+            aiRating = 2400 + ((seed * 23 + 7) % 251);
+          }
           players.push({
             nickname: name,
             rating: aiRating,

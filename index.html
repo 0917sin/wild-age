@@ -1114,18 +1114,46 @@
   .build-card {
     flex-shrink: 0;
     width: 72px;
-    background: linear-gradient(to bottom, #fff, #ffecb3);
+    background: linear-gradient(135deg, #fff, #ffecb3, #ffd54f);
     border: 3px solid var(--wood-dark);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 4px;
     display: flex; flex-direction: column; align-items: center;
     cursor: pointer;
-    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s;
+    transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s, box-shadow 0.15s;
     position: relative;
+    box-shadow: 0 2px 0 var(--wood-dark), 0 3px 6px rgba(0,0,0,0.2);
+    overflow: hidden;
   }
-  .build-card:hover:not(.locked) { transform: translateY(-2px); }
+  .build-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .build-card .preview, .build-card .bname, .build-card .bcost {
+    position: relative;
+    z-index: 1;
+  }
+  .build-card:hover:not(.locked) {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 0 var(--wood-dark), 0 7px 12px rgba(0,0,0,0.3), 0 0 12px var(--gold);
+    filter: brightness(1.05);
+  }
   .build-card:active { transform: scaleX(1.08) scaleY(0.9); transition: transform 0.05s; }
-  .build-card.selected { background: linear-gradient(to bottom, #fff59d, #fbc02d); border-color: #e65100; }
+  .build-card.selected {
+    background: linear-gradient(135deg, #fff59d, #fbc02d, #ff9800);
+    border-color: #e65100;
+    box-shadow: 0 0 16px var(--gold), 0 2px 0 var(--wood-dark);
+    animation: selectedPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes selectedPulse {
+    0%, 100% { box-shadow: 0 0 16px var(--gold), 0 2px 0 var(--wood-dark); }
+    50% { box-shadow: 0 0 24px var(--gold), 0 0 8px #ff9800, 0 2px 0 var(--wood-dark); }
+  }
   .build-card.dragging {
     transform: scale(1.15);
     box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 16px var(--gold);
@@ -4462,6 +4490,10 @@ class Tilemap {
     if (river < 1.2 && mix > 0.35) return 'water';
     // 호수: 큰 노이즈 낮은 영역
     if (big < 0.18) return 'water';
+    // 🆕 모래(해변) — 물 근처
+    if (big < 0.24) return 'sand';
+    // 🆕 바위 — 멀리 떨어진 높은 영역
+    if (big > 0.85 && small > 0.6) return 'rock';
     // 흙길/사막지대
     if (mix > 0.72) return 'dirt';
     // 꽃밭
@@ -4506,41 +4538,126 @@ class Tilemap {
   }
   drawTile(ctx, type, px, py, gx, gy) {
     const v = (Math.abs(gx * 37 + gy * 91) % 7) / 7;
+    const v2 = (Math.abs(gx * 53 + gy * 71) % 11) / 11;
     switch (type) {
       case 'grass': {
-        const g = 130 + Math.floor(v * 25);
-        ctx.fillStyle = `rgb(${90 + Math.floor(v*15)}, ${g + 35}, 70)`;
+        // 더 다양한 풀 색상
+        const g = 130 + Math.floor(v * 30);
+        ctx.fillStyle = `rgb(${85 + Math.floor(v*20)}, ${g + 38}, ${65 + Math.floor(v2*15)})`;
         ctx.fillRect(px, py, TILE, TILE);
+        // 풀잎 (위치/길이 변화)
         ctx.fillStyle = `rgba(50, 100, 40, 0.4)`;
         ctx.fillRect(px + 4 + (Math.abs(gx)*3)%20, py + 6 + (Math.abs(gy)*5)%18, 2, 4);
         ctx.fillRect(px + 18 + (Math.abs(gy)*7)%10, py + 20 + (Math.abs(gx)*4)%8, 2, 4);
+        // 가끔 작은 돌
+        if ((gx * 13 + gy * 17) % 23 === 0) {
+          ctx.fillStyle = '#9e9e9e';
+          ctx.beginPath();
+          ctx.arc(px + 14, py + 14, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // 가끔 작은 노란꽃
+        if ((gx * 7 + gy * 11) % 31 === 0) {
+          ctx.fillStyle = '#fff176';
+          ctx.beginPath();
+          ctx.arc(px + 22, py + 8, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
       }
       case 'flowers': {
-        ctx.fillStyle = `rgb(${110 + Math.floor(v*15)}, ${160 + Math.floor(v*20)}, 75)`;
+        // 꽃밭 - 더 화려하게
+        ctx.fillStyle = `rgb(${115 + Math.floor(v*20)}, ${165 + Math.floor(v*15)}, 80)`;
         ctx.fillRect(px, py, TILE, TILE);
-        ctx.fillStyle = ((gx + gy) % 2 + 2) % 2 ? '#f06292' : '#fff176';
-        ctx.beginPath(); ctx.arc(px + 10, py + 10, 2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(px + 22, py + 22, 2, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#9c27b0';
-        ctx.beginPath(); ctx.arc(px + 18, py + 8, 1.5, 0, Math.PI * 2); ctx.fill();
+        // 다양한 색 꽃
+        const colors = ['#f06292', '#fff176', '#9c27b0', '#ff7043', '#42a5f5'];
+        const c1 = colors[Math.abs(gx + gy) % colors.length];
+        const c2 = colors[Math.abs(gx * 2 + gy) % colors.length];
+        ctx.fillStyle = c1;
+        ctx.beginPath(); ctx.arc(px + 10, py + 10, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = c2;
+        ctx.beginPath(); ctx.arc(px + 22, py + 22, 2.2, 0, Math.PI * 2); ctx.fill();
+        // 꽃 중심 (노란점)
+        ctx.fillStyle = '#fff59d';
+        ctx.beginPath(); ctx.arc(px + 10, py + 10, 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 22, py + 22, 0.6, 0, Math.PI * 2); ctx.fill();
+        // 가끔 추가 꽃
+        if ((gx + gy) % 3 === 0) {
+          ctx.fillStyle = colors[Math.abs(gx * 3) % colors.length];
+          ctx.beginPath(); ctx.arc(px + 18, py + 8, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
         break;
       }
       case 'dirt': {
-        ctx.fillStyle = `rgb(${145 + Math.floor(v*15)}, ${110 + Math.floor(v*12)}, 70)`;
+        ctx.fillStyle = `rgb(${145 + Math.floor(v*15)}, ${110 + Math.floor(v*12)}, ${68 + Math.floor(v2*10)})`;
         ctx.fillRect(px, py, TILE, TILE);
+        // 어두운 점들 (땅의 텍스처)
         ctx.fillStyle = 'rgba(80, 50, 30, 0.4)';
         ctx.fillRect(px + 5, py + 12, 4, 2);
         ctx.fillRect(px + 20, py + 22, 5, 2);
+        // 가끔 잔돌
+        if ((gx * 11 + gy * 13) % 17 === 0) {
+          ctx.fillStyle = 'rgba(60, 40, 20, 0.6)';
+          ctx.fillRect(px + 14, py + 6, 2, 2);
+        }
         break;
       }
       case 'water': {
         const t = Date.now() * 0.001;
-        ctx.fillStyle = `rgb(70, 150, ${210 + Math.floor(Math.sin(t + gx) * 10)})`;
+        // 더 깊이감 있는 물 색
+        const baseBlue = 200 + Math.floor(Math.sin(t + gx * 0.5) * 15);
+        ctx.fillStyle = `rgb(60, 130, ${baseBlue})`;
         ctx.fillRect(px, py, TILE, TILE);
+        // 그라데이션 (위는 밝게)
+        const wGrad = ctx.createLinearGradient(px, py, px, py + TILE);
+        wGrad.addColorStop(0, 'rgba(150, 200, 230, 0.25)');
+        wGrad.addColorStop(1, 'rgba(20, 60, 120, 0.15)');
+        ctx.fillStyle = wGrad;
+        ctx.fillRect(px, py, TILE, TILE);
+        // 물결
         ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + Math.sin(t * 2 + gx + gy) * 0.15})`;
         ctx.fillRect(px + 4, py + 10 + Math.sin(t * 3 + gx) * 2, 12, 2);
         ctx.fillRect(px + 18, py + 22 + Math.cos(t * 2 + gy) * 2, 10, 2);
+        // 반짝이는 점 (가끔)
+        if (((gx * 7 + gy * 11) + Math.floor(t * 2)) % 13 === 0) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(px + 8 + Math.sin(t) * 6, py + 16 + Math.cos(t) * 4, 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      // 🆕 모래 타일
+      case 'sand': {
+        ctx.fillStyle = `rgb(${235 + Math.floor(v*8)}, ${210 + Math.floor(v*10)}, ${155 + Math.floor(v2*15)})`;
+        ctx.fillRect(px, py, TILE, TILE);
+        // 모래 알갱이 텍스처
+        ctx.fillStyle = 'rgba(200, 170, 110, 0.3)';
+        ctx.fillRect(px + 4 + (Math.abs(gx)*3)%18, py + 8 + (Math.abs(gy)*5)%16, 1, 1);
+        ctx.fillRect(px + 14 + (Math.abs(gy)*7)%10, py + 18 + (Math.abs(gx)*4)%8, 1, 1);
+        ctx.fillRect(px + 22 + (Math.abs(gx)*5)%6, py + 12 + (Math.abs(gy)*3)%12, 1, 1);
+        // 가끔 조개껍데기/돌
+        if ((gx * 17 + gy * 19) % 29 === 0) {
+          ctx.fillStyle = '#fce4ec';
+          ctx.beginPath();
+          ctx.arc(px + 18, py + 18, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      // 🆕 바위 타일
+      case 'rock': {
+        ctx.fillStyle = `rgb(${110 + Math.floor(v*12)}, ${108 + Math.floor(v*10)}, ${105 + Math.floor(v2*8)})`;
+        ctx.fillRect(px, py, TILE, TILE);
+        // 바위 결
+        ctx.fillStyle = 'rgba(70, 70, 70, 0.4)';
+        ctx.fillRect(px + 3, py + 6, 8, 2);
+        ctx.fillRect(px + 15, py + 14, 10, 2);
+        ctx.fillRect(px + 6, py + 22, 6, 2);
+        // 밝은 하이라이트
+        ctx.fillStyle = 'rgba(180, 175, 170, 0.4)';
+        ctx.fillRect(px + 4, py + 5, 5, 1);
+        ctx.fillRect(px + 17, py + 16, 6, 1);
         break;
       }
     }
@@ -5530,6 +5647,14 @@ class Building {
     }
   }
   drawComplete(ctx, x, y, w, h) {
+    // === 🖼 이미지 에셋 우선 사용 (assets/buildings/{type}.png 자동) ===
+    // 로드 성공한 이미지가 있으면 사용, 없으면 procedural 그리기
+    try {
+      if (typeof drawBuildingImage === 'function') {
+        const used = drawBuildingImage(ctx, this.type, x, y, w, h);
+        if (used) return;
+      }
+    } catch (e) {}
     switch (this.type) {
       case 'hut': {
         // body
@@ -9041,11 +9166,8 @@ const ICON_IMAGES_OVERRIDE = {
 // 파일이 없으면 onerror 핸들러가 SVG 폴백으로 전환
 const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
   get(target, prop) {
-    // 오버라이드 매핑이 있으면 우선 사용
     if (prop in target) return target[prop];
-    // 자동 매핑: petKey → petKey.png (단, 펫 키일 때만)
     if (typeof prop === 'string' && PETS && PETS[prop]) {
-      // 이전에 로드 실패한 파일은 안 반환 (SVG로 폴백)
       const path = `pets/${prop}.png`;
       if (IMG_LOAD_STATUS[path] === 'failed') return undefined;
       return `${prop}.png`;
@@ -9061,8 +9183,53 @@ const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
     return false;
   },
 });
-const BUILDING_IMAGES = BUILDING_IMAGES_OVERRIDE;
-const ICON_IMAGES = ICON_IMAGES_OVERRIDE;
+
+// === 🏛 건물 이미지 자동 매핑 ===
+// BUILDING_IMAGES['hut']을 호출하면 자동으로 'hut.png' 반환
+// assets/buildings/hut.png 파일이 있으면 자동 사용, 없으면 절차적 그리기
+const BUILDING_IMAGES = new Proxy(BUILDING_IMAGES_OVERRIDE, {
+  get(target, prop) {
+    if (prop in target) return target[prop];
+    if (typeof prop === 'string' && BUILDING_TYPES && BUILDING_TYPES[prop]) {
+      const path = `buildings/${prop}.png`;
+      if (IMG_LOAD_STATUS[path] === 'failed') return undefined;
+      return `${prop}.png`;
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    if (prop in target) return true;
+    if (typeof prop === 'string' && BUILDING_TYPES && BUILDING_TYPES[prop]) {
+      const path = `buildings/${prop}.png`;
+      return IMG_LOAD_STATUS[path] !== 'failed';
+    }
+    return false;
+  },
+});
+
+// === 🎨 아이콘 이미지 자동 매핑 ===
+// 자원 아이콘 (gold, food, wood, stone, gem) + 기타 UI 아이콘
+// assets/icons/gold.png 등 파일이 있으면 자동 사용
+const ICON_AUTO_KEYS = ['gold','food','wood','stone','gem','exp','heart','star'];
+const ICON_IMAGES = new Proxy(ICON_IMAGES_OVERRIDE, {
+  get(target, prop) {
+    if (prop in target) return target[prop];
+    if (typeof prop === 'string' && ICON_AUTO_KEYS.includes(prop)) {
+      const path = `icons/${prop}.png`;
+      if (IMG_LOAD_STATUS[path] === 'failed') return undefined;
+      return `${prop}.png`;
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    if (prop in target) return true;
+    if (typeof prop === 'string' && ICON_AUTO_KEYS.includes(prop)) {
+      const path = `icons/${prop}.png`;
+      return IMG_LOAD_STATUS[path] !== 'failed';
+    }
+    return false;
+  },
+});
 
 // === 이미지 로딩 (비동기, 캐시됨) ===
 function loadImage(filename, category = 'pets') {
@@ -9186,10 +9353,19 @@ function drawPetImage(ctx, petKey, x, y, size) {
 
 // === 캔버스용 건물 이미지 그리기 ===
 function drawBuildingImage(ctx, buildingType, x, y, w, h) {
-  const img = getBuildingImage(buildingType);
-  if (!img || IMG_LOAD_STATUS[`buildings/${BUILDING_IMAGES[buildingType]}`] !== 'loaded') {
+  const filename = BUILDING_IMAGES[buildingType];
+  if (!filename) return false;  // 매핑 없음
+  const cacheKey = `buildings/${filename}`;
+  const status = IMG_LOAD_STATUS[cacheKey];
+  // 아직 로드 시도 안 했으면 백그라운드 로드 시작 (다음 프레임부터 사용)
+  if (!status) {
+    loadImage(filename, 'buildings');
     return false;
   }
+  if (status === 'failed') return false;
+  if (status !== 'loaded') return false;  // loading 중
+  const img = IMG_CACHE[cacheKey];
+  if (!img || !img.complete || !img.naturalWidth) return false;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, x, y, w, h);
   return true;
@@ -9221,6 +9397,43 @@ window.preloadGameImages = preloadGameImages;
 window.PET_IMAGES = PET_IMAGES;
 window.BUILDING_IMAGES = BUILDING_IMAGES;
 window.ICON_IMAGES = ICON_IMAGES;
+
+// === 🏛 건물 미리보기 HTML (UI용) - 이미지 우선, emoji 폴백 ===
+function buildingPreviewHTML(key, def, size) {
+  size = size || 48;
+  const filename = BUILDING_IMAGES[key];
+  if (filename && IMG_LOAD_STATUS[`buildings/${filename}`] !== 'failed') {
+    // 백그라운드 로드 트리거
+    if (!IMG_LOAD_STATUS[`buildings/${filename}`]) {
+      loadImage(filename, 'buildings');
+    }
+    return `<img src="${ASSET_BASE}/buildings/${filename}" width="${size}" height="${size}"
+      style="image-rendering:pixelated; image-rendering:crisp-edges; display:block; margin:0 auto;"
+      onerror="this.onerror=null; this.outerHTML=${JSON.stringify(escapeHtml(def.icon || '🏠'))};"
+      alt="${escapeHtml(def.name || '')}">`;
+  }
+  // 폴백: emoji
+  return def.icon || '🏠';
+}
+window.buildingPreviewHTML = buildingPreviewHTML;
+
+// === 🎨 자원 아이콘 HTML ===
+function resourceIconHTML(resKey, size) {
+  size = size || 16;
+  const filename = ICON_IMAGES[resKey];
+  const fallback = { gold: '💰', food: '🍖', wood: '🪵', stone: '🪨', gem: '💎', exp: '⭐', heart: '❤', star: '⭐' }[resKey] || '';
+  if (filename && IMG_LOAD_STATUS[`icons/${filename}`] !== 'failed') {
+    if (!IMG_LOAD_STATUS[`icons/${filename}`]) {
+      loadImage(filename, 'icons');
+    }
+    return `<img src="${ASSET_BASE}/icons/${filename}" width="${size}" height="${size}"
+      style="image-rendering:pixelated; vertical-align:middle; display:inline-block;"
+      onerror="this.onerror=null; this.outerHTML=${JSON.stringify(escapeHtml(fallback))};"
+      alt="${escapeHtml(resKey)}">`;
+  }
+  return fallback;
+}
+window.resourceIconHTML = resourceIconHTML;
 
 // ============================================================================
 // PETS — 와일드 에이지 스타일 야수 컬렉션
@@ -14795,7 +15008,7 @@ function rebuildBuildBar() {
       return `<span class="${can?'':'cant'}">${ico}${v}</span>`;
     }).join('');
     card.innerHTML = `
-      <div class="preview">${def.icon}</div>
+      <div class="preview">${buildingPreviewHTML(key, def, 48)}</div>
       <div class="bname">${def.name}</div>
       <div class="bcost">${costHTML}</div>
       ${locked ? `<div class="lock">🔂 Lv.${def.levelReq}</div>` : ''}
@@ -15236,6 +15449,123 @@ function claimAttendance(index) {
   openAttendance();
   updateHUD();
 }
+
+// ============================================================================
+// 🎁 화려한 보상 모달 — 재사용 가능
+// showRewardModal({ title, subtitle, rewards: [{icon, label, amount}], bonus, onClose })
+// ============================================================================
+function showRewardModal(opts) {
+  opts = opts || {};
+  const existing = document.getElementById('reward-celebration-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'reward-celebration-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 100001;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    animation: rewardBgFade 0.3s ease-out;
+    overflow: hidden;
+  `;
+
+  const rewardsHTML = (opts.rewards || []).map((r, i) => `
+    <div style="
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,152,0,0.15));
+      border: 2px solid rgba(255,215,0,0.5);
+      border-radius: 12px;
+      animation: rewardItemSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 0.1 + 0.3}s both;
+    ">
+      <div style="font-size: 28px;">${r.icon || '🎁'}</div>
+      <div style="flex: 1; color: #fff8e1; font-weight: bold; font-size: 14px;">${escapeHtml(r.label || '')}</div>
+      <div style="color: #ffd700; font-weight: bold; font-size: 16px; text-shadow: 0 0 8px rgba(255,215,0,0.6);">${r.amount != null ? '+' + (typeof r.amount === 'number' ? r.amount.toLocaleString() : r.amount) : ''}</div>
+    </div>
+  `).join('');
+
+  modal.innerHTML = `
+    <div style="position: absolute; inset: 0; pointer-events: none; overflow: hidden;">
+      ${Array.from({length: 12}, () => {
+        const dx = Math.random() * 100;
+        const dy = Math.random() * 100;
+        const dur = 3 + Math.random() * 4;
+        const delay = Math.random() * 2;
+        const size = 6 + Math.random() * 16;
+        const emoji = ['✨','⭐','💫','🌟'][Math.floor(Math.random()*4)];
+        return `<div style="position:absolute; left:${dx}%; top:${dy}%; font-size:${size}px; animation: rewardParticle ${dur}s ease-in-out infinite ${delay}s; opacity: 0.7;">${emoji}</div>`;
+      }).join('')}
+    </div>
+    <div style="
+      position: relative;
+      max-width: 400px; width: 100%;
+      background: linear-gradient(135deg, #1a0a2e, #2d1b4e, #1a0a2e);
+      border: 3px solid #ffd700;
+      border-radius: 20px;
+      padding: 24px 20px;
+      box-shadow: 0 0 40px rgba(255,215,0,0.5), 0 20px 50px rgba(0,0,0,0.6);
+      animation: rewardPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      text-align: center;
+    ">
+      <div style="
+        position: absolute; inset: 0;
+        background: conic-gradient(from 0deg, transparent, rgba(255,215,0,0.15), transparent, rgba(255,215,0,0.15), transparent);
+        border-radius: 17px;
+        animation: rewardRayRotate 8s linear infinite;
+        pointer-events: none;
+      "></div>
+      <div style="position: relative; z-index: 1;">
+        <div style="font-size: 64px; margin-bottom: 8px; animation: rewardIconBounce 1s ease-in-out infinite; filter: drop-shadow(0 0 12px rgba(255,215,0,0.6));">
+          ${opts.icon || '🎁'}
+        </div>
+        <div style="font-size: 24px; font-weight: bold; background: linear-gradient(135deg, #ffd700, #ff9800, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px; margin-bottom: 6px;">${escapeHtml(opts.title || '보상 획득!')}</div>
+        ${opts.subtitle ? `<div style="font-size: 12px; color: #ce93d8; margin-bottom: 14px;">${escapeHtml(opts.subtitle)}</div>` : '<div style="height: 8px;"></div>'}
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">${rewardsHTML}</div>
+        ${opts.bonus ? `<div style="padding: 10px; background: linear-gradient(135deg, rgba(239,83,80,0.3), rgba(156,39,176,0.3)); border: 2px solid #ff5252; border-radius: 10px; margin-bottom: 14px; color: #fff8e1; font-weight: bold; font-size: 13px;">🎊 ${escapeHtml(opts.bonus)}</div>` : ''}
+        <button id="reward-close-btn" type="button" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #66bb6a, #2e7d32); color: white; border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(46,125,50,0.5); animation: rewardBtnPulse 1.5s ease-in-out infinite;">✓ 확인</button>
+      </div>
+    </div>
+    <style>
+      @keyframes rewardBgFade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes rewardPopIn {
+        0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+        60% { transform: scale(1.08) rotate(3deg); }
+        100% { transform: scale(1) rotate(0); opacity: 1; }
+      }
+      @keyframes rewardIconBounce {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-8px) scale(1.08); }
+      }
+      @keyframes rewardItemSlide {
+        from { transform: translateX(-30px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes rewardRayRotate { to { transform: rotate(360deg); } }
+      @keyframes rewardParticle {
+        0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
+        50% { transform: translateY(-20px) scale(1.3); opacity: 1; }
+      }
+      @keyframes rewardBtnPulse {
+        0%, 100% { box-shadow: 0 4px 12px rgba(46,125,50,0.5); }
+        50% { box-shadow: 0 4px 20px rgba(46,125,50,0.8), 0 0 12px rgba(102,187,106,0.6); }
+      }
+    </style>
+  `;
+  document.body.appendChild(modal);
+  try { playSound('rare'); } catch (e) {}
+  try { haptic([20, 30, 20, 30, 60]); } catch (e) {}
+  const closeBtn = modal.querySelector('#reward-close-btn');
+  const close = () => {
+    modal.style.animation = 'rewardBgFade 0.25s ease-in reverse';
+    setTimeout(() => { modal.remove(); if (opts.onClose) try { opts.onClose(); } catch (e) {} }, 250);
+  };
+  closeBtn.onclick = close;
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+}
+window.showRewardModal = showRewardModal;
 
 // ============================================================================
 // EVENTS
@@ -17482,6 +17812,8 @@ function findFriend(nickname) {
 function addFriend(nickname) {
   nickname = nickname.trim();
   if (!nickname) { showToast('닉네임을 입력해주세요', 'warn'); return false; }
+  // 🔧 잘못된 닉네임 차단 (null 표시 방지)
+  if (!isValidNick(nickname)) { showToast('유효하지 않은 닉네임입니다', 'warn'); return false; }
   if (nickname.length < 2 || nickname.length > 10) {
     showToast('2~10자 닉네임만 가능해요', 'warn'); return false;
   }
@@ -28276,6 +28608,7 @@ async function openPvpLeaderboard() {
           const v = child.val();
           if (v && v.pvp && v.pvp.season === currentSeason) {
             const nick = v.nickname || decodeURIComponent(child.key);
+            if (!isValidNick(nick)) return;  // 🔧 잘못된 닉네임 스킵
             if (seenNicks.has(nick)) return;
             seenNicks.add(nick);
             players.push({
@@ -28616,10 +28949,24 @@ async function loadRaidContent() {
       game.exp = (game.exp || 0) + expReward;
       try { checkLevelUp(); } catch (e) {}
       game.raidRewardClaimed = today;
-      showToast(`🎁 레이드 보상: 🪙${goldReward.toLocaleString()} 💎${gemReward} ✨${expReward}`, 'gain');
       claimBtn.disabled = true;
       claimBtn.textContent = '✅ 받음';
       try { saveGame(); } catch (e) {}
+      // 🎁 화려한 보상 모달 (z-index 100001 - 모든 것 위에)
+      try {
+        showRewardModal({
+          icon: '👹',
+          title: '레이드 보상 획득!',
+          subtitle: `기여도 ${myContribution}% · ${boss.name || '보스'} 처치`,
+          rewards: [
+            { icon: '🪙', label: '금화', amount: goldReward },
+            { icon: '💎', label: '보석', amount: gemReward },
+            { icon: '✨', label: '경험치', amount: expReward },
+          ],
+        });
+      } catch (e) {
+        showToast(`🎁 레이드 보상: 🪙${goldReward.toLocaleString()} 💎${gemReward} ✨${expReward}`, 'gain');
+      }
     };
   }
 }
@@ -33101,37 +33448,113 @@ function render() {
   drawScreenVignette(ctx, cw, ch);
 }
 
-// === 시간대 오버레이 ===
+// === 🌅 시간대 오버레이 (강화: 햇빛/달빛 광선 + 구름) ===
 function drawTimeOfDayOverlay(ctx, w, h) {
   const t = game.timeOfDay;
-  if (!t || t === 'day') return;  // 낮엔 오버레이 없음
+  // 시간대별 색상 + 그라데이션 오버레이
+  if (t === 'day') {
+    // 낮: 햇빛 광선 (좌상단)
+    if (!game._sunBeamCanvas) {
+      const c = document.createElement('canvas');
+      c.width = 1; c.height = 1;
+      game._sunBeamCanvas = c;
+    }
+    // 좌상단 햇빛 그라데이션
+    const sunGrad = ctx.createRadialGradient(w * 0.15, h * 0.1, 0, w * 0.15, h * 0.1, Math.max(w, h) * 0.6);
+    sunGrad.addColorStop(0, 'rgba(255, 245, 180, 0.18)');
+    sunGrad.addColorStop(0.5, 'rgba(255, 245, 180, 0.04)');
+    sunGrad.addColorStop(1, 'rgba(255, 245, 180, 0)');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(0, 0, w, h);
+    return;
+  }
   let color, alpha;
   if (t === 'dawn') {
-    color = '255, 180, 130'; alpha = 0.18;
+    color = '255, 180, 130'; alpha = 0.22;
+    // 새벽: 분홍 그라데이션 (상단 → 하단)
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(255, 150, 100, 0.30)');
+    grad.addColorStop(0.4, 'rgba(255, 200, 150, 0.18)');
+    grad.addColorStop(1, 'rgba(255, 220, 200, 0.05)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    return;
   } else if (t === 'sunset') {
-    color = '255, 120, 60'; alpha = 0.25;
+    // 석양: 강한 주황 + 햇살
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(255, 80, 30, 0.35)');
+    grad.addColorStop(0.5, 'rgba(255, 140, 60, 0.22)');
+    grad.addColorStop(1, 'rgba(255, 200, 100, 0.08)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // 우측 햇살 (지는 해)
+    const sunset = ctx.createRadialGradient(w * 0.85, h * 0.55, 0, w * 0.85, h * 0.55, Math.max(w, h) * 0.6);
+    sunset.addColorStop(0, 'rgba(255, 100, 30, 0.35)');
+    sunset.addColorStop(0.5, 'rgba(255, 100, 30, 0.08)');
+    sunset.addColorStop(1, 'rgba(255, 100, 30, 0)');
+    ctx.fillStyle = sunset;
+    ctx.fillRect(0, 0, w, h);
+    return;
   } else if (t === 'night') {
-    color = '20, 30, 80'; alpha = 0.40;
-  } else return;
-  ctx.fillStyle = `rgba(${color}, ${alpha})`;
-  ctx.fillRect(0, 0, w, h);
-
-  // 밤에는 별 효과
-  if (t === 'night') {
+    // 밤: 짙은 푸른 + 별 + 달빛
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(10, 15, 50, 0.55)');
+    grad.addColorStop(0.5, 'rgba(20, 30, 70, 0.45)');
+    grad.addColorStop(1, 'rgba(30, 40, 80, 0.40)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // 별
     if (!game._stars) {
       game._stars = [];
-      for (let i = 0; i < 30; i++) {
-        game._stars.push({ x: Math.random(), y: Math.random() * 0.5, s: 0.5 + Math.random() * 1.5, p: Math.random() * Math.PI * 2 });
+      for (let i = 0; i < 40; i++) {
+        game._stars.push({
+          x: Math.random(),
+          y: Math.random() * 0.55,
+          s: 0.5 + Math.random() * 1.8,
+          p: Math.random() * Math.PI * 2,
+          twSpeed: 1.5 + Math.random() * 2,
+        });
       }
     }
     const now = Date.now() / 1000;
     for (const star of game._stars) {
-      const tw = 0.5 + Math.sin(now * 2 + star.p) * 0.5;
-      ctx.fillStyle = `rgba(255, 255, 200, ${0.6 * tw})`;
+      const tw = 0.4 + Math.sin(now * star.twSpeed + star.p) * 0.6;
+      ctx.fillStyle = `rgba(255, 255, 220, ${0.7 * tw})`;
       ctx.beginPath();
       ctx.arc(star.x * w, star.y * h, star.s, 0, Math.PI * 2);
       ctx.fill();
+      // 큰 별엔 빛 십자가
+      if (star.s > 1.4 && tw > 0.7) {
+        ctx.strokeStyle = `rgba(255, 255, 220, ${0.4 * tw})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(star.x * w - star.s * 2, star.y * h);
+        ctx.lineTo(star.x * w + star.s * 2, star.y * h);
+        ctx.moveTo(star.x * w, star.y * h - star.s * 2);
+        ctx.lineTo(star.x * w, star.y * h + star.s * 2);
+        ctx.stroke();
+      }
     }
+    // 달
+    const moonX = w * 0.85;
+    const moonY = h * 0.15;
+    const moonR = 18;
+    const moonGlow = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 4);
+    moonGlow.addColorStop(0, 'rgba(255, 250, 220, 0.5)');
+    moonGlow.addColorStop(0.3, 'rgba(255, 250, 220, 0.15)');
+    moonGlow.addColorStop(1, 'rgba(255, 250, 220, 0)');
+    ctx.fillStyle = moonGlow;
+    ctx.fillRect(moonX - moonR * 4, moonY - moonR * 4, moonR * 8, moonR * 8);
+    ctx.fillStyle = 'rgba(255, 250, 220, 0.95)';
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+    ctx.fill();
+    // 달 그림자 (초승달 느낌)
+    ctx.fillStyle = 'rgba(30, 40, 80, 0.5)';
+    ctx.beginPath();
+    ctx.arc(moonX + 6, moonY - 2, moonR * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    return;
   }
 }
 

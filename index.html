@@ -575,9 +575,9 @@
 
   /* === CUSTOM CONFIRM DIALOG === */
   .confirm-bg {
-    position: fixed; inset: 0; z-index: 400;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(3px);
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
     display: none; align-items: center; justify-content: center;
     padding: 20px;
   }
@@ -2211,6 +2211,11 @@ function getDeviceId() {
 // === 플레이어 정보 클라우드 업로드 (랭킹/친구용) ===
 async function uploadPlayerProfile() {
   if (!_onlineMode || !game.player) return;
+  // 🔧 닉네임 유효성 검증 - null/undefined/'null' 등 잘못된 닉네임은 업로드 차단
+  if (!isValidNick(game.player.nickname)) {
+    console.warn('[uploadPlayerProfile] 잘못된 닉네임, 업로드 차단:', game.player.nickname);
+    return;
+  }
   try {
     const ref = _firebaseDB.ref('players/' + encodeURIComponent(game.player.nickname));
     // PvP 데이터 미리 계산
@@ -2221,18 +2226,41 @@ async function uploadPlayerProfile() {
       season: game.pvp.season || 0,
       weekWins: game.pvp.weekWins || 0,
     } : null;
+    // 펫 데이터 (랭킹용)
+    const petsForRanking = {};
+    if (game.pets) {
+      for (const [k, v] of Object.entries(game.pets)) {
+        if (v > 0 && PETS && PETS[k]) petsForRanking[k] = v;
+      }
+    }
+    // 투기장 전적 합산
+    let arenaWins = 0, arenaLosses = 0;
+    if (game.petArenaStats) {
+      for (const k in game.petArenaStats) {
+        arenaWins += (game.petArenaStats[k].wins || 0);
+        arenaLosses += (game.petArenaStats[k].losses || 0);
+      }
+    }
     await ref.set(stripUndefined({
       nickname: game.player.nickname || '',
       code: game.player.code || '',
       level: game.level || 1,
       power: game.totalPower || 0,
-      petCount: Object.keys(game.pets || {}).length,
+      petCount: Object.keys(petsForRanking).length,
+      pets: petsForRanking,  // 🆕 펫 데이터 (랭킹/펫 비교용)
+      petEvolutions: game.petEvolutions || {},  // 🆕 진화 단계
+      petLevels: game.petLevels || {},  // 🆕 강화 레벨
+      buildingCount: (game.buildings || []).filter(b => b.state === 'complete').length,  // 🆕 건물 수
+      conquerCount: (game.friends || []).filter(f => f.conquered).length,  // 🆕 점령 수
+      arenaWins,  // 🆕 투기장 승
+      arenaLosses,  // 🆕 투기장 패
       day: game.day || 1,
       score: (typeof getMyScore === 'function') ? (getMyScore() || 0) : 0,
       avatar: game.player.avatar || '⛺',
       vipLevel: game.vipLevel || 0,
-      lastSeen: Date.now(),  // 마지막 활동 시간 (실시간 표시용)
-      pvp: pvpData,  // 🆕 PvP 시즌 데이터 (랭킹 빠른 조회용)
+      equippedTitle: game.equippedTitle || null,  // 🆕 장착 칭호
+      lastSeen: Date.now(),
+      pvp: pvpData,
       updatedAt: Date.now(),
     }));
   } catch (e) {
@@ -13962,6 +13990,14 @@ function loadGame() {
     game.friendRequests = d.friendRequests || [];
     game.friendsInitialized = d.friendsInitialized || false;
     game.player = d.player || { nickname: null, code: null, createdAt: null };
+    // 🔧 'null'/'undefined' 문자열 nickname 보호 (저장 시 잘못 직렬화된 경우)
+    if (game.player && game.player.nickname) {
+      const n = game.player.nickname;
+      if (n === 'null' || n === 'undefined' || n === 'NaN' || typeof n !== 'string') {
+        console.warn('[loadGame] 잘못된 nickname 감지, null로 초기화:', n);
+        game.player.nickname = null;
+      }
+    }
     game.battleHistory = d.battleHistory || [];
     game.occupiedByMe = d.occupiedByMe || false;
     game.occupiedBy = d.occupiedBy || null;
@@ -14151,7 +14187,10 @@ window.resetGame = resetGame;
 function showToast(text, type = '') {
   const t = document.createElement('div');
   t.className = 'toast ' + type;
-  t.textContent = text;
+  // 'null'/'undefined' 문자열 자동 정화 (닉네임 null 버그 방지)
+  let safeText = (text == null) ? '' : String(text);
+  safeText = safeText.replace(/\bnull\b/g, '익명').replace(/\bundefined\b/g, '익명');
+  t.textContent = safeText;
   document.getElementById('toasts').appendChild(t);
   setTimeout(() => t.remove(), 1800);
 }
@@ -16530,9 +16569,32 @@ function generateFriendCode(nickname) {
   return code;
 }
 
+// === 🔧 닉네임 안전 처리 헬퍼 (null/undefined/잘못된 값 보호) ===
+function isValidNick(nick) {
+  if (!nick || typeof nick !== 'string') return false;
+  const trimmed = nick.trim();
+  if (!trimmed) return false;
+  if (trimmed === 'null' || trimmed === 'undefined' || trimmed === 'NaN') return false;
+  return true;
+}
+window.isValidNick = isValidNick;
+
+function safeNick(nick, fallback) {
+  if (typeof fallback !== 'string') fallback = '익명';
+  if (isValidNick(nick)) return nick.trim();
+  return fallback;
+}
+window.safeNick = safeNick;
+
 function ensureFriendsState() {
   if (!game.friends) game.friends = [];
   if (!game.friendRequests) game.friendRequests = [];
+  // 🔧 닉네임이 null/undefined/'null'/'undefined' 인 잘못된 친구 자동 제거 (null 버그 방지)
+  const before = game.friends.length;
+  game.friends = game.friends.filter(f => f && typeof f === 'object' && isValidNick(f.nickname));
+  if (before !== game.friends.length) {
+    console.warn(`[ensureFriendsState] 잘못된 친구 ${before - game.friends.length}명 제거됨`);
+  }
 }
 
 // ============================================================================
@@ -16569,8 +16631,13 @@ async function syncAdminFriends(showToastMsg = false) {
     let added = 0;
     // 1) 추가: DB에 있고 친구에 없으면 추가
     for (const p of allPlayers) {
-      const nick = p.nickname || p.name;
-      if (!nick || nick === myNick) continue;
+      const rawNick = p.nickname || p.name;
+      // 잘못된 닉네임 스킵 (null/undefined/'null' 문자열 등)
+      if (rawNick == null) continue;
+      if (typeof rawNick !== 'string') continue;
+      if (!rawNick || rawNick === 'null' || rawNick === 'undefined' || rawNick === 'NaN') continue;
+      const nick = rawNick;
+      if (nick === myNick) continue;
       dbNicks.add(nick);
       const existing = game.friends.find(f => f.nickname === nick);
       if (!existing) {
@@ -16843,6 +16910,55 @@ function _aiLiberateAction(aiName) {
   try { showToast(`🕊 ${aiName}이(가) 해방 도움! 30분 안전`, 'gain'); } catch (e) {}
   try { saveGame(); } catch (e) {}
 }
+
+// ============================================================================
+// 🌐 전역 자동 동기화 (모든 시스템)
+// - 30초마다: uploadPlayerProfile (펫/레벨/전투력/투기장 등 전체 프로필)
+// - 60초마다: uploadCloudSave (전체 저장 데이터)
+// - 게임 상태 변경 시 즉시 트리거 (펫/건물/PvP)
+// ============================================================================
+let _globalAutoSyncTimer = null;
+let _profileSyncTimer = null;
+
+function startGlobalAutoSync() {
+  if (!(typeof isOnlineMode === 'function' && isOnlineMode())) return;
+  if (!game.player || !game.player.nickname) return;
+  stopGlobalAutoSync();
+  // 30초마다 프로필 업로드 (펫/레벨/전투력/투기장 데이터)
+  _profileSyncTimer = setInterval(() => {
+    try {
+      if (typeof isOnlineMode === 'function' && isOnlineMode() && game.player && game.player.nickname) {
+        uploadPlayerProfile();
+      }
+    } catch (e) { console.warn('[AutoSync] profile fail', e); }
+  }, 30 * 1000);
+  // 60초마다 클라우드 저장 (전체 게임 상태)
+  _globalAutoSyncTimer = setInterval(() => {
+    try {
+      if (typeof isOnlineMode === 'function' && isOnlineMode() && game.player && game.player.nickname) {
+        uploadCloudSave(false);  // false = 디바운싱 적용
+      }
+    } catch (e) { console.warn('[AutoSync] cloud fail', e); }
+  }, 60 * 1000);
+  console.log('[GlobalAutoSync] 시작 (프로필 30s, 클라우드 60s)');
+}
+window.startGlobalAutoSync = startGlobalAutoSync;
+
+function stopGlobalAutoSync() {
+  if (_globalAutoSyncTimer) { clearInterval(_globalAutoSyncTimer); _globalAutoSyncTimer = null; }
+  if (_profileSyncTimer) { clearInterval(_profileSyncTimer); _profileSyncTimer = null; }
+}
+window.stopGlobalAutoSync = stopGlobalAutoSync;
+
+// 즉시 트리거 (펫 획득/PvP 후 등 중요한 이벤트 시)
+function triggerProfileSync() {
+  try {
+    if (typeof isOnlineMode === 'function' && isOnlineMode() && game.player && game.player.nickname) {
+      uploadPlayerProfile();
+    }
+  } catch (e) {}
+}
+window.triggerProfileSync = triggerProfileSync;
 
 // ----- Generate a deterministic friend village -----
 function buildFriendVillage(nickname, code) {
@@ -18047,6 +18163,8 @@ async function gatherAllPlayers() {
         if (encNick === myNickEnc) continue;  // 내 데이터 중복 방지
         try {
           const nick = decodeURIComponent(encNick);
+          // 🔧 잘못된 닉네임 스킵 (null 표시 방지)
+          if (!isValidNick(nick)) continue;
           const fLv = p.level || 1;
           const fPow = p.power || 100;
           const friendPets = Object.entries(p.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
@@ -18531,6 +18649,7 @@ async function renderPvpRankingInTab(c) {
           const v = child.val();
           if (v && v.pvp && v.pvp.season === season) {
             const nick = (v.nickname || decodeURIComponent(child.key));
+            if (!isValidNick(nick)) return;  // 🔧 잘못된 닉네임 스킵
             if (seenNicks.has(nick)) return;
             seenNicks.add(nick);
             players.push({
@@ -18551,6 +18670,7 @@ async function renderPvpRankingInTab(c) {
           const v = child.val();
           if (v && v.pvp && v.pvp.season === season) {
             const nick = decodeURIComponent(child.key);
+            if (!isValidNick(nick)) return;  // 🔧 잘못된 닉네임 스킵
             if (seenNicks.has(nick)) return;
             seenNicks.add(nick);
             players.push({
@@ -21710,6 +21830,10 @@ function doSummon(count) {
   rebuildPetCompanions();
   showSummonResult(results);
   updateHUD();
+  // 펫 획득 즉시 자동 진화/강화 트리거 (켜져 있다면)
+  setTimeout(() => { try { triggerAutoEvolveEnhance(); } catch (e) {} }, 500);
+  // 펫 획득 즉시 글로벌 동기화 (다른 유저 화면에 즉시 반영)
+  setTimeout(() => { try { triggerProfileSync(); } catch (e) {} }, 1000);
 }
 
 function showSummonResult(results) {
@@ -23399,7 +23523,12 @@ async function renderTribeTab(tribe, tab, ctx) {
 
 // === 길드 헬퍼: HTML 이스케이프 ===
 function escapeHtml(s) {
-  if (typeof s !== 'string') return '';
+  // null/undefined/'null'/'undefined' 문자열 모두 빈 문자열로 (닉네임 null 버그 방지)
+  if (s == null) return '';
+  if (typeof s !== 'string') {
+    try { s = String(s); } catch (e) { return ''; }
+  }
+  if (s === 'null' || s === 'undefined' || s === 'NaN') return '';
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 window.escapeHtml = escapeHtml;
@@ -24913,6 +25042,7 @@ window.openFusionModal = openFusionModal;
 // === 🤖 자동 진화/강화 시스템 ===
 function runAutoEvolveAndEnhance() {
   if (!game.autoEvolve && !game.autoEnhance) return;
+  const isAdminUser = (typeof isAdmin === 'function') && isAdmin();
   let evoCount = 0;
   let enhCount = 0;
   // 자동 진화: 모든 펫 검사, 3마리 이상 + 진화 가능하면 진화
@@ -24933,7 +25063,7 @@ function runAutoEvolveAndEnhance() {
       }
     }
   }
-  // 자동 강화: 자원 충분한 펫만 (보석 사용 없게 — 골드만)
+  // 자동 강화: 운영자는 보석도 사용, 일반 유저는 골드만
   if (game.autoEnhance) {
     const keys = Object.keys(game.pets || {});
     for (const key of keys) {
@@ -24943,11 +25073,14 @@ function runAutoEvolveAndEnhance() {
         if (curLv >= MAX_PET_LEVEL) break;
         const cost = getPetEnhanceCost(key);
         if (!cost) break;
-        // 보석 들면 자동 강화 안 함 (사용자 선택 보호)
-        if (cost.gem > 0) break;
+        // 일반 유저는 보석 들면 자동 강화 안 함 (사용자 선택 보호)
+        // 운영자는 보석도 사용 (모든 펫 만렙 가능)
+        if (!isAdminUser && cost.gem > 0) break;
         if ((game.res.gold || 0) < cost.gold) break;
+        if ((game.res.gem || 0) < (cost.gem || 0)) break;
         // 자원 차감 + 레벨업
         game.res.gold -= cost.gold;
+        if (cost.gem > 0) game.res.gem -= cost.gem;
         if (!game.petLevels) game.petLevels = {};
         game.petLevels[key] = curLv + 1;
         enhCount++;
@@ -24961,7 +25094,14 @@ function runAutoEvolveAndEnhance() {
     if (evoCount > 0 && enhCount > 0) msg += ', ';
     if (enhCount > 0) msg += `강화 ${enhCount}회`;
     showToast(msg, 'gain');
+    try { addNotification('pet', msg, '🤖'); } catch (e) {}
     try { saveGame(); } catch (e) {}
+    try { updateHUD(); } catch (e) {}
+    // 클라우드 자동 동기화 (강화/진화 결과 즉시 반영)
+    if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try { uploadCloudSave(false); } catch (e) {}  // 디바운싱 적용
+      try { uploadPlayerProfile(); } catch (e) {}
+    }
     // 카탈로그 열려 있으면 갱신
     try {
       const mPets = document.getElementById('m-pets');
@@ -24970,6 +25110,14 @@ function runAutoEvolveAndEnhance() {
   }
 }
 window.runAutoEvolveAndEnhance = runAutoEvolveAndEnhance;
+
+// 펫 획득 후 즉시 트리거하는 헬퍼 (펫 소환/뽑기 등에서 호출)
+function triggerAutoEvolveEnhance() {
+  if (game.autoEvolve || game.autoEnhance) {
+    try { runAutoEvolveAndEnhance(); } catch (e) {}
+  }
+}
+window.triggerAutoEvolveEnhance = triggerAutoEvolveEnhance;
 
 function getStarString(petKey) {
   const stars = (game.petEvolutions || {})[petKey] || 0;
@@ -25753,9 +25901,12 @@ window.showRouletteResult = showRouletteResult;
 // ============================================================================
 function addNotification(type, message, icon) {
   if (!game.notifications) game.notifications = [];
+  // 'null'/'undefined' 문자열 자동 정화
+  let safeMessage = (message == null) ? '' : String(message);
+  safeMessage = safeMessage.replace(/\bnull\b/g, '익명').replace(/\bundefined\b/g, '익명');
   game.notifications.unshift({
     id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-    type, message, icon: icon || '🔔',
+    type, message: safeMessage, icon: icon || '🔔',
     timestamp: Date.now(),
     read: false,
   });
@@ -28043,6 +28194,7 @@ async function loadArenaRecommendedPets() {
       for (const [encNick, p] of Object.entries(allPlayers)) {
         const nick = decodeURIComponent(encNick);
         if (nick === myNick) continue;  // 나 제외
+        if (!isValidNick(nick)) continue;  // 🔧 잘못된 닉네임 스킵
         const pets = Object.entries(p.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
         for (const [petKey, count] of pets) {
           candidates.push({
@@ -29788,7 +29940,9 @@ function renderPetCatalogTab(tab) {
       autoEnhBtn.onclick = (e) => {
         e.stopPropagation();
         game.autoEnhance = !game.autoEnhance;
-        showToast(`🤖 자동 강화 ${game.autoEnhance ? '활성화 (골드만)' : '비활성화'}`, 'gain');
+        const isAdminUser = (typeof isAdmin === 'function') && isAdmin();
+        const note = isAdminUser ? '골드+보석' : '골드만';
+        showToast(`🤖 자동 강화 ${game.autoEnhance ? `활성화 (${note})` : '비활성화'}`, 'gain');
         try { saveGame(); } catch (e) {}
         // 즉시 실행
         if (game.autoEnhance) try { runAutoEvolveAndEnhance(); } catch (e) {}
@@ -31530,10 +31684,10 @@ function tick(now) {
       try { updateHUD(); } catch (e) {}
     }
 
-    // === 🤖 자동 진화/강화 (30초마다) ===
+    // === 🤖 자동 진화/강화 (10초마다, 운영자는 보석도 사용) ===
     if (!game._autoEvolveTimer) game._autoEvolveTimer = 0;
     game._autoEvolveTimer += dt;
-    if (game._autoEvolveTimer >= 30) {
+    if (game._autoEvolveTimer >= 10) {
       game._autoEvolveTimer = 0;
       try { if (typeof runAutoEvolveAndEnhance === 'function') runAutoEvolveAndEnhance(); } catch (e) {}
     }
@@ -31703,9 +31857,9 @@ function tick(now) {
     saveGame();
   }
 
-  // 클라우드 동기화는 30초마다 (충돌 방지)
+  // 클라우드 동기화 - 모든 시스템 (15초마다, 실시간 느낌)
   game.cloudSyncTimer = (game.cloudSyncTimer || 0) + dt;
-  if (game.cloudSyncTimer > 30 && typeof isOnlineMode === 'function' && isOnlineMode()) {
+  if (game.cloudSyncTimer > 15 && typeof isOnlineMode === 'function' && isOnlineMode()) {
     game.cloudSyncTimer = 0;
     try { uploadPlayerProfile(); } catch (e) {}
     try { uploadMyVillage(); } catch (e) {}
@@ -32513,7 +32667,7 @@ function beginGame() {
       setTimeout(() => {
         try { uploadPlayerProfile(); } catch (e) {}
         try { uploadMyVillage(); } catch (e) {}
-        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {} try { ensureSeasonPassData(); updateSeasonBadge(); } catch (e) {} try { updateMailboxBadge(); } catch (e) {} try { startAdminFriendSync(); } catch (e) {} try { startAiPlayerActions(); } catch (e) {}
+        try { startFriendRequestListener(); } catch (e) {} try { startAdminGiftListener(); } catch (e) {} try { startAdminNoticeListener(); } catch (e) {} try { updateNotificationBadge(); } catch (e) {} try { refreshMyTribeCache(); } catch (e) {} try { ensureSeasonPassData(); updateSeasonBadge(); } catch (e) {} try { updateMailboxBadge(); } catch (e) {} try { startAdminFriendSync(); } catch (e) {} try { startAiPlayerActions(); } catch (e) {} try { startGlobalAutoSync(); } catch (e) {}
       }, 1500);
     }
   } catch (e) {}
@@ -33238,19 +33392,41 @@ async function _initImpl() {
     );
   };
 
-  // page-hidden save
+  // page-hidden save + 포커스 복귀 시 즉시 동기화 (모든 시스템)
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && game.settings.autoSave) {
-      saveGame();
+    if (document.hidden) {
+      // 페이지 숨겨질 때: 마지막 저장 + 클라우드 업로드
+      if (game.settings.autoSave) saveGame();
       if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+        try { uploadPlayerProfile(); } catch (e) {}
+        try { uploadMyVillage(); } catch (e) {}
         try { uploadCloudSave(true); } catch (e) {}  // force
       }
+    } else {
+      // 페이지 다시 보일 때: 친구/AI 동기화 + 알림 갱신
+      if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+        try { syncAdminFriends(false); } catch (e) {}
+        try { uploadPlayerProfile(); } catch (e) {}
+      }
+      try { updateNotificationBadge(); } catch (e) {}
+      try { updateMailboxBadge(); } catch (e) {}
     }
   });
   window.addEventListener('beforeunload', () => {
     if (game.settings.autoSave) saveGame();
     if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try { uploadPlayerProfile(); } catch (e) {}
       try { uploadCloudSave(true); } catch (e) {}  // force, 마지막 동기화
+    }
+  });
+  // 온라인/오프라인 전환 시 자동 동기화
+  window.addEventListener('online', () => {
+    if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+      try { showToast('🌐 온라인 복귀 - 동기화 중...', ''); } catch (e) {}
+      try { uploadPlayerProfile(); } catch (e) {}
+      try { uploadMyVillage(); } catch (e) {}
+      try { uploadCloudSave(true); } catch (e) {}
+      try { syncAdminFriends(false); } catch (e) {}
     }
   });
 }

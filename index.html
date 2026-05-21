@@ -7362,13 +7362,14 @@ class PetCompanion {
     this.state = 'idle';                  // 'idle' | 'wander'
     this.facing = Math.random() < 0.5 ? 1 : -1;
     this.bob = Math.random() * Math.PI * 2;
-    this.size = this.def.tier === 'mythic' ? 1.4
+    this.size = this.def.tier === 'divine' ? 1.8
+              : this.def.tier === 'mythic' ? 1.4
               : this.def.tier === 'legendary' ? 1.25
               : this.def.tier === 'epic' ? 1.1
               : this.def.tier === 'rare' ? 1.0
               : 0.9;
-    // gentle hover float for mythic/legendary
-    this.float = (this.def.tier === 'mythic' || this.def.tier === 'legendary');
+    // gentle hover float for divine/mythic/legendary
+    this.float = (this.def.tier === 'divine' || this.def.tier === 'mythic' || this.def.tier === 'legendary');
   }
   update(dt) {
     this.bob += dt * 5;
@@ -7408,7 +7409,41 @@ class PetCompanion {
     ctx.fill();
 
     // tier glow
-    if (this.def.tier === 'mythic' || this.def.tier === 'legendary') {
+    if (this.def.tier === 'divine') {
+      // 운영자 펫 - 큰 황금 후광 + 회전 광선
+      const t = Date.now() * 0.003;
+      const tRot = Date.now() * 0.001;
+      ctx.save();
+      // 회전 광선 8방향
+      ctx.translate(sx, sy - 12);
+      ctx.rotate(tRot);
+      ctx.fillStyle = 'rgba(255,215,0,0.15)';
+      for (let i = 0; i < 8; i++) {
+        ctx.save();
+        ctx.rotate((i / 8) * Math.PI * 2);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(45 * this.size, -8);
+        ctx.lineTo(45 * this.size, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+      // 큰 후광 (펄스)
+      const radius = 40 * this.size + Math.sin(t + this.bob) * 5;
+      ctx.save();
+      ctx.globalAlpha = 0.4 + Math.sin(t) * 0.2;
+      const grad = ctx.createRadialGradient(sx, sy - 12, 5, sx, sy - 12, radius);
+      grad.addColorStop(0, '#fff');
+      grad.addColorStop(0.4, '#ffd700');
+      grad.addColorStop(1, 'rgba(255,215,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(sx, sy - 12, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (this.def.tier === 'mythic' || this.def.tier === 'legendary') {
       const t = Date.now() * 0.003;
       const radius = 22 * this.size + Math.sin(t + this.bob) * 3;
       const color = PET_TIER_COLORS[this.def.tier];
@@ -8050,6 +8085,243 @@ function drawPetShape(ctx, art, x, y, s, cx) {
       ell(cx - s*0.05, y + s*0.72, s*0.04, s*0.025, a);
       ell(cx + s*0.08, y + s*0.78, s*0.04, s*0.025, a);
       break;
+    // === ⚜ DIVINE 펫 (운영자 전용) ===
+    case 'divine_dragon': {
+      // 황금 신룡 - 빛나는 후광 + 날개 + 왕관
+      const t = Date.now() * 0.003;
+      // 후광
+      ctx.fillStyle = `rgba(255,215,0,${0.3 + Math.sin(t)*0.15})`;
+      circ(cx, y + s*0.5, s*0.55, ctx.fillStyle);
+      // 날개 (좌우)
+      ctx.fillStyle = '#ffd700';
+      poly([[cx-s*0.4, y+s*0.45], [cx-s*0.55, y+s*0.3], [cx-s*0.45, y+s*0.55], [cx-s*0.25, y+s*0.5]], '#ffd700');
+      poly([[cx+s*0.4, y+s*0.45], [cx+s*0.55, y+s*0.3], [cx+s*0.45, y+s*0.55], [cx+s*0.25, y+s*0.5]], '#ffd700');
+      // 몸
+      ell(cx, y + s*0.65, s*0.3, s*0.25, b);
+      // 가슴 보석
+      poly([[cx, y+s*0.55], [cx-s*0.06, y+s*0.65], [cx, y+s*0.78], [cx+s*0.06, y+s*0.65]], '#e91e63');
+      // 머리
+      ell(cx, y + s*0.4, s*0.25, s*0.22, b);
+      // 왕관
+      poly([[cx-s*0.18, y+s*0.25], [cx-s*0.1, y+s*0.18], [cx-s*0.05, y+s*0.22], [cx, y+s*0.15], [cx+s*0.05, y+s*0.22], [cx+s*0.1, y+s*0.18], [cx+s*0.18, y+s*0.25], [cx+s*0.18, y+s*0.3], [cx-s*0.18, y+s*0.3]], '#ffd700');
+      circ(cx, y+s*0.22, s*0.025, '#e91e63');
+      // 뿔
+      poly([[cx-s*0.22, y+s*0.3], [cx-s*0.3, y+s*0.15], [cx-s*0.18, y+s*0.28]], a);
+      poly([[cx+s*0.22, y+s*0.3], [cx+s*0.3, y+s*0.15], [cx+s*0.18, y+s*0.28]], a);
+      // 빛나는 눈
+      circ(cx-s*0.08, y+s*0.4, s*0.04, '#fff');
+      circ(cx+s*0.08, y+s*0.4, s*0.04, '#fff');
+      circ(cx-s*0.08, y+s*0.4, s*0.025, e);
+      circ(cx+s*0.08, y+s*0.4, s*0.025, e);
+      // 반짝이는 입자
+      circ(cx-s*0.35, y+s*0.25, s*0.02, '#fff');
+      circ(cx+s*0.35, y+s*0.25, s*0.02, '#fff');
+      break;
+    }
+    case 'divine_phoenix': {
+      // 영원의 불사조 - 불꽃 날개 + 깃털 볏
+      const t = Date.now() * 0.005;
+      // 화염 후광
+      ctx.fillStyle = `rgba(255,87,34,${0.3 + Math.sin(t)*0.15})`;
+      circ(cx, y + s*0.5, s*0.55, ctx.fillStyle);
+      // 거대한 화염 날개 (좌)
+      poly([[cx-s*0.25, y+s*0.5], [cx-s*0.55, y+s*0.35], [cx-s*0.5, y+s*0.55], [cx-s*0.45, y+s*0.5], [cx-s*0.4, y+s*0.65]], b);
+      poly([[cx-s*0.25, y+s*0.5], [cx-s*0.48, y+s*0.4], [cx-s*0.43, y+s*0.55]], a);
+      // 거대한 화염 날개 (우)
+      poly([[cx+s*0.25, y+s*0.5], [cx+s*0.55, y+s*0.35], [cx+s*0.5, y+s*0.55], [cx+s*0.45, y+s*0.5], [cx+s*0.4, y+s*0.65]], b);
+      poly([[cx+s*0.25, y+s*0.5], [cx+s*0.48, y+s*0.4], [cx+s*0.43, y+s*0.55]], a);
+      // 몸
+      ell(cx, y + s*0.65, s*0.22, s*0.28, b);
+      // 머리
+      circ(cx, y + s*0.4, s*0.2, b);
+      // 깃털 볏 (5개)
+      poly([[cx-s*0.15, y+s*0.25], [cx-s*0.2, y+s*0.1], [cx-s*0.1, y+s*0.25]], b);
+      poly([[cx-s*0.07, y+s*0.22], [cx-s*0.1, y+s*0.05], [cx-s*0.03, y+s*0.22]], a);
+      poly([[cx, y+s*0.22], [cx, y+s*0.02], [cx+s*0.02, y+s*0.22]], '#fff');
+      poly([[cx+s*0.07, y+s*0.22], [cx+s*0.1, y+s*0.05], [cx+s*0.03, y+s*0.22]], a);
+      poly([[cx+s*0.15, y+s*0.25], [cx+s*0.2, y+s*0.1], [cx+s*0.1, y+s*0.25]], b);
+      // 부리
+      poly([[cx-s*0.04, y+s*0.45], [cx+s*0.04, y+s*0.45], [cx, y+s*0.52]], '#ffd700');
+      // 눈 (빨강 빛)
+      circ(cx-s*0.06, y+s*0.4, s*0.03, '#fff');
+      circ(cx+s*0.06, y+s*0.4, s*0.03, '#fff');
+      circ(cx-s*0.06, y+s*0.4, s*0.02, e);
+      circ(cx+s*0.06, y+s*0.4, s*0.02, e);
+      // 꼬리 깃털 (화염)
+      poly([[cx-s*0.1, y+s*0.85], [cx-s*0.15, y+s*1.0], [cx-s*0.05, y+s*0.85]], b);
+      poly([[cx, y+s*0.85], [cx, y+s*1.05], [cx+s*0.03, y+s*0.85]], a);
+      poly([[cx+s*0.1, y+s*0.85], [cx+s*0.15, y+s*1.0], [cx+s*0.05, y+s*0.85]], b);
+      break;
+    }
+    case 'divine_chronos': {
+      // 차원의 시간 군주 - 후드 + 시계
+      const t = Date.now() * 0.002;
+      // 후광 (파랑)
+      ctx.fillStyle = `rgba(0,229,255,${0.3 + Math.sin(t)*0.15})`;
+      circ(cx, y + s*0.5, s*0.55, ctx.fillStyle);
+      // 후드 (큰)
+      ctx.fillStyle = d;
+      ctx.beginPath();
+      ctx.moveTo(cx-s*0.3, y+s*0.45);
+      ctx.quadraticCurveTo(cx, y+s*0.1, cx+s*0.3, y+s*0.45);
+      ctx.lineTo(cx+s*0.25, y+s*0.55);
+      ctx.lineTo(cx-s*0.25, y+s*0.55);
+      ctx.closePath();
+      ctx.fill();
+      // 후드 안 어둠
+      ell(cx, y+s*0.42, s*0.22, s*0.18, '#000');
+      // 빛나는 눈 (청록)
+      circ(cx-s*0.08, y+s*0.4, s*0.04, e);
+      circ(cx+s*0.08, y+s*0.4, s*0.04, e);
+      circ(cx-s*0.08, y+s*0.4, s*0.02, '#fff');
+      circ(cx+s*0.08, y+s*0.4, s*0.02, '#fff');
+      // 시계 보주 (이마)
+      circ(cx, y+s*0.25, s*0.06, '#fff');
+      circ(cx, y+s*0.25, s*0.045, e);
+      // 시계 손
+      ctx.strokeStyle = '#000'; ctx.lineWidth = s*0.012;
+      ctx.beginPath();
+      ctx.moveTo(cx, y+s*0.25);
+      ctx.lineTo(cx, y+s*0.21);
+      ctx.moveTo(cx, y+s*0.25);
+      ctx.lineTo(cx+s*0.025, y+s*0.25);
+      ctx.stroke();
+      // 로브 (몸통)
+      poly([[cx-s*0.28, y+s*0.55], [cx-s*0.32, y+s*0.95], [cx+s*0.32, y+s*0.95], [cx+s*0.28, y+s*0.55]], d);
+      // 띠
+      ctx.fillStyle = '#0d47a1';
+      ctx.fillRect(cx-s*0.28, y+s*0.7, s*0.56, s*0.05);
+      circ(cx, y+s*0.725, s*0.025, '#ffd700');
+      // 모래시계 (오른손)
+      ctx.fillStyle = '#5d4037';
+      ctx.fillRect(cx+s*0.32, y+s*0.45, s*0.02, s*0.4);
+      poly([[cx+s*0.28, y+s*0.5], [cx+s*0.38, y+s*0.5], [cx+s*0.33, y+s*0.6]], '#fdd835');
+      poly([[cx+s*0.28, y+s*0.7], [cx+s*0.38, y+s*0.7], [cx+s*0.33, y+s*0.6]], '#fdd835');
+      break;
+    }
+    case 'divine_voidlord': {
+      // 공허의 흑마룡 - 보라 + 박쥐 날개 + 3 눈
+      const t = Date.now() * 0.003;
+      // 어두운 후광 (보라)
+      ctx.fillStyle = `rgba(124,77,255,${0.4 + Math.sin(t)*0.2})`;
+      circ(cx, y + s*0.5, s*0.6, ctx.fillStyle);
+      // 박쥐 날개 (좌)
+      poly([[cx-s*0.25, y+s*0.5], [cx-s*0.5, y+s*0.3], [cx-s*0.55, y+s*0.5], [cx-s*0.45, y+s*0.55], [cx-s*0.5, y+s*0.65], [cx-s*0.3, y+s*0.6]], b);
+      // 박쥐 날개 (우)
+      poly([[cx+s*0.25, y+s*0.5], [cx+s*0.5, y+s*0.3], [cx+s*0.55, y+s*0.5], [cx+s*0.45, y+s*0.55], [cx+s*0.5, y+s*0.65], [cx+s*0.3, y+s*0.6]], b);
+      // 몸
+      ell(cx, y + s*0.65, s*0.3, s*0.3, b);
+      // 머리
+      ell(cx, y + s*0.4, s*0.25, s*0.22, b);
+      // 5개 뿔 왕관
+      poly([[cx-s*0.22, y+s*0.3], [cx-s*0.25, y+s*0.1], [cx-s*0.17, y+s*0.28]], a);
+      poly([[cx-s*0.1, y+s*0.25], [cx-s*0.13, y+s*0.05], [cx-s*0.07, y+s*0.24]], a);
+      poly([[cx, y+s*0.23], [cx, y+s*0.02], [cx+s*0.02, y+s*0.23]], '#fff');
+      poly([[cx+s*0.1, y+s*0.25], [cx+s*0.13, y+s*0.05], [cx+s*0.07, y+s*0.24]], a);
+      poly([[cx+s*0.22, y+s*0.3], [cx+s*0.25, y+s*0.1], [cx+s*0.17, y+s*0.28]], a);
+      // 빛나는 보라 눈 (3개)
+      circ(cx-s*0.08, y+s*0.42, s*0.04, '#000');
+      circ(cx-s*0.08, y+s*0.42, s*0.025, e);
+      circ(cx+s*0.08, y+s*0.42, s*0.04, '#000');
+      circ(cx+s*0.08, y+s*0.42, s*0.025, e);
+      // 제3의 눈 (이마)
+      circ(cx, y+s*0.32, s*0.025, '#000');
+      circ(cx, y+s*0.32, s*0.015, '#fff');
+      // 가슴 보석
+      circ(cx, y+s*0.65, s*0.08, d);
+      circ(cx, y+s*0.65, s*0.06, e);
+      // 송곳니
+      poly([[cx-s*0.05, y+s*0.5], [cx-s*0.06, y+s*0.56], [cx-s*0.03, y+s*0.53]], '#fff');
+      poly([[cx+s*0.05, y+s*0.5], [cx+s*0.06, y+s*0.56], [cx+s*0.03, y+s*0.53]], '#fff');
+      break;
+    }
+    case 'divine_angel': {
+      // 천상의 빛 천사 - 흰 날개 + 헤일로 + 마법봉
+      const t = Date.now() * 0.003;
+      // 신성한 후광 (흰/분홍)
+      ctx.fillStyle = `rgba(255,255,255,${0.4 + Math.sin(t)*0.2})`;
+      circ(cx, y + s*0.5, s*0.55, ctx.fillStyle);
+      // 천사 날개 (좌) - 큰
+      poly([[cx-s*0.25, y+s*0.5], [cx-s*0.5, y+s*0.3], [cx-s*0.55, y+s*0.45], [cx-s*0.5, y+s*0.5], [cx-s*0.55, y+s*0.6], [cx-s*0.35, y+s*0.65]], '#fff');
+      poly([[cx-s*0.25, y+s*0.5], [cx-s*0.45, y+s*0.4], [cx-s*0.35, y+s*0.6]], a);
+      // 천사 날개 (우)
+      poly([[cx+s*0.25, y+s*0.5], [cx+s*0.5, y+s*0.3], [cx+s*0.55, y+s*0.45], [cx+s*0.5, y+s*0.5], [cx+s*0.55, y+s*0.6], [cx+s*0.35, y+s*0.65]], '#fff');
+      poly([[cx+s*0.25, y+s*0.5], [cx+s*0.45, y+s*0.4], [cx+s*0.35, y+s*0.6]], a);
+      // 헤일로 (후광)
+      ctx.strokeStyle = '#ffd700'; ctx.lineWidth = s*0.025;
+      ctx.beginPath();
+      ctx.ellipse(cx, y+s*0.22, s*0.15, s*0.04, 0, 0, Math.PI*2);
+      ctx.stroke();
+      // 몸
+      ell(cx, y + s*0.65, s*0.22, s*0.25, b);
+      // 드레스 (분홍)
+      poly([[cx-s*0.22, y+s*0.65], [cx-s*0.28, y+s*0.95], [cx+s*0.28, y+s*0.95], [cx+s*0.22, y+s*0.65]], '#f8bbd0');
+      // 머리
+      circ(cx, y + s*0.4, s*0.2, b);
+      // 머리카락 (금발)
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.moveTo(cx-s*0.18, y+s*0.35);
+      ctx.quadraticCurveTo(cx, y+s*0.22, cx+s*0.18, y+s*0.35);
+      ctx.lineTo(cx+s*0.15, y+s*0.45);
+      ctx.lineTo(cx-s*0.15, y+s*0.45);
+      ctx.closePath();
+      ctx.fill();
+      // 보석 왕관
+      poly([[cx-s*0.1, y+s*0.28], [cx-s*0.05, y+s*0.22], [cx, y+s*0.25], [cx+s*0.05, y+s*0.22], [cx+s*0.1, y+s*0.28], [cx+s*0.1, y+s*0.31], [cx-s*0.1, y+s*0.31]], '#ffd700');
+      circ(cx, y+s*0.27, s*0.018, '#00e5ff');
+      // 큰 파란 눈
+      circ(cx-s*0.06, y+s*0.42, s*0.035, '#fff');
+      circ(cx+s*0.06, y+s*0.42, s*0.035, '#fff');
+      circ(cx-s*0.06, y+s*0.42, s*0.022, e);
+      circ(cx+s*0.06, y+s*0.42, s*0.022, e);
+      circ(cx-s*0.05, y+s*0.41, s*0.008, '#fff');
+      circ(cx+s*0.07, y+s*0.41, s*0.008, '#fff');
+      // 볼 (홍조)
+      circ(cx-s*0.12, y+s*0.47, s*0.02, '#f48fb1');
+      circ(cx+s*0.12, y+s*0.47, s*0.02, '#f48fb1');
+      // 입
+      ctx.strokeStyle = d; ctx.lineWidth = s*0.012;
+      ctx.beginPath();
+      ctx.moveTo(cx-s*0.025, y+s*0.5);
+      ctx.quadraticCurveTo(cx, y+s*0.53, cx+s*0.025, y+s*0.5);
+      ctx.stroke();
+      // 하트 가슴 보석
+      ctx.fillStyle = '#f50057';
+      ctx.beginPath();
+      ctx.moveTo(cx, y+s*0.68);
+      ctx.bezierCurveTo(cx-s*0.04, y+s*0.63, cx-s*0.1, y+s*0.65, cx-s*0.1, y+s*0.72);
+      ctx.bezierCurveTo(cx-s*0.1, y+s*0.78, cx, y+s*0.84, cx, y+s*0.84);
+      ctx.bezierCurveTo(cx, y+s*0.84, cx+s*0.1, y+s*0.78, cx+s*0.1, y+s*0.72);
+      ctx.bezierCurveTo(cx+s*0.1, y+s*0.65, cx+s*0.04, y+s*0.63, cx, y+s*0.68);
+      ctx.closePath();
+      ctx.fill();
+      // 마법봉 (오른손)
+      ctx.strokeStyle = '#ffd700'; ctx.lineWidth = s*0.02;
+      ctx.beginPath();
+      ctx.moveTo(cx+s*0.25, y+s*0.65);
+      ctx.lineTo(cx+s*0.4, y+s*0.45);
+      ctx.stroke();
+      // 마법봉 별
+      ctx.fillStyle = '#ffd700';
+      const sx = cx+s*0.4, sy = y+s*0.45;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const ang = (i / 10) * Math.PI * 2 - Math.PI/2;
+        const r = i % 2 === 0 ? s*0.05 : s*0.025;
+        const px = sx + Math.cos(ang) * r;
+        const py = sy + Math.sin(ang) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // 반짝이는 입자
+      circ(cx-s*0.4, y+s*0.3, s*0.015, '#ffd700');
+      circ(cx+s*0.45, y+s*0.3, s*0.015, '#ffd700');
+      circ(cx-s*0.45, y+s*0.6, s*0.015, '#fff');
+      break;
+    }
     default:
       circ(cx, y + s/2, s * 0.3, b);
   }
@@ -8861,6 +9133,12 @@ const PETS = {
   gaia_mother: { name: '가이아', icon: '🌿', emoji: '🌿', power: 590, tier: 'mythic', desc: '대지의 여신.' },
   zeus_king: { name: '제우스', icon: '⚡', emoji: '⚡', power: 615, tier: 'mythic', desc: '번개의 왕.' },
   chronos: { name: '크로노스', icon: '⏳', emoji: '⏳', power: 595, tier: 'mythic', desc: '시간의 신.' },
+  // === ⚜ DIVINE 등급 - 운영자 전용 펫 5종 ===
+  divine_dragon: { name: '⚜ 황금 신룡', icon: '🐉', emoji: '🐉', power: 99999, tier: 'divine', desc: '태초의 빛으로 빚어진 금빛 비늘의 절대 군주.', adminOnly: true },
+  divine_phoenix: { name: '🔥 영원의 불사조', icon: '🔥', emoji: '🔥', power: 88888, tier: 'divine', desc: '천 번 죽고 천 번 부활한 영원의 불꽃 여왕.', adminOnly: true },
+  divine_chronos: { name: '⏰ 차원의 시간 군주', icon: '⏰', emoji: '⏰', power: 77777, tier: 'divine', desc: '시공의 흐름을 지배하는 차원 너머의 절대 지배자.', adminOnly: true },
+  divine_voidlord: { name: '🌌 공허의 흑마룡', icon: '🌌', emoji: '🌌', power: 99999, tier: 'divine', desc: '심연 너머에서 깨어난 차원의 절대 파멸자.', adminOnly: true },
+  divine_angel: { name: '🪽 천상의 빛 천사', icon: '🪽', emoji: '🪽', power: 66666, tier: 'divine', desc: '운영자 곁에서 영원히 축복하는 천상의 수호자.', adminOnly: true },
 };
 
 // === 펫 아트 팔레트: 각 펫의 형태와 색상 데이터 ===
@@ -9421,6 +9699,12 @@ const PET_ART = {
   gaia_mother: { type: 'demon',     body: '#388e3c'   , accent: '#a5d6a7'   , dark: '#1b5e20'   , eye: '#ffeb3b' },
   zeus_king: { type: 'demon',     body: '#fdd835'   , accent: '#fff59d'   , dark: '#f57f17'   , eye: '#fff' },
   chronos: { type: 'demon',     body: '#5e35b1'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
+  // === ⚜ DIVINE 등급 - 운영자 전용 펫 5종 (마을 캔버스 표시용) ===
+  divine_dragon:   { type: 'divine_dragon',   body: '#ffd700', accent: '#fff59d', dark: '#bf360c', eye: '#ffd700', divine: true },
+  divine_phoenix:  { type: 'divine_phoenix',  body: '#ff5722', accent: '#ffeb3b', dark: '#b71c1c', eye: '#ff1744', divine: true },
+  divine_chronos:  { type: 'divine_chronos',  body: '#00e5ff', accent: '#fff', dark: '#01579b', eye: '#00e5ff', divine: true },
+  divine_voidlord: { type: 'divine_voidlord', body: '#7c4dff', accent: '#e040fb', dark: '#1a0033', eye: '#e040fb', divine: true },
+  divine_angel:    { type: 'divine_angel',    body: '#fff', accent: '#f8bbd0', dark: '#9c27b0', eye: '#1976d2', divine: true },
 };
 
 // === 펫을 SVG 문자열로 그리기 (카드/UI용) ===
@@ -12324,10 +12608,10 @@ const PET_TIER_COLORS = {
   mythic:    '#e91e63',
 };
 const PET_TIER_NAMES = {
-  common: '일반', rare: '희귀', epic: '영웅', legendary: '전설', mythic: '신화',
+  common: '일반', rare: '희귀', epic: '영웅', legendary: '전설', mythic: '신화', divine: '⚜ 신성',
 };
 const PET_TIER_WEIGHTS = {
-  common: 75, rare: 19, epic: 5, legendary: 0.85, mythic: 0.15,
+  common: 75, rare: 19, epic: 5, legendary: 0.85, mythic: 0.15, divine: 0,  // 일반 소환 불가
 };
 
 // ============================================================================
@@ -14560,6 +14844,39 @@ function isAdmin() {
   return ADMIN_NICKNAMES.some(admin => admin === myNick);
 }
 window.isAdmin = isAdmin;
+
+// === ⚜ 운영자 전용 펫 자동 부여 ===
+function grantAdminPets() {
+  if (!isAdmin()) return;
+  if (!game.pets) game.pets = {};
+  const adminPets = ['divine_dragon', 'divine_phoenix', 'divine_chronos', 'divine_voidlord', 'divine_angel'];
+  let granted = 0;
+  let firstNewPet = null;
+  for (const key of adminPets) {
+    if (!(game.pets[key] > 0)) {
+      game.pets[key] = 1;
+      if (!game.petAcquiredAt) game.petAcquiredAt = {};
+      game.petAcquiredAt[key] = Date.now();
+      // 자동 만렙 진화/강화
+      if (!game.petEvolutions) game.petEvolutions = {};
+      game.petEvolutions[key] = 3;  // 3성
+      if (!game.petLevels) game.petLevels = {};
+      game.petLevels[key] = 10;  // Lv.10
+      granted++;
+      if (!firstNewPet) firstNewPet = key;
+    }
+  }
+  if (granted > 0) {
+    showToast(`⚜ 운영자 펫 ${granted}마리 지급! (DIVINE 등급)`, 'gain');
+    // 첫 펫 자동 소환
+    if (firstNewPet && !game.summonedPet) {
+      game.summonedPet = firstNewPet;
+    }
+    try { recomputePower(); rebuildPetCompanions(); } catch (e) {}
+    try { saveGame(); } catch (e) {}
+  }
+}
+window.grantAdminPets = grantAdminPets;
 
 function applyCheatVisibility() {
   const btn = document.getElementById('btn-cheat');
@@ -31089,8 +31406,9 @@ function beginGame() {
   resizeCanvas();
   requestAnimationFrame(tick);
 
-  // 운영자(뚜릴)면 치트 버튼 표시
+  // 운영자(뚜릴)면 치트 버튼 표시 + DIVINE 펫 자동 지급
   try { applyCheatVisibility(); } catch (e) {}
+  try { grantAdminPets(); } catch (e) {}
 
   // 온라인 모드 초기화
   try {

@@ -23,7 +23,65 @@
     --red: #d84545;
     --green-ok: #4caf50;
     --text: #3e2723;
+    --bg-gradient-top: #87ceeb;
+    --bg-gradient-bot: #b4e7a0;
+    --modal-bg: #f5e6c8;
+    --modal-border: #5d4424;
+    --shadow: rgba(0,0,0,0.3);
   }
+  /* === 🌙 다크모드 === */
+  body.dark-mode {
+    --bg-sky: #1a2332;
+    --grass: #2d4a35;
+    --grass-dark: #1e3322;
+    --wood: #4a3a26;
+    --wood-dark: #2c1f12;
+    --parchment: #2e2418;
+    --parchment-dark: #1f1810;
+    --stone: #4a4a4a;
+    --gold: #ffb300;
+    --red: #ef5350;
+    --green-ok: #66bb6a;
+    --text: #e8d9b8;
+    --bg-gradient-top: #1a2332;
+    --bg-gradient-bot: #2d4a35;
+    --modal-bg: #2e2418;
+    --modal-border: #5d4424;
+    --shadow: rgba(0,0,0,0.6);
+  }
+  body.dark-mode { background: linear-gradient(to bottom, var(--bg-gradient-top), var(--bg-gradient-bot)) !important; }
+  body.dark-mode .modal-content,
+  body.dark-mode .modal-body,
+  body.dark-mode .menu-section,
+  body.dark-mode .panel,
+  body.dark-mode .day-display,
+  body.dark-mode .level-box { background: var(--modal-bg) !important; color: var(--text) !important; }
+  body.dark-mode .resource { background: var(--parchment-dark) !important; color: var(--text) !important; }
+  body.dark-mode .icon-btn { filter: brightness(0.85); }
+  body.dark-mode .modal-header { background: linear-gradient(135deg, #3a2c1c, #2c1f12) !important; color: #ffd54f !important; }
+  body.dark-mode input, body.dark-mode select, body.dark-mode textarea {
+    background: #1f1810 !important; color: #e8d9b8 !important; border-color: #5d4424 !important;
+  }
+  body.dark-mode .btn { filter: brightness(0.9); }
+  /* 모달 내부 흰색/밝은 배경 inline style 다크 변환 */
+  body.dark-mode .modal-body [style*="background:#fff"],
+  body.dark-mode .modal-body [style*="background: #fff"],
+  body.dark-mode .modal-body [style*="background:white"],
+  body.dark-mode .modal-body [style*="background: white"],
+  body.dark-mode .modal-body [style*="rgba(255,255,255"],
+  body.dark-mode .modal-body [style*="rgba(255, 255, 255"] {
+    background: #2e2418 !important;
+    color: #e8d9b8 !important;
+  }
+  body.dark-mode .modal-body [style*="color:#3e2723"],
+  body.dark-mode .modal-body [style*="color: #3e2723"],
+  body.dark-mode .modal-body [style*="color:var(--wood-dark)"],
+  body.dark-mode .modal-body [style*="color: var(--wood-dark)"] {
+    color: #e8d9b8 !important;
+  }
+  /* 사이드바 라벨도 다크모드에서 잘 보이게 */
+  body.dark-mode .side-btns .icon-btn .label { color: #fff8e1 !important; }
+  body.dark-mode .cam-hint { color: #fff8e1 !important; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body {
     width: 100%; height: 100%;
@@ -687,25 +745,25 @@
     overflow: hidden;
     box-shadow: 0 1px 0 var(--wood-dark);
   }
-  /* VIP 뱃지: 경험치바 아래쪽 */
+  /* VIP 뱃지: level-box 우측 상단 코너 (자원바·다른 UI와 겹침 방지) */
   .vip-badge-hud {
     position: absolute;
-    /* level-box 바로 아래 (자원바 위쪽으로 살짝 빠지게) */
-    top: calc(100% + 2px);
-    left: 50%;
-    transform: translateX(-50%);
+    top: -7px;
+    right: -7px;
     background: linear-gradient(135deg, #ffd700, #f57c00);
     color: #3e2723;
     border: 1.5px solid #3e2723;
-    border-radius: 6px;
-    padding: 0px 4px;
-    font-size: 8px;
+    border-radius: 8px;
+    padding: 1px 4px;
+    font-size: 9px;
     font-weight: bold;
     white-space: nowrap;
-    box-shadow: 0 1px 0 #3e2723;
-    z-index: 5;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    z-index: 10;
     pointer-events: none;
-    line-height: 1.2;
+    line-height: 1.1;
+    min-width: 18px;
+    text-align: center;
   }
   .exp-bar-fill {
     height: 100%;
@@ -13614,7 +13672,7 @@ const game = {
   totalPower: 0,
 
   // settings
-  settings: { autoSave: true, soundOn: true, autoHarvest: false },
+  settings: { autoSave: true, soundOn: true, autoHarvest: false, darkMode: false },
   autoHarvestTimer: 0,
 
   // selection / UI
@@ -13791,7 +13849,8 @@ function loadGame() {
     game.buildSpeed = d.buildSpeed || 1;
     game.ownedItems = d.ownedItems || {};
     game.attendance = d.attendance || { lastClaimDate: null, streak: 0, claimedToday: false };
-    game.settings = d.settings || { autoSave: true, soundOn: true, autoHarvest: false };
+    game.settings = d.settings || { autoSave: true, soundOn: true, autoHarvest: false, darkMode: false };
+    if (game.settings.darkMode === undefined) game.settings.darkMode = false;
     // migrate: old saves may not have autoHarvest field
     if (typeof game.settings.autoHarvest === 'undefined') game.settings.autoHarvest = false;
     game.pets = d.pets || {};
@@ -14821,6 +14880,10 @@ function openSettings() {
       <div class="toggle ${game.settings.soundOn?'on':''}" id="t-sound"><div class="knob"></div></div>
     </div>
     <div class="settings-row">
+      <span class="lbl">🌙 다크모드</span>
+      <div class="toggle ${game.settings.darkMode?'on':''}" id="t-dark"><div class="knob"></div></div>
+    </div>
+    <div class="settings-row">
       <span class="lbl">수동 저장</span>
       <button class="danger-btn" style="background:linear-gradient(to bottom,#66bb6a,#388e3c);" onclick="manualSave()">💾 지금 저장</button>
     </div>
@@ -14864,12 +14927,30 @@ function openSettings() {
     game.settings.soundOn = !game.settings.soundOn;
     e.currentTarget.classList.toggle('on');
   };
+  body.querySelector('#t-dark').onclick = (e) => {
+    game.settings.darkMode = !game.settings.darkMode;
+    e.currentTarget.classList.toggle('on');
+    applyDarkMode();
+    showToast(game.settings.darkMode ? '🌙 다크모드 ON' : '☀️ 라이트모드 ON', 'gain');
+  };
   document.getElementById('m-settings').classList.add('show');
 }
 function manualSave() {
   if (saveGame()) showToast('💾 저장 완료!', 'gain');
   else showToast('저장 실패', 'warn');
 }
+
+// === 🌙 다크모드 적용 ===
+function applyDarkMode() {
+  try {
+    if (game.settings && game.settings.darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  } catch (e) {}
+}
+window.applyDarkMode = applyDarkMode;
 
 // === 수동 클라우드 동기화 ===
 async function manualCloudSave() {
@@ -32041,6 +32122,8 @@ function beginGame() {
   const fb = document.getElementById('loading-fallback');
   if (fb) fb.remove();
   document.getElementById('hud').style.display = 'block';
+  // 다크모드 적용
+  try { applyDarkMode(); } catch (e) {}
   if (!game.tilemap) {
     // worldSeed가 없으면 처음 게임 → 시드 생성
     if (game.worldSeed === null || game.worldSeed === undefined) {

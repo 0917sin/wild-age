@@ -869,6 +869,13 @@
     display: flex; gap: 6px;
     box-shadow: 0 4px 0 var(--wood-dark);
     z-index: 51;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+  }
+  /* 🆕 건물바 숨김 상태 */
+  .build-cat-bar.hidden-slide {
+    transform: translateY(180px);
+    opacity: 0;
+    pointer-events: none;
   }
   .build-cat-bar .build-cat-btn {
     flex: 1;
@@ -883,6 +890,39 @@
   }
   .build-cat-bar .build-cat-btn:active { transform: translateY(2px); box-shadow: none; }
 
+  /* 🆕 건물바 토글 버튼 */
+  .build-toggle-btn {
+    position: absolute;
+    right: 12px;
+    bottom: 250px;  /* 건물 카테고리 바 위 */
+    width: 44px;
+    height: 44px;
+    border: 3px solid var(--wood-dark);
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffd54f, #f9a825);
+    color: #3e2723;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 53;
+    box-shadow: 0 4px 0 var(--wood-dark);
+    transition: bottom 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .build-toggle-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--wood-dark);
+  }
+  /* 🆕 건물바 숨겨졌을 때 토글 버튼 아래로 */
+  .build-toggle-btn.bars-hidden {
+    bottom: 12px;
+    background: linear-gradient(135deg, #66bb6a, #2e7d32);
+    color: white;
+  }
+
   /* BUILD BAR — 화면 아래쪽 (재배치 + 건물 카탈로그) */
   .buildbar {
     position: absolute; bottom: 8px; left: 8px; right: 8px;
@@ -896,6 +936,13 @@
     scrollbar-width: thin;
     max-height: 110px;
     z-index: 50;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+  }
+  /* 🆕 건물바 숨김 상태 */
+  .buildbar.hidden-slide {
+    transform: translateY(180px);
+    opacity: 0;
+    pointer-events: none;
   }
   .buildbar::-webkit-scrollbar { height: 4px; }
   .buildbar::-webkit-scrollbar-thumb { background: var(--wood-dark); border-radius: 2px; }
@@ -1326,6 +1373,12 @@
     <input type="password" class="nickname-input" id="password-input" placeholder="비밀번호 (4자 이상)" maxlength="20" autocomplete="off" style="margin-top:8px;">
     <input type="password" class="nickname-input" id="password-confirm-input" placeholder="비밀번호 확인" maxlength="20" autocomplete="off" style="margin-top:8px; display:block;">
 
+    <!-- 🆕 자동 로그인 체크박스 -->
+    <label style="display:flex; align-items:center; gap:8px; margin-top:12px; padding:8px 12px; background:rgba(255,255,255,0.5); border:2px solid var(--wood); border-radius:8px; cursor:pointer; user-select:none;">
+      <input type="checkbox" id="auto-login-checkbox" checked style="width:18px; height:18px; cursor:pointer;">
+      <span style="color:var(--wood-dark); font-weight:bold; font-size:13px;">🔐 자동 로그인 (다음에 자동으로 접속)</span>
+    </label>
+
     <div class="nickname-err" id="nickname-err"></div>
     <button class="nickname-btn" id="nickname-btn">⛺ 부족 시작하기</button>
     <div class="nickname-code" id="ns-info-text">
@@ -1439,6 +1492,11 @@
   </div>
 
   <button class="tap-btn" id="tap-btn" title="채집하기">⛏️</button>
+
+  <!-- 🆕 건물바 토글 버튼 (슬라이드 형식) -->
+  <button class="build-toggle-btn" id="build-toggle-btn" title="건물 패널 토글">
+    <span id="build-toggle-icon">⬇</span>
+  </button>
 
   <div class="build-cat-bar" id="build-cat-bar"></div>
   <div class="buildbar" id="buildbar"></div>
@@ -14843,8 +14901,11 @@ function logoutAccount() {
           await uploadCloudSave(true);  // force
         } catch (e) {}
       }
-      // 자동 로그인 정보 제거
-      try { localStorage.removeItem('wildage_logged_in_as'); } catch (e) {}
+      // 자동 로그인 정보 제거 (둘 다)
+      try { 
+        localStorage.removeItem('wildage_logged_in_as'); 
+        localStorage.removeItem('wildage_auto_login');
+      } catch (e) {}
       // 새로고침으로 로그인 화면으로
       setTimeout(() => location.reload(), 800);
     }
@@ -19733,7 +19794,7 @@ async function visitFriend(nickname) {
   // update banner
   const banner = document.getElementById('visit-banner');
   document.getElementById('visit-banner-text').innerHTML =
-    `🏕️ <b>${f.nickname}</b>님의 마을 (Lv.${f.level} · ⚔${f.power}) ${f.conquered ? '🚩' : ''}${f.isOnline ? ' 🌐' : ''}`;
+    `🏕️ <b>${escapeHtml(f.nickname || '')}</b>님의 마을 (Lv.${f.level} · ⚔${f.power}) ${f.conquered ? '🚩' : ''}${f.isOnline ? ' 🌐' : ''}<br><span style="font-size:10px; opacity:0.85;">🖱 드래그로 화면 이동 · 휠로 확대</span>`;
 
   // RE-BIND buttons every time
   const invadeBtn = document.getElementById('vb-invade');
@@ -21583,6 +21644,9 @@ async function openArena() {
   if (!game.arena.losses) game.arena.losses = 0;
   if (!game.arena.score) game.arena.score = 1000;
   if (!game.arena.skipBattle) game.arena.skipBattle = false;
+  // 🆕 자동전투 기본값
+  if (game.arena.autoBattle === undefined) game.arena.autoBattle = false;
+  if (!game.arena.autoCount) game.arena.autoCount = 10;
 
   // 글로벌 랭킹 미리 로드 (백그라운드)
   if (typeof isOnlineMode === 'function' && isOnlineMode()) {
@@ -25672,6 +25736,31 @@ function renderArenaModal() {
           🔓 <b style="color:#2e7d32;">무제한 도전</b>
         </div>
       </div>
+      <!-- 🆕 VIP 3+ 자동전투 -->
+      <div style="margin-top:10px; padding:8px; background:linear-gradient(135deg, ${(game.vipLevel || 0) >= 3 ? '#ffd700' : '#bdbdbd'}, ${(game.vipLevel || 0) >= 3 ? '#ff9800' : '#9e9e9e'}); border:2px solid ${(game.vipLevel || 0) >= 3 ? '#e65100' : '#616161'}; border-radius:10px; ${(game.vipLevel || 0) >= 3 ? '' : 'opacity:0.65;'}">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:4px; cursor:${(game.vipLevel || 0) >= 3 ? 'pointer' : 'not-allowed'}; user-select:none;">
+            <input type="checkbox" id="arena-auto-battle" ${game.arena.autoBattle ? 'checked' : ''} ${(game.vipLevel || 0) >= 3 ? '' : 'disabled'} style="width:16px; height:16px;">
+            <span style="font-size:12px; color:#3e2723; font-weight:bold;">🤖 자동 전투 ${(game.vipLevel || 0) < 3 ? '<span style="font-size:9px; background:#9c27b0; color:white; padding:1px 5px; border-radius:4px;">VIP 3+</span>' : ''}</span>
+          </label>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:11px; color:#3e2723; font-weight:bold;">횟수:</span>
+            <select id="arena-auto-count" ${(game.vipLevel || 0) >= 3 ? '' : 'disabled'} style="padding:4px 8px; border:2px solid #3e2723; border-radius:6px; font-family:inherit; font-size:11px; font-weight:bold; background:#fff; cursor:${(game.vipLevel || 0) >= 3 ? 'pointer' : 'not-allowed'};">
+              <option value="5" ${game.arena.autoCount === 5 ? 'selected' : ''}>5회</option>
+              <option value="10" ${(game.arena.autoCount || 10) === 10 ? 'selected' : ''}>10회</option>
+              <option value="25" ${game.arena.autoCount === 25 ? 'selected' : ''}>25회</option>
+              <option value="50" ${game.arena.autoCount === 50 ? 'selected' : ''}>50회</option>
+              <option value="100" ${game.arena.autoCount === 100 ? 'selected' : ''}>100회</option>
+            </select>
+            <button id="arena-auto-start" ${(game.vipLevel || 0) >= 3 ? '' : 'disabled'} style="background:linear-gradient(135deg, #66bb6a, #2e7d32); color:white; border:2px solid #1b5e20; border-radius:8px; padding:6px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:${(game.vipLevel || 0) >= 3 ? 'pointer' : 'not-allowed'}; box-shadow:0 2px 0 #1b5e20;">▶ 시작</button>
+          </div>
+        </div>
+        <div style="font-size:9px; color:#3e2723; margin-top:4px; opacity:0.8;">
+          ${(game.vipLevel || 0) >= 3 
+            ? '⚡ 자동 전투 시 모든 매치 결과 일괄 처리됩니다.' 
+            : '🔒 VIP 3 이상부터 자동 전투 기능을 사용할 수 있어요.'}
+        </div>
+      </div>
     </div>
 
     <!-- 안내 -->
@@ -25685,6 +25774,29 @@ function renderArenaModal() {
   if (skipCb) skipCb.onchange = () => { game.arena.skipBattle = skipCb.checked; };
   const resetBtn = document.getElementById('arena-reset-btn');
   if (resetBtn) resetBtn.onclick = arenaReset;
+
+  // 🆕 자동 전투 핸들러
+  const autoBattleCb = document.getElementById('arena-auto-battle');
+  const autoCountSel = document.getElementById('arena-auto-count');
+  const autoStartBtn = document.getElementById('arena-auto-start');
+  if (autoBattleCb) autoBattleCb.onchange = () => { game.arena.autoBattle = autoBattleCb.checked; };
+  if (autoCountSel) autoCountSel.onchange = () => { game.arena.autoCount = parseInt(autoCountSel.value); };
+  if (autoStartBtn) {
+    autoStartBtn.onclick = () => {
+      if ((game.vipLevel || 0) < 3) {
+        showToast('🔒 VIP 3 이상부터 자동 전투 가능', 'warn');
+        return;
+      }
+      const count = parseInt(autoCountSel.value) || 10;
+      const useAuto = autoBattleCb && autoBattleCb.checked;
+      if (!useAuto) {
+        showToast('🤖 자동 전투를 체크해주세요', 'warn');
+        return;
+      }
+      // 자동 전투 실행
+      runAutoArenaBattle(count);
+    };
+  }
 
   // 상대 카드 클릭 핸들러
   document.querySelectorAll('.arena-opp-card').forEach(card => {
@@ -25909,6 +26021,139 @@ async function arenaChallenge(idx) {
   updateHUD();
 }
 window.arenaChallenge = arenaChallenge;
+
+// === 🤖 VIP 3+ 자동 전투 (N회 일괄 처리) ===
+async function runAutoArenaBattle(count) {
+  if ((game.vipLevel || 0) < 3) {
+    showToast('🔒 VIP 3 이상만 사용 가능', 'warn');
+    return;
+  }
+  count = Math.max(1, Math.min(100, parseInt(count) || 10));
+  
+  // 전투 건너뛰기 자동 활성화
+  const prevSkip = game.arena.skipBattle;
+  game.arena.skipBattle = true;
+  
+  // 모달 닫고 진행 상황 표시
+  const progressOverlay = document.createElement('div');
+  progressOverlay.id = 'auto-arena-progress';
+  progressOverlay.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 99999;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  progressOverlay.innerHTML = `
+    <div style="background:linear-gradient(135deg, #1a0a2e, #4a148c); border-radius:16px; padding:20px; max-width:380px; width:100%; border:3px solid #ffd700; box-shadow:0 0 30px rgba(255,215,0,0.6); text-align:center; color:#fff;">
+      <div style="font-size:42px; margin-bottom:8px;">🤖</div>
+      <div style="font-size:18px; font-weight:bold; color:#ffd700; margin-bottom:10px;">자동 전투 진행 중</div>
+      <div style="background:rgba(0,0,0,0.4); border-radius:8px; height:24px; overflow:hidden; margin-bottom:8px; position:relative;">
+        <div id="auto-arena-bar" style="height:100%; background:linear-gradient(to right, #66bb6a, #2e7d32); width:0%; transition: width 0.2s;"></div>
+        <div id="auto-arena-bar-text" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">0/${count}</div>
+      </div>
+      <div id="auto-arena-status" style="font-size:11px; color:#ce93d8; margin-bottom:8px;">⏳ 대기 중...</div>
+      <div id="auto-arena-results" style="background:rgba(0,0,0,0.4); border-radius:8px; padding:8px; font-size:12px; color:#fff;">
+        <div>🏆 승: <b id="auto-wins" style="color:#66bb6a;">0</b></div>
+        <div>💔 패: <b id="auto-losses" style="color:#ef5350;">0</b></div>
+        <div>🪙 골드: <b id="auto-gold" style="color:#ffd700;">+0</b></div>
+        <div>✨ 경험치: <b id="auto-exp" style="color:#42a5f5;">+0</b></div>
+        <div>🏆 레이팅: <b id="auto-rating" style="color:#ff9800;">+0</b></div>
+      </div>
+      <button id="auto-arena-stop" style="margin-top:10px; background:linear-gradient(135deg,#ef5350,#c62828); color:#fff; border:2px solid #fff; border-radius:8px; padding:6px 14px; font-family:inherit; font-weight:bold; cursor:pointer;">⏹ 중단</button>
+    </div>
+  `;
+  document.body.appendChild(progressOverlay);
+  
+  let stopped = false;
+  document.getElementById('auto-arena-stop').onclick = () => { stopped = true; };
+  
+  let wins = 0, losses = 0;
+  let totalGold = 0, totalExp = 0, totalRating = 0;
+  const oldGold = game.res.gold || 0;
+  const oldExp = game.exp || 0;
+  const oldRating = game.arena.score || 1000;
+  
+  for (let i = 0; i < count; i++) {
+    if (stopped) break;
+    // 상대 매칭 (없으면 새로 생성)
+    if (!game.arena.opponents || game.arena.opponents.length === 0) {
+      game.arena.opponents = generateArenaOpponents();
+    }
+    // 가장 약한 상대 자동 선택 (승률 최대화)
+    let bestIdx = 0;
+    let bestPow = Infinity;
+    for (let j = 0; j < game.arena.opponents.length; j++) {
+      const opp = game.arena.opponents[j];
+      if (opp && opp.totalPower < bestPow) {
+        bestPow = opp.totalPower;
+        bestIdx = j;
+      }
+    }
+    // 진행 상황 갱신
+    const bar = document.getElementById('auto-arena-bar');
+    const barText = document.getElementById('auto-arena-bar-text');
+    const status = document.getElementById('auto-arena-status');
+    if (bar) bar.style.width = `${((i+1) / count * 100)}%`;
+    if (barText) barText.textContent = `${i+1}/${count}`;
+    if (status) status.textContent = `⚔ 전투 ${i+1} 진행 중...`;
+    
+    // 전투 실행 (skipBattle = true이므로 즉시 결과)
+    try {
+      await arenaChallenge(bestIdx);
+      // 결과 집계 (게임 데이터 변경 확인)
+      const curWins = (game.arena.wins || 0);
+      const curLosses = (game.arena.losses || 0);
+      if (curWins + curLosses > wins + losses) {
+        // 새 매치 완료
+        if (curWins > wins) wins++;
+        else losses++;
+      }
+      // UI 갱신
+      const elW = document.getElementById('auto-wins');
+      const elL = document.getElementById('auto-losses');
+      const elG = document.getElementById('auto-gold');
+      const elX = document.getElementById('auto-exp');
+      const elR = document.getElementById('auto-rating');
+      if (elW) elW.textContent = wins;
+      if (elL) elL.textContent = losses;
+      totalGold = (game.res.gold || 0) - oldGold;
+      totalExp = (game.exp || 0) - oldExp;
+      totalRating = (game.arena.score || 1000) - oldRating;
+      if (elG) elG.textContent = `+${totalGold.toLocaleString()}`;
+      if (elX) elX.textContent = `+${totalExp.toLocaleString()}`;
+      if (elR) elR.textContent = (totalRating >= 0 ? '+' : '') + totalRating;
+    } catch (e) {
+      console.warn('auto arena error', e);
+    }
+    // 짧은 딜레이 (UI 업데이트)
+    await new Promise(r => setTimeout(r, 100));
+  }
+  
+  // skipBattle 원상 복구
+  game.arena.skipBattle = prevSkip;
+  
+  // 최종 결과
+  const status = document.getElementById('auto-arena-status');
+  if (status) {
+    status.innerHTML = stopped 
+      ? `<span style="color:#ef5350;">⏹ 중단됨</span>` 
+      : `<span style="color:#66bb6a; font-weight:bold;">✅ 자동 전투 완료!</span>`;
+  }
+  const stopBtn = document.getElementById('auto-arena-stop');
+  if (stopBtn) {
+    stopBtn.textContent = '✕ 닫기';
+    stopBtn.style.background = 'linear-gradient(135deg,#90a4ae,#455a64)';
+    stopBtn.onclick = () => {
+      progressOverlay.remove();
+      try { renderArenaModal(); } catch (e) {}
+    };
+  }
+  
+  try { saveGame(); } catch (e) {}
+  if (typeof isOnlineMode === 'function' && isOnlineMode()) {
+    try { uploadCloudSave(true); } catch (e) {}
+  }
+  showToast(`🤖 자동 전투 완료! ${wins}승 ${losses}패`, 'gain');
+}
+window.runAutoArenaBattle = runAutoArenaBattle;
 
 // ============================================================================
 // 🏟️ PvP 실시간 매칭 + 시즌 랭킹 시스템
@@ -32143,6 +32388,47 @@ async function _initImpl() {
   try { updateNotificationBadge(); } catch (e) {}
   document.getElementById('tap-btn').onclick = tapHarvest;
 
+  // 🆕 건물바 토글 핸들러 (슬라이드)
+  const buildToggleBtn = document.getElementById('build-toggle-btn');
+  if (buildToggleBtn) {
+    buildToggleBtn.onclick = () => {
+      const buildbar = document.getElementById('buildbar');
+      const buildCatBar = document.getElementById('build-cat-bar');
+      const icon = document.getElementById('build-toggle-icon');
+      const isHidden = buildbar.classList.contains('hidden-slide');
+      if (isHidden) {
+        // 다시 보이기
+        buildbar.classList.remove('hidden-slide');
+        if (buildCatBar) buildCatBar.classList.remove('hidden-slide');
+        buildToggleBtn.classList.remove('bars-hidden');
+        if (icon) icon.textContent = '⬇';
+        buildToggleBtn.title = '건물 패널 숨기기';
+        try { localStorage.setItem('wildage_buildbar_hidden', '0'); } catch (e) {}
+      } else {
+        // 숨기기
+        buildbar.classList.add('hidden-slide');
+        if (buildCatBar) buildCatBar.classList.add('hidden-slide');
+        buildToggleBtn.classList.add('bars-hidden');
+        if (icon) icon.textContent = '⬆';
+        buildToggleBtn.title = '건물 패널 보이기';
+        try { localStorage.setItem('wildage_buildbar_hidden', '1'); } catch (e) {}
+      }
+    };
+    // 저장된 상태 복원
+    try {
+      const wasHidden = localStorage.getItem('wildage_buildbar_hidden') === '1';
+      if (wasHidden) {
+        const buildbar = document.getElementById('buildbar');
+        const buildCatBar = document.getElementById('build-cat-bar');
+        const icon = document.getElementById('build-toggle-icon');
+        if (buildbar) buildbar.classList.add('hidden-slide');
+        if (buildCatBar) buildCatBar.classList.add('hidden-slide');
+        buildToggleBtn.classList.add('bars-hidden');
+        if (icon) icon.textContent = '⬆';
+      }
+    } catch (e) {}
+  }
+
   // Camera controls
   document.getElementById('cam-zoom-in').onclick = () => zoomAtCenter(1.2);
   document.getElementById('cam-zoom-out').onclick = () => zoomAtCenter(1 / 1.2);
@@ -32185,9 +32471,10 @@ async function _initImpl() {
       const raw = localStorage.getItem(SAVE_KEY);
       const d = JSON.parse(raw);
       if (d.player && d.player.nickname) {
-        // 자동 로그인 확인 (이전에 로그인했던 닉네임)
+        // 🆕 자동 로그인 확인: 명시적 플래그 + 닉네임 매치
         const autoLoginNick = localStorage.getItem('wildage_logged_in_as');
-        if (autoLoginNick && autoLoginNick === d.player.nickname) {
+        const autoLoginFlag = localStorage.getItem('wildage_auto_login') === '1';
+        if (autoLoginFlag && autoLoginNick && autoLoginNick === d.player.nickname) {
           // === 클라우드 vs 로컬 비교 후 더 최신 것 사용 ===
           if (typeof isOnlineMode === 'function' && isOnlineMode()) {
             // 로딩 토스트 표시
@@ -32304,6 +32591,31 @@ function showNicknameScreen(onDone) {
   pwInput.value = '';
   pwConfirmInput.value = '';
   err.textContent = '';
+  
+  // 🆕 자동 로그인 체크박스 - 이전 설정 복원 (기본값: 체크됨)
+  try {
+    const autoLoginEl = document.getElementById('auto-login-checkbox');
+    if (autoLoginEl) {
+      const prev = localStorage.getItem('wildage_auto_login_pref');
+      // 'off'면 체크 해제, 그 외(없거나 'on')면 체크됨
+      autoLoginEl.checked = prev !== 'off';
+      // 사용자가 체크/언체크 시 즉시 저장
+      autoLoginEl.onchange = () => {
+        try {
+          localStorage.setItem('wildage_auto_login_pref', autoLoginEl.checked ? 'on' : 'off');
+        } catch (e) {}
+      };
+    }
+  } catch (e) {}
+  
+  // 이전 로그인 닉네임 자동 채움 (편의)
+  try {
+    const prevNick = localStorage.getItem('wildage_logged_in_as');
+    if (prevNick) {
+      input.value = prevNick;
+    }
+  } catch (e) {}
+  
   input.focus();
 
   let mode = 'new';  // 'new' or 'login'
@@ -32337,6 +32649,16 @@ function showNicknameScreen(onDone) {
 
   tabNew.onclick = () => setMode('new');
   tabLogin.onclick = () => setMode('login');
+  
+  // 🆕 이전 닉네임이 있으면 로그인 탭으로 자동 시작
+  try {
+    const prevNick = localStorage.getItem('wildage_logged_in_as');
+    if (prevNick) {
+      setMode('login');
+      // 비밀번호 input에 포커스
+      setTimeout(() => { try { pwInput.focus(); } catch (e) {} }, 100);
+    }
+  } catch (e) {}
 
   // 금지어 + 검증
   const RESERVED_NICKNAMES = ['admin','administrator','운영자','시스템','system','GM','anonymous','undefined','null','???'];
@@ -32418,9 +32740,18 @@ function showNicknameScreen(onDone) {
         createdAt: Date.now(),
       };
 
-      // 자동 로그인 정보 저장
+      // 🆕 자동 로그인 체크박스에 따라 저장 여부 결정
       try {
-        localStorage.setItem('wildage_logged_in_as', name);
+        const autoLoginEl = document.getElementById('auto-login-checkbox');
+        const autoLogin = autoLoginEl ? autoLoginEl.checked : true;
+        if (autoLogin) {
+          localStorage.setItem('wildage_logged_in_as', name);
+          localStorage.setItem('wildage_auto_login', '1');
+        } else {
+          // 자동 로그인 안 함 - 둘 다 제거
+          localStorage.removeItem('wildage_logged_in_as');
+          localStorage.removeItem('wildage_auto_login');
+        }
       } catch (e) {}
 
       screen.classList.add('hide');

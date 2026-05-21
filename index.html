@@ -2444,9 +2444,16 @@ function showAdminGiftPopup(giftId, gift) {
 
   const rewards = gift.rewards || {};
   const rewardStr = Object.entries(rewards).filter(([k,v]) => v > 0).map(([k,v]) => {
-    const ico = { gold: '💰', gem: '💎', food: '🍖', wood: '🪵', stone: '🪨', exp: '✨' }[k];
-    return `<div style="display:flex; align-items:center; gap:6px; font-size:16px; font-weight:bold;">${ico} +${v.toLocaleString()}</div>`;
-  }).join('');
+    const icoMap = { gold: '💰', gem: '💎', food: '🍖', wood: '🪵', stone: '🪨', exp: '✨' };
+    const ico = icoMap[k];
+    if (ico) {
+      return `<div style="display:flex; align-items:center; gap:6px; font-size:16px; font-weight:bold;">${ico} +${v.toLocaleString()}</div>`;
+    }
+    if (k === 'setLevel') {
+      return `<div style="display:flex; align-items:center; gap:6px; font-size:16px; font-weight:bold; color:#ffd700; text-shadow:0 0 8px #ffd700;">🆙 Lv.${v} 설정</div>`;
+    }
+    return '';
+  }).filter(s => s).join('');
 
   const modal = document.createElement('div');
   modal.id = 'admin-gift-' + giftId;
@@ -2516,10 +2523,12 @@ function showAdminGiftPopup(giftId, gift) {
       if (newLevel !== oldLevel) {
         game.level = newLevel;
         game.exp = 0;
-        // expReq 재계산 (레벨에 맞게)
+        // expReq - getExpForNextLevel과 동일 공식
         try {
-          game.expReq = Math.floor(100 * Math.pow(1.5, newLevel - 1));
-        } catch (e) { game.expReq = 100; }
+          game.expReq = (typeof getExpForNextLevel === 'function') 
+            ? getExpForNextLevel(newLevel)
+            : newLevel * 10000;
+        } catch (e) { game.expReq = newLevel * 10000; }
         // 레벨업 효과 + 알림
         try {
           if (typeof addNotification === 'function') {
@@ -2880,9 +2889,12 @@ function renderMailCard(m) {
   let rewardsStr = '';
   if (m.kind === 'gift' && m.rewards) {
     const parts = Object.entries(m.rewards).filter(([k,v]) => v > 0).map(([k,v]) => {
-      const ico = { gold: '💰', gem: '💎', food: '🍖', wood: '🪵', stone: '🪨', exp: '✨' }[k];
-      return `${ico} +${v.toLocaleString()}`;
-    });
+      const icoMap = { gold: '💰', gem: '💎', food: '🍖', wood: '🪵', stone: '🪨', exp: '✨' };
+      const ico = icoMap[k];
+      if (ico) return `${ico} +${v.toLocaleString()}`;
+      if (k === 'setLevel') return `🆙 Lv.${v}`;
+      return null;
+    }).filter(s => s);
     if (m.type === 'vip' && m.vipLevel) {
       parts.unshift(`👑 VIP Lv.${m.vipLevel} (30일)`);
     }
@@ -2944,6 +2956,44 @@ async function claimMail(kind, id) {
       if (rewards.wood) addRes('wood', rewards.wood);
       if (rewards.stone) addRes('stone', rewards.stone);
       if (rewards.exp) { game.exp = (game.exp || 0) + rewards.exp; try { checkLevelUp(); } catch (e) {} }
+      // 🆕 운영자가 레벨 직접 설정
+      if (rewards.setLevel && rewards.setLevel > 0) {
+        const oldLevel = game.level || 1;
+        const newLevel = rewards.setLevel;
+        if (newLevel !== oldLevel) {
+          game.level = newLevel;
+          game.exp = 0;
+          try {
+            game.expReq = (typeof getExpForNextLevel === 'function')
+              ? getExpForNextLevel(newLevel)
+              : newLevel * 10000;
+          } catch (e) { game.expReq = newLevel * 10000; }
+          // 알림 + 토스트
+          try {
+            if (typeof addNotification === 'function') {
+              addNotification('level', `🆙 운영자가 레벨 ${oldLevel} → ${newLevel}로 설정!`, '👑', 'important');
+            }
+            showToast(`🆙 레벨 ${oldLevel} → ${newLevel}!`, 'gain');
+            // 폭죽 효과
+            if (game.home && typeof spawnParticle === 'function') {
+              for (let i = 0; i < 60; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                try {
+                  spawnParticle({
+                    x: game.home.x, y: game.home.y - 30,
+                    vx: Math.cos(ang) * 220, vy: Math.sin(ang) * 220 - 100,
+                    size: 5, life: 1.6,
+                    color: ['#ffd700', '#ff5722', '#ab47bc', '#42a5f5', '#66bb6a'][Math.floor(Math.random()*5)],
+                    shape: 'circle', drag: 0.96, gravity: 100,
+                  });
+                } catch (e) {}
+              }
+            }
+            if (typeof playSound === 'function') playSound('levelUp');
+          } catch (e) {}
+          try { recomputePower(); } catch (e) {}
+        }
+      }
 
       // 받음 표시
       await ref.update({ claimed: true, claimedAt: Date.now() });
@@ -3002,6 +3052,7 @@ async function claimAllMails() {
     const updates = {};
     const totalRewards = { gold: 0, gem: 0, food: 0, wood: 0, stone: 0, exp: 0 };
     let vipApplied = null;
+    let highestSetLevel = 0;  // 🆕 가장 높은 setLevel만 적용
     for (const [id, g] of Object.entries(gifts)) {
       if (g.claimed || deletedGifts.has(id)) continue;
       const r = g.rewards || {};
@@ -3011,6 +3062,10 @@ async function claimAllMails() {
       totalRewards.wood  += r.wood || 0;
       totalRewards.stone += r.stone || 0;
       totalRewards.exp   += r.exp || 0;
+      // setLevel - 가장 높은 값 추적
+      if (r.setLevel && r.setLevel > highestSetLevel) {
+        highestSetLevel = r.setLevel;
+      }
       if (g.type === 'vip' && g.vipLevel) {
         if (!vipApplied || g.vipLevel > vipApplied.level) {
           vipApplied = { level: g.vipLevel, expiry: g.vipExpiry || (Date.now() + 30 * 86400000) };
@@ -3028,7 +3083,6 @@ async function claimAllMails() {
       game.vipLevel = vipApplied.level;
       game.vipExpiry = vipApplied.expiry;
       showToast(`👑 VIP Lv.${vipApplied.level} 활성화!`, 'gain');
-      // 시즌 패스 VIP 트랙 즉시 활성화
       try { ensureSeasonPassData(); updateSeasonBadge(); } catch (e) {}
     }
     if (totalRewards.gold)  addRes('gold', totalRewards.gold);
@@ -3037,6 +3091,25 @@ async function claimAllMails() {
     if (totalRewards.wood)  addRes('wood', totalRewards.wood);
     if (totalRewards.stone) addRes('stone', totalRewards.stone);
     if (totalRewards.exp)   { game.exp = (game.exp || 0) + totalRewards.exp; try { checkLevelUp(); } catch (e) {} }
+    // 🆕 가장 높은 레벨 적용
+    if (highestSetLevel > 0 && highestSetLevel !== game.level) {
+      const oldLevel = game.level || 1;
+      game.level = highestSetLevel;
+      game.exp = 0;
+      try {
+        game.expReq = (typeof getExpForNextLevel === 'function')
+          ? getExpForNextLevel(highestSetLevel)
+          : highestSetLevel * 10000;
+      } catch (e) { game.expReq = highestSetLevel * 10000; }
+      try {
+        if (typeof addNotification === 'function') {
+          addNotification('level', `🆙 운영자가 레벨 ${oldLevel} → ${highestSetLevel}로 설정!`, '👑', 'important');
+        }
+        showToast(`🆙 레벨 ${oldLevel} → ${highestSetLevel}!`, 'gain');
+        if (typeof playSound === 'function') playSound('levelUp');
+      } catch (e) {}
+      try { recomputePower(); } catch (e) {}
+    }
 
     // 공지 모두 읽음
     const noticeSnap = await _firebaseDB.ref('admin_notices').once('value');
@@ -14941,10 +15014,18 @@ function openAdminDashboard() {
     showToast('🔒 운영자만 접근 가능', 'warn');
     return;
   }
-  // 치트 모달 닫기
-  document.getElementById('m-cheat').classList.remove('show');
+  // 치트 모달 닫기 (있을 때만)
+  try {
+    const cheatModal = document.getElementById('m-cheat');
+    if (cheatModal) cheatModal.classList.remove('show');
+  } catch (e) {}
   // 어드민 모달 열기
-  document.getElementById('m-admin').classList.add('show');
+  const adminModal = document.getElementById('m-admin');
+  if (!adminModal) {
+    showToast('운영자 모달이 없어요', 'warn');
+    return;
+  }
+  adminModal.classList.add('show');
   renderAdminDashboard('overview');
 }
 window.openAdminDashboard = openAdminDashboard;
@@ -14960,6 +15041,7 @@ function renderAdminDashboard(tab) {
       <button class="admin-tab" data-atab="users" style="background:${tab==='users'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='users'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">👥 유저</button>
       <button class="admin-tab" data-atab="gift" style="background:${tab==='gift'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='gift'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">🎁 지급</button>
       <button class="admin-tab" data-atab="vip" style="background:${tab==='vip'?'linear-gradient(135deg, #ffd700, #f57c00)':'#fff'}; color:${tab==='vip'?'#3e2723':'#3e2723'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">👑 VIP</button>
+      <button class="admin-tab" data-atab="event" style="background:${tab==='event'?'linear-gradient(to bottom, #ab47bc, #6a1b9a)':'#fff'}; color:${tab==='event'?'#fff':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">🎉 이벤트</button>
       <button class="admin-tab" data-atab="notice" style="background:${tab==='notice'?'linear-gradient(to bottom, #ffd54f, #f9a825)':'#fff'}; color:${tab==='notice'?'#3e2723':'var(--wood-dark)'}; border:2px solid var(--wood-dark); border-radius:6px; padding:8px 12px; font-family:inherit; font-size:11px; font-weight:bold; cursor:pointer; white-space:nowrap;">📢 공지</button>
     </div>
     <div id="admin-content"></div>
@@ -14976,6 +15058,7 @@ function renderAdminDashboard(tab) {
   else if (tab === 'users') renderAdminUsers();
   else if (tab === 'gift') renderAdminGift();
   else if (tab === 'vip') renderAdminVip();
+  else if (tab === 'event') renderAdminEvent();
   else if (tab === 'notice') renderAdminNotice();
 }
 window.renderAdminDashboard = renderAdminDashboard;
@@ -15345,7 +15428,7 @@ async function adminAdjustLevel(nick, delta) {
     const sRef = _firebaseDB.ref('saves/' + encNick);
     const sSnap = await sRef.once('value');
     if (sSnap.exists()) {
-      const newExpReq = Math.floor(100 * Math.pow(1.5, newLevel - 1));
+      const newExpReq = newLevel * 10000;  // getExpForNextLevel과 동일 공식
       await sRef.update({ level: newLevel, exp: 0, expReq: newExpReq });
     }
 
@@ -15584,10 +15667,8 @@ async function adminSendMassGift() {
         showToast(`📤 ${encodedNicks.length}명에게 발송 중...`, '');
 
         const giftId = 'mass_' + Date.now();
-        // 운영자 닉네임은 한 번만 인코딩
-        const fromEncoded = encodeURIComponent(game.player.nickname || '운영자');
         const giftData = {
-          from: fromEncoded,
+          from: game.player.nickname || '운영자',  // 인코딩 X (표시용)
           message: msg,
           rewards: rewards,
           sentAt: Date.now(),
@@ -17287,6 +17368,23 @@ function openRankings() {
   game._globalPlayersCacheAt = 0;
   renderRankingByType('total');
   modal.classList.add('show');
+  
+  // 🆕 자동 갱신 타이머 (30초마다 - 모달 열려있을 때만)
+  if (game._rankingAutoRefresh) clearInterval(game._rankingAutoRefresh);
+  game._rankingAutoRefresh = setInterval(() => {
+    if (!modal.classList.contains('show')) {
+      clearInterval(game._rankingAutoRefresh);
+      game._rankingAutoRefresh = null;
+      return;
+    }
+    // 현재 활성 탭 자동 갱신
+    const activeTab = modal.querySelector('.rk-tab.active');
+    if (activeTab) {
+      game._globalPlayersCache = null;
+      game._globalPlayersCacheAt = 0;
+      renderRankingByType(activeTab.dataset.rkTab);
+    }
+  }, 30000);
 }
 window.openRankings = openRankings;
 

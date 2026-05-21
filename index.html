@@ -2311,7 +2311,13 @@ async function fetchMyFriendsList() {
     const snap = await ref.once('value');
     if (!snap.exists()) return [];
     const friendNames = [];
-    snap.forEach(child => friendNames.push(child.key));
+    snap.forEach(child => {
+      try {
+        friendNames.push(decodeURIComponent(child.key));
+      } catch (e) {
+        friendNames.push(child.key);  // 폴백
+      }
+    });
 
     // 각 친구의 최신 프로필 가져오기
     const profiles = await Promise.all(friendNames.map(async (name) => {
@@ -17667,7 +17673,7 @@ async function renderRankingByType(type) {
           <div style="font-size:${rank<=3?'20':'14'}px; min-width:32px; text-align:center; font-weight:bold; color:${rank<=3?'#bf8b00':'var(--wood-dark)'};">${medal}</div>
           <div style="flex:1; min-width:0;">
             <div style="font-weight:bold; font-size:13px; ${ADMIN_NICKNAMES.includes(p.name) ? 'color:#c62828; text-shadow: 1px 1px 0 #000;' : (p.isMe ? 'color:#ef6c00;' : '')} overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-              ${p.name}${p.isMe ? ' (나)' : ''}${ADMIN_NICKNAMES.includes(p.name) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 4px; border-radius:4px; border:1px solid #000; font-weight:bold; box-shadow:0 0 3px rgba(198,40,40,0.6);">⚜</span>' : ''}${p.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 4px; border-radius:5px; margin-left:3px; border:1px solid #3e2723; font-weight:bold;">👑${p.vipLevel}</span>` : ''}${rankBadge}${titleBadge}
+              ${escapeHtml(p.name || '')}${p.isMe ? ' (나)' : ''}${ADMIN_NICKNAMES.includes(p.name) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 4px; border-radius:4px; border:1px solid #000; font-weight:bold; box-shadow:0 0 3px rgba(198,40,40,0.6);">⚜</span>' : ''}${p.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 4px; border-radius:5px; margin-left:3px; border:1px solid #3e2723; font-weight:bold;">👑${p.vipLevel}</span>` : ''}${rankBadge}${titleBadge}
             </div>
             <div style="font-size:10px; color:var(--wood-dark);">Lv.${p.level} · ⚔${p.totalPower} · 🦁${p.petCount}</div>
             ${petPreview}
@@ -17849,7 +17855,7 @@ async function renderPvpRankingInTab(c) {
             <div style="font-size:14px; font-weight:bold; color:${tier.color}; min-width:30px;">${rankIcon}</div>
             <div style="font-size:18px;">${p.avatar}</div>
             <div style="flex:1; min-width:0;">
-              <div style="font-size:12px; font-weight:bold; color:${p.isMe ? '#bf8b00' : 'var(--wood-dark)'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nickname}${p.isAI ? ' 🤖' : ''}${p.isMe ? ' (나)' : ''}</div>
+              <div style="font-size:12px; font-weight:bold; color:${p.isMe ? '#bf8b00' : 'var(--wood-dark)'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.nickname || '')}${p.isAI ? ' 🤖' : ''}${p.isMe ? ' (나)' : ''}</div>
               <div style="font-size:9px; color:var(--wood-dark);">${tier.icon} ${tier.name} · ${p.wins}승 ${p.losses}패</div>
             </div>
             <div style="font-size:14px; font-weight:bold; color:${tier.color}; text-shadow:0 0 4px ${tier.color}aa;">${p.rating}</div>
@@ -18381,7 +18387,7 @@ function renderFriendsTab(tab) {
             <div style="display:flex; align-items:center; gap:10px;">
               <div style="font-size:32px;">${req.fromAvatar || '⛺'}</div>
               <div style="flex:1;">
-                <div style="font-weight:bold; color:var(--wood-dark);">${req.from}</div>
+                <div style="font-weight:bold; color:var(--wood-dark);">${escapeHtml(req.from || '')}</div>
                 <div style="font-size:11px; color:var(--wood-dark);">Lv.${req.fromLevel || '?'} · ⚔${req.fromPower || 0}</div>
                 <div style="font-size:10px; color:#888;">📅 ${timeAgo}</div>
               </div>
@@ -18523,7 +18529,7 @@ function renderFriendsTab(tab) {
               <div style="display:flex; align-items:center; gap:10px;">
                 <div style="font-size:32px;">${found.avatar || '⛺'}</div>
                 <div style="flex:1;">
-                  <div style="font-weight:bold;">${found.nickname}</div>
+                  <div style="font-weight:bold;">${escapeHtml(found.nickname || '')}</div>
                   <div style="font-size:11px; color:var(--wood-dark);">Lv.${found.level || 1} · ⚔${found.power || 0} · 펫 ${found.petCount || 0}종</div>
                 </div>
               </div>
@@ -18861,7 +18867,7 @@ function renderFriendsTab(tab) {
     card.innerHTML = `
       <div class="fc-avatar">${f.avatar || '🏕️'}</div>
       <div class="fc-info">
-        <div class="fc-name" style="${ADMIN_NICKNAMES.includes(f.nickname) ? 'color:#c62828; text-shadow: 1px 1px 0 #000;' : ''}">${f.nickname}${ADMIN_NICKNAMES.includes(f.nickname) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 6px; border-radius:6px; border:1px solid #000; font-weight:bold; box-shadow:0 0 4px rgba(198,40,40,0.6);">⚜ ADMIN</span>' : ''} ${f.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; border:1px solid #3e2723; font-weight:bold;">👑 VIP ${f.vipLevel}</span>` : ''} ${f.isOnline ? '<span style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px;">🌐 ONLINE</span>' : ''} ${f.conquered ? '<span class="conquered-flag">🚩점령됨</span>' : ''} ${f.occupiedByEnemy ? '<span style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; animation:pulse 1.5s infinite;">⚠️ 침략당함</span>' : ''}</div>
+        <div class="fc-name" style="${ADMIN_NICKNAMES.includes(f.nickname) ? 'color:#c62828; text-shadow: 1px 1px 0 #000;' : ''}">${escapeHtml(f.nickname || '')}${ADMIN_NICKNAMES.includes(f.nickname) ? ' <span style="background:linear-gradient(135deg, #ff5252, #b71c1c); color:white; font-size:9px; padding:1px 6px; border-radius:6px; border:1px solid #000; font-weight:bold; box-shadow:0 0 4px rgba(198,40,40,0.6);">⚜ ADMIN</span>' : ''} ${f.vipLevel > 0 ? `<span style="background:linear-gradient(135deg, #ffd700, #f57c00); color:#3e2723; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; border:1px solid #3e2723; font-weight:bold;">👑 VIP ${f.vipLevel}</span>` : ''} ${f.isOnline ? '<span style="background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px;">🌐 ONLINE</span>' : ''} ${f.conquered ? '<span class="conquered-flag">🚩점령됨</span>' : ''} ${f.occupiedByEnemy ? '<span style="background:linear-gradient(to bottom, #ef5350, #c62828); color:white; font-size:9px; padding:1px 5px; border-radius:6px; margin-left:4px; animation:pulse 1.5s infinite;">⚠️ 침략당함</span>' : ''}</div>
         <div class="fc-meta">Lv.${f.level || 1} · ⚔${(f.power || 0).toLocaleString()}${f.petCount ? ' · 🦁' + f.petCount : ''}</div>
         ${f.code ? `<div class="fc-code">#${f.code}</div>` : (f.autoAdded ? '<div class="fc-code" style="color:#c62828;">🔱 운영자 자동 추가</div>' : '')}
         ${f.conquered && f.conquerData ? `
@@ -26040,7 +26046,7 @@ function showPvpBattle(opponent) {
       <!-- 상단 HP 바 -->
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;">
         <div style="flex:1; text-align:left;">
-          <div style="font-size:11px; font-weight:bold; color:#43a047; margin-bottom:2px;">${game.player.nickname} (${game.pvp.rating})</div>
+          <div style="font-size:11px; font-weight:bold; color:#43a047; margin-bottom:2px;">${escapeHtml(game.player.nickname || '나')} (${game.pvp.rating})</div>
           <div style="background:#3e2723; border-radius:8px; height:18px; overflow:hidden; border:1.5px solid #000; position:relative;">
             <div id="my-hp-bar" style="height:100%; background:linear-gradient(to right, #43a047, #66bb6a); width:100%; transition: width 0.4s; box-shadow:inset 0 0 6px rgba(255,255,255,0.3);"></div>
             <div id="my-hp-text" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; color:#fff; text-shadow:0 1px 2px #000;">${myHpInit.toLocaleString()}</div>
@@ -26048,7 +26054,7 @@ function showPvpBattle(opponent) {
         </div>
         <div style="font-size:18px; color:#fff;">VS</div>
         <div style="flex:1; text-align:right;">
-          <div style="font-size:11px; font-weight:bold; color:#ef5350; margin-bottom:2px;">${opponent.nickname}${opponent.isAI ? ' 🤖' : ''} (${opponent.rating || 1000})</div>
+          <div style="font-size:11px; font-weight:bold; color:#ef5350; margin-bottom:2px;">${escapeHtml(opponent.nickname || '상대')}${opponent.isAI ? ' 🤖' : ''} (${opponent.rating || 1000})</div>
           <div style="background:#3e2723; border-radius:8px; height:18px; overflow:hidden; border:1.5px solid #000; position:relative;">
             <div id="opp-hp-bar" style="height:100%; background:linear-gradient(to right, #ef5350, #ff7043); width:100%; transition: width 0.4s; box-shadow:inset 0 0 6px rgba(255,255,255,0.3); margin-left:auto;"></div>
             <div id="opp-hp-text" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; color:#fff; text-shadow:0 1px 2px #000;">${oppHpInit.toLocaleString()}</div>

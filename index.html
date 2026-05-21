@@ -1913,6 +1913,11 @@ async function uploadCloudSave(force) {
       totemBonus: game.totemBonus || 0,
       defenseMult: game.defenseMult || 1,
       shopPurchased: game.shopPurchased || [],
+      // 🆕 PvP/레이드 데이터 (시즌 랭킹용 - 실시간 동기화)
+      pvp: game.pvp || null,
+      raidDailyDamage: game.raidDailyDamage || null,
+      raidRewardClaimed: game.raidRewardClaimed || null,
+      _lastSeasonReward: game._lastSeasonReward || null,
       uploadedAt: Date.now(),
     };
     // 안전망 1: stripUndefined로 undefined/NaN/Infinity 제거
@@ -2079,6 +2084,14 @@ async function uploadPlayerProfile() {
   if (!_onlineMode || !game.player) return;
   try {
     const ref = _firebaseDB.ref('players/' + encodeURIComponent(game.player.nickname));
+    // PvP 데이터 미리 계산
+    const pvpData = game.pvp ? {
+      rating: game.pvp.rating || 1000,
+      wins: game.pvp.wins || 0,
+      losses: game.pvp.losses || 0,
+      season: game.pvp.season || 0,
+      weekWins: game.pvp.weekWins || 0,
+    } : null;
     await ref.set(stripUndefined({
       nickname: game.player.nickname || '',
       code: game.player.code || '',
@@ -2089,6 +2102,8 @@ async function uploadPlayerProfile() {
       score: (typeof getMyScore === 'function') ? (getMyScore() || 0) : 0,
       avatar: game.player.avatar || '⛺',
       vipLevel: game.vipLevel || 0,
+      lastSeen: Date.now(),  // 마지막 활동 시간 (실시간 표시용)
+      pvp: pvpData,  // 🆕 PvP 시즌 데이터 (랭킹 빠른 조회용)
       updatedAt: Date.now(),
     }));
   } catch (e) {
@@ -17386,18 +17401,45 @@ async function renderPvpRankingInTab(c) {
     claimBtn.onclick = () => claimPvpSeasonReward();
   }
   
-  // 랭킹 로드 (실시간 - Firebase 직접)
+  // 랭킹 로드 (실시간 - Firebase 직접 - players + saves 병렬)
   const listEl = c.querySelector('#pvp-rank-list');
   if (isOnlineMode && isOnlineMode()) {
     try {
       const players = [];
-      // 실제 유저 - saves 노드에서 pvp 데이터
-      const snap = await _firebaseDB.ref('saves').once('value');
-      if (snap.exists()) {
-        snap.forEach(child => {
+      const seenNicks = new Set();
+      // 🆕 players 노드 우선 조회 (실시간 PvP 데이터)
+      const [playersSnap, savesSnap] = await Promise.all([
+        _firebaseDB.ref('players').once('value'),
+        _firebaseDB.ref('saves').once('value'),
+      ]);
+      // 1. players 노드 (즉시 갱신 데이터)
+      if (playersSnap.exists()) {
+        playersSnap.forEach(child => {
+          const v = child.val();
+          if (v && v.pvp && v.pvp.season === season) {
+            const nick = (v.nickname || decodeURIComponent(child.key));
+            if (seenNicks.has(nick)) return;
+            seenNicks.add(nick);
+            players.push({
+              nickname: nick,
+              rating: v.pvp.rating || 0,
+              wins: v.pvp.wins || 0,
+              losses: v.pvp.losses || 0,
+              avatar: v.avatar || '⛺',
+              isAI: false,
+              isMe: nick === myNick,
+            });
+          }
+        });
+      }
+      // 2. saves 노드 (백업 - players에 없으면)
+      if (savesSnap.exists()) {
+        savesSnap.forEach(child => {
           const v = child.val();
           if (v && v.pvp && v.pvp.season === season) {
             const nick = decodeURIComponent(child.key);
+            if (seenNicks.has(nick)) return;
+            seenNicks.add(nick);
             players.push({
               nickname: nick,
               rating: v.pvp.rating || 0,
@@ -17410,8 +17452,9 @@ async function renderPvpRankingInTab(c) {
           }
         });
       }
-      // 내 데이터 강제 추가 (saves에 없을 수 있음)
-      if (!players.some(p => p.nickname === myNick) && myNick) {
+      // 3. 내 데이터 강제 추가 (실시간 - 즉시 반영)
+      if (!seenNicks.has(myNick) && myNick) {
+        seenNicks.add(myNick);
         players.push({
           nickname: myNick,
           rating: myRating,
@@ -17421,6 +17464,15 @@ async function renderPvpRankingInTab(c) {
           isAI: false,
           isMe: true,
         });
+      } else if (myNick) {
+        // 내가 있어도 메모리 데이터로 갱신 (Firebase 지연 대비)
+        const myIdx = players.findIndex(p => p.nickname === myNick);
+        if (myIdx >= 0) {
+          players[myIdx].rating = myRating;
+          players[myIdx].wins = (game.pvp && game.pvp.wins) || 0;
+          players[myIdx].losses = (game.pvp && game.pvp.losses) || 0;
+          players[myIdx].isMe = true;
+        }
       }
       // AI 50명 - 시즌 점수 시드 기반 일관성 유지
       if (typeof AI_USER_POOL !== 'undefined') {
@@ -25499,6 +25551,23 @@ async function executePvpMatch(opponent) {
   try { saveGame(); } catch (e) {}
   if (isOnlineMode && isOnlineMode()) {
     try { uploadCloudSave(true); } catch (e) {}
+    // 🆕 players 노드에 즉시 PvP 데이터 업데이트 (실시간 랭킹용)
+    try {
+      const playerRef = _firebaseDB.ref('players/' + encodeURIComponent(game.player.nickname));
+      playerRef.update({
+        pvp: {
+          rating: game.pvp.rating || 1000,
+          wins: game.pvp.wins || 0,
+          losses: game.pvp.losses || 0,
+          season: game.pvp.season || 0,
+          weekWins: game.pvp.weekWins || 0,
+        },
+        lastSeen: Date.now(),
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      console.warn('PvP players update failed', e);
+    }
   }
   return { won, ratingChange, oldRating, newRating: game.pvp.rating, opponent };
 }
@@ -25672,13 +25741,45 @@ function showPvpBattle(opponent) {
   let myHp = myHpInit;
   let oppHp = oppHpInit;
   let skipRequested = false;
+  let battleFinished = false;
+  const pendingTimers = [];  // 모든 setTimeout 추적
+  
+  // 안전한 setTimeout - 스킵/종료 시 자동 cleanup
+  const safeTimeout = (fn, ms) => {
+    const id = setTimeout(() => {
+      const idx = pendingTimers.indexOf(id);
+      if (idx >= 0) pendingTimers.splice(idx, 1);
+      if (skipRequested || battleFinished) return;  // 스킵/종료 시 실행 안 함
+      fn();
+    }, ms);
+    pendingTimers.push(id);
+    return id;
+  };
+  
+  // 모든 진행중인 setTimeout 취소
+  const cancelAllTimers = () => {
+    while (pendingTimers.length > 0) {
+      clearTimeout(pendingTimers.pop());
+    }
+  };
   
   // VIP 스킵 버튼
   const skipBtn = battleOverlay.querySelector('#pvp-skip-btn');
   if (skipBtn) {
     skipBtn.onclick = () => {
+      if (battleFinished || skipRequested) return;
       skipRequested = true;
+      skipBtn.disabled = true;
+      skipBtn.textContent = '⏩ 스킵 중...';
+      cancelAllTimers();  // 모든 진행중인 애니메이션 즉시 중단
       statusEl.innerHTML = '<div style="color:#ffd700; font-weight:bold;">⏩ 스킵! 결과 계산 중...</div>';
+      // 즉시 결과로
+      myHpBar.style.width = finalWon ? '60%' : '0%';
+      oppHpBar.style.width = finalWon ? '0%' : '60%';
+      myHpText.textContent = (finalWon ? Math.floor(myHpInit * 0.6) : 0).toLocaleString();
+      oppHpText.textContent = (finalWon ? 0 : Math.floor(oppHpInit * 0.6)).toLocaleString();
+      // 짧은 대기 후 결과 화면
+      setTimeout(() => { finishBattle(); }, 400);
     };
   }
   
@@ -25728,13 +25829,7 @@ function showPvpBattle(opponent) {
   const finalWon = myRoll > oppRoll;
   
   const runRound = () => {
-    if (skipRequested) {
-      // 스킵 - 즉시 결과
-      myHpBar.style.width = finalWon ? '60%' : '0%';
-      oppHpBar.style.width = finalWon ? '0%' : '60%';
-      finishBattle();
-      return;
-    }
+    if (skipRequested || battleFinished) return;  // 스킵 시 즉시 중단
     if (round >= totalRounds) {
       finishBattle();
       return;
@@ -25752,9 +25847,9 @@ function showPvpBattle(opponent) {
     const firstDmg = Math.floor(((myAttackFirst ? myPower : oppPower) * (0.8 + Math.random() * 0.4)) * (isCrit ? 2 : 1));
     
     firstFighter.style.animation = (myAttackFirst ? 'pvpAttack' : 'pvpAttackR') + ' 0.4s ease-out';
-    setTimeout(() => firstFighter.style.animation = '', 400);
+    safeTimeout(() => firstFighter.style.animation = '', 400);
     
-    setTimeout(() => {
+    safeTimeout(() => {
       // 데미지 적용
       if (myAttackFirst) {
         oppHp = Math.max(0, oppHp - firstDmg);
@@ -25773,14 +25868,14 @@ function showPvpBattle(opponent) {
         myHpBar.style.width = (myHp / myHpInit * 100) + '%';
         myHpText.textContent = myHp.toLocaleString();
       }
-      setTimeout(() => {
+      safeTimeout(() => {
         myFighter.style.animation = '';
         oppFighter.style.animation = '';
       }, 350);
     }, 200);
     
     // 반격 (HP > 0)
-    setTimeout(() => {
+    safeTimeout(() => {
       if (myHp <= 0 || oppHp <= 0) {
         finishBattle();
         return;
@@ -25788,8 +25883,8 @@ function showPvpBattle(opponent) {
       const isCrit2 = Math.random() < 0.2;
       const secondDmg = Math.floor(((myAttackFirst ? oppPower : myPower) * (0.7 + Math.random() * 0.4)) * (isCrit2 ? 2 : 1));
       secondFighter.style.animation = (myAttackFirst ? 'pvpAttackR' : 'pvpAttack') + ' 0.4s ease-out';
-      setTimeout(() => secondFighter.style.animation = '', 400);
-      setTimeout(() => {
+      safeTimeout(() => secondFighter.style.animation = '', 400);
+      safeTimeout(() => {
         if (myAttackFirst) {
           myHp = Math.max(0, myHp - secondDmg);
           showDamage(true, secondDmg, isCrit2);
@@ -25807,17 +25902,21 @@ function showPvpBattle(opponent) {
           oppHpBar.style.width = (oppHp / oppHpInit * 100) + '%';
           oppHpText.textContent = oppHp.toLocaleString();
         }
-        setTimeout(() => {
+        safeTimeout(() => {
           myFighter.style.animation = '';
           oppFighter.style.animation = '';
         }, 350);
       }, 200);
       
-      setTimeout(() => runRound(), 700);
+      safeTimeout(() => runRound(), 700);
     }, 700);
   };
   
   const finishBattle = async () => {
+    if (battleFinished) return;  // 중복 호출 방지
+    battleFinished = true;
+    cancelAllTimers();  // 모든 진행중 setTimeout 취소
+    
     const result = await executePvpMatch(opponent);
     if (!result) {
       battleOverlay.remove();
@@ -25856,7 +25955,7 @@ function showPvpBattle(opponent) {
   };
   
   // 전투 시작
-  setTimeout(runRound, 600);
+  safeTimeout(runRound, 600);
 }
 window.showPvpBattle = showPvpBattle;
 
@@ -25883,19 +25982,47 @@ async function openPvpLeaderboard() {
   modal.querySelector('#pvp-lb-close').onclick = () => modal.remove();
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
-  // 랭킹 로드
+  // 랭킹 로드 (실시간 - players + saves 병렬)
   const listEl = modal.querySelector('#pvp-lb-list');
   if (isOnlineMode && isOnlineMode()) {
     try {
-      // 모든 유저의 pvp 데이터
-      const snap = await _firebaseDB.ref('saves').once('value');
+      const currentSeason = getCurrentSeason();
+      const myNick = game.player && game.player.nickname;
       const players = [];
-      if (snap.exists()) {
-        snap.forEach(child => {
+      const seenNicks = new Set();
+      // players + saves 병렬 조회
+      const [playersSnap, savesSnap] = await Promise.all([
+        _firebaseDB.ref('players').once('value'),
+        _firebaseDB.ref('saves').once('value'),
+      ]);
+      // 1. players 노드 (실시간 데이터)
+      if (playersSnap.exists()) {
+        playersSnap.forEach(child => {
           const v = child.val();
-          if (v && v.pvp && v.pvp.season === getCurrentSeason()) {
+          if (v && v.pvp && v.pvp.season === currentSeason) {
+            const nick = v.nickname || decodeURIComponent(child.key);
+            if (seenNicks.has(nick)) return;
+            seenNicks.add(nick);
             players.push({
-              nickname: decodeURIComponent(child.key),
+              nickname: nick,
+              rating: v.pvp.rating || 0,
+              wins: v.pvp.wins || 0,
+              losses: v.pvp.losses || 0,
+              avatar: v.avatar || '⛺',
+            });
+          }
+        });
+      }
+      // 2. saves 노드 (백업)
+      if (savesSnap.exists()) {
+        savesSnap.forEach(child => {
+          const v = child.val();
+          if (v && v.pvp && v.pvp.season === currentSeason) {
+            const nick = decodeURIComponent(child.key);
+            if (seenNicks.has(nick)) return;
+            seenNicks.add(nick);
+            players.push({
+              nickname: nick,
               rating: v.pvp.rating || 0,
               wins: v.pvp.wins || 0,
               losses: v.pvp.losses || 0,
@@ -25904,20 +26031,42 @@ async function openPvpLeaderboard() {
           }
         });
       }
-      // AI 50명 추가
-      const aiUsers = (typeof generateAIUsers === 'function') ? generateAIUsers(1000, 1500) : [];
-      for (const ai of aiUsers) {
-        players.push({
-          nickname: ai.nickname,
-          rating: 1000 + Math.floor((Math.random() * 2000)),
-          wins: Math.floor(Math.random() * 50),
-          losses: Math.floor(Math.random() * 30),
-          avatar: '🤖',
-          isAI: true,
-        });
+      // 3. 내 메모리 데이터 우선 적용
+      if (myNick) {
+        if (!seenNicks.has(myNick)) {
+          players.push({
+            nickname: myNick,
+            rating: (game.pvp && game.pvp.rating) || 1000,
+            wins: (game.pvp && game.pvp.wins) || 0,
+            losses: (game.pvp && game.pvp.losses) || 0,
+            avatar: (game.player && game.player.avatar) || '⛺',
+          });
+        } else {
+          const myIdx = players.findIndex(p => p.nickname === myNick);
+          if (myIdx >= 0) {
+            players[myIdx].rating = (game.pvp && game.pvp.rating) || players[myIdx].rating;
+            players[myIdx].wins = (game.pvp && game.pvp.wins) || 0;
+            players[myIdx].losses = (game.pvp && game.pvp.losses) || 0;
+          }
+        }
+      }
+      // AI 50명 추가 - 시드 기반 일관성
+      if (typeof AI_USER_POOL !== 'undefined') {
+        for (let i = 0; i < AI_USER_POOL.length; i++) {
+          const name = AI_USER_POOL[i];
+          const seed = currentSeason * 1000 + i;
+          const aiRating = 600 + ((seed * 13 + 47) % 2401);
+          players.push({
+            nickname: name,
+            rating: aiRating,
+            wins: (seed * 7 + 3) % 80,
+            losses: (seed * 11 + 5) % 50,
+            avatar: '🤖',
+            isAI: true,
+          });
+        }
       }
       players.sort((a, b) => b.rating - a.rating);
-      const myNick = game.player.nickname;
       let html = '<div style="display:flex; flex-direction:column; gap:4px;">';
       players.slice(0, 50).forEach((p, i) => {
         const tier = getPvpTier(p.rating);

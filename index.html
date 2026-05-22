@@ -1154,6 +1154,28 @@
     0%, 100% { box-shadow: 0 0 16px var(--gold), 0 2px 0 var(--wood-dark); }
     50% { box-shadow: 0 0 24px var(--gold), 0 0 8px #ff9800, 0 2px 0 var(--wood-dark); }
   }
+  /* === 🗝 던전 카드 애니메이션 === */
+  @keyframes dungeonRay { to { transform: rotate(360deg); } }
+  @keyframes dungeonParticle {
+    0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+    50% { transform: translateY(-12px) scale(1.5); opacity: 1; }
+  }
+  @keyframes dungeonIconFloat {
+    0%, 100% { transform: translateY(0) scale(1) rotate(0); }
+    50% { transform: translateY(-6px) scale(1.05) rotate(2deg); }
+  }
+  @keyframes dungeonBtnGlow {
+    0%, 100% { background-position: 0% 50%; box-shadow: 0 3px 0 #f57f17, 0 4px 12px rgba(0,0,0,0.3); }
+    50% { background-position: 100% 50%; box-shadow: 0 3px 0 #f57f17, 0 4px 20px rgba(255,215,0,0.6); }
+  }
+  /* === 🎯 던전 진행 중 효과 === */
+  @keyframes dungeonProgressRing {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes dungeonHeroBob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
   .build-card.dragging {
     transform: scale(1.15);
     box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 16px var(--gold);
@@ -26972,42 +26994,75 @@ function renderDungeonModal() {
 
       const card = document.createElement('div');
       card.style.cssText = `
-        background: linear-gradient(to bottom, #fff, ${alreadyCleared ? '#c8e6c9' : d.color + '22'});
+        background: linear-gradient(135deg, ${alreadyCleared ? '#a5d6a7, #66bb6a, #2e7d32' : locked ? '#9e9e9e, #757575' : d.color + 'dd, ' + d.color + '99, ' + d.color + '44'});
         border: 3px solid ${cardBorder};
-        border-radius: 10px; padding: 10px; margin-bottom: 8px;
+        border-radius: 14px; padding: 0; margin-bottom: 10px;
         ${cardOpacity}
         position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3);
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
       `;
+      const auraEffect = !locked && !alreadyCleared ? `
+        <div style="position:absolute; inset:0; background: conic-gradient(from 0deg, transparent, ${d.color}33, transparent, ${d.color}33, transparent); animation: dungeonRay 8s linear infinite; pointer-events:none;"></div>
+      ` : '';
+      const particlesEffect = !locked && !alreadyCleared ? `
+        <div style="position:absolute; inset:0; pointer-events:none; overflow:hidden;">
+          ${Array.from({length: 4}, (_, i) => {
+            const dx = 10 + (i * 25);
+            const dy = (i * 17) % 60;
+            const dur = 2 + (i % 3);
+            return `<div style="position:absolute; left:${dx}%; top:${dy}%; font-size:10px; animation: dungeonParticle ${dur}s ease-in-out infinite ${i * 0.5}s; opacity:0.5;">✨</div>`;
+          }).join('')}
+        </div>
+      ` : '';
       card.innerHTML = `
+        ${auraEffect}
+        ${particlesEffect}
         ${alreadyCleared ? `
-          <div style="position:absolute; top:6px; right:8px; background:linear-gradient(to bottom, #66bb6a, #2e7d32); color:white; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:bold; border:2px solid #1b5e20;">✓ 오늘 완료</div>
+          <div style="position:absolute; top:8px; right:10px; background:linear-gradient(135deg, #66bb6a, #2e7d32); color:white; padding:3px 10px; border-radius:8px; font-size:10px; font-weight:bold; border:2px solid #1b5e20; box-shadow:0 0 8px rgba(67,160,71,0.5); z-index:2;">✓ 오늘 완료</div>
         ` : ''}
-        <div style="display:flex; align-items:start; gap:10px;">
-          <div style="font-size:36px;">${d.icon}</div>
-          <div style="flex:1;">
-            <div style="font-weight:bold; color:${d.color}; font-size:14px;">${d.name}</div>
-            <div style="font-size:11px; color:var(--wood-dark); margin-top:2px;">${d.desc}</div>
-            <div style="font-size:10px; color:#888; margin-top:3px;">
-              ⏱ ${d.duration}초 · Lv.${d.levelReq}+ · ⚔ ${d.powerReq}+ 필요
-            </div>
-            <div style="font-size:10px; color:var(--wood-dark); margin-top:3px;">
-              💸 비용: <b>${costStr}</b>
-            </div>
-            <div style="font-size:11px; color:#2e7d32; font-weight:bold; margin-top:2px;">
-              🎁 보상: ${rewardStr}${petStr}
-            </div>
-            <div style="font-size:10px; color:#1976d2; font-weight:bold; margin-top:2px;">
-              ⏰ 하루 1회 한정
+        <div style="position:relative; padding:12px; z-index:1;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+            <div style="
+              font-size: 48px;
+              filter: drop-shadow(0 0 12px ${d.color});
+              animation: ${locked || alreadyCleared ? 'none' : 'dungeonIconFloat 2.5s ease-in-out infinite'};
+            ">${d.icon}</div>
+            <div style="flex:1;">
+              <div style="font-weight:bold; color:#fff; font-size:15px; text-shadow:0 0 8px ${d.color}, 0 1px 2px rgba(0,0,0,0.8); letter-spacing:0.5px;">${d.name}</div>
+              <div style="font-size:11px; color:rgba(255,255,255,0.85); margin-top:3px; text-shadow:0 1px 2px rgba(0,0,0,0.6);">${d.desc}</div>
             </div>
           </div>
+          <!-- 스탯 박스 -->
+          <div style="background:rgba(0,0,0,0.4); border-radius:8px; padding:8px 10px; margin-bottom:8px; backdrop-filter: blur(4px);">
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; font-size:10px; color:rgba(255,255,255,0.9);">
+              <div>⏱ <b>${d.duration}초</b></div>
+              <div>📊 Lv.<b>${d.levelReq}+</b></div>
+              <div>⚔ <b>${d.powerReq.toLocaleString()}+</b></div>
+            </div>
+            <div style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(255,255,255,0.2);">
+              <div style="font-size:10px; color:#ffeb3b; font-weight:bold;">💸 비용: ${costStr}</div>
+              <div style="font-size:11px; color:#a5d6a7; font-weight:bold; margin-top:3px;">🎁 보상: ${rewardStr}${petStr}</div>
+            </div>
+          </div>
+          <button class="dungeon-enter-btn" data-id="${d.id}" type="button" ${!canEnter ? 'disabled' : ''} style="
+            width: 100%;
+            background: ${canEnter ? 'linear-gradient(135deg, #ffd700, #ff9800, #ffd700)' : alreadyCleared ? 'linear-gradient(to bottom, #a5d6a7, #66bb6a)' : 'linear-gradient(to bottom, #757575, #424242)'};
+            background-size: 200% 200%;
+            color: ${canEnter ? '#3e2723' : '#fff'};
+            border: 2px solid ${canEnter ? '#f57f17' : 'var(--wood-dark)'};
+            border-radius: 10px;
+            padding: 10px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: ${canEnter ? 'pointer' : 'not-allowed'};
+            box-shadow: 0 3px 0 ${canEnter ? '#f57f17' : 'var(--wood-dark)'}, 0 4px 12px rgba(0,0,0,0.3);
+            ${canEnter ? 'animation: dungeonBtnGlow 2s ease-in-out infinite;' : ''}
+            transition: transform 0.15s;
+          ">${alreadyCleared ? '✓ 오늘 완료 (내일 가능)' : locked ? `🔒 Lv.${d.levelReq} 필요` : !canPower ? `⚔ 전투력 ${d.powerReq.toLocaleString()} 필요` : !canPay ? `💸 자원 부족` : '⚔ 입장!'}</button>
         </div>
-        <button class="dungeon-enter-btn" data-id="${d.id}" type="button" ${!canEnter ? 'disabled' : ''} style="
-          width: 100%; margin-top: 8px;
-          background: linear-gradient(to bottom, ${canEnter ? '#66bb6a, #2e7d32' : alreadyCleared ? '#a5d6a7, #66bb6a' : '#bdbdbd, #757575'});
-          color: white; border: 2px solid var(--wood-dark); border-radius: 8px;
-          padding: 8px; font-family: inherit; font-weight: bold; font-size: 13px;
-          cursor: ${canEnter ? 'pointer' : 'not-allowed'}; box-shadow: 0 2px 0 var(--wood-dark);
-        ">${alreadyCleared ? '✓ 오늘 완료 (내일 가능)' : locked ? `🔒 Lv.${d.levelReq} 필요` : !canPower ? `⚔ 전투력 ${d.powerReq} 필요` : !canPay ? `💸 자원 부족` : '⚔ 입장!'}</button>
       `;
       list.appendChild(card);
     }
@@ -27124,35 +27179,151 @@ function renderDungeonProgress() {
   const petStr = d.rewards.petTier ? ` 🦁 ${d.rewards.petTier.toUpperCase()} 펫` : '';
 
   body.innerHTML = `
-    <div style="background:linear-gradient(135deg, ${d.color}, ${d.color}88); border:4px solid var(--wood-dark); border-radius:14px; padding:18px; text-align:center; color:white; box-shadow:0 0 18px ${d.color}77;">
-      <div style="font-size:48px;">${d.icon}</div>
-      <div style="font-size:18px; font-weight:bold; margin-top:6px;">${d.name}</div>
-      <div style="font-size:11px; color:rgba(255,255,255,0.85); margin-top:4px;">${d.desc}</div>
-      <div style="margin-top:14px; background:rgba(0,0,0,0.4); border:2px solid #fff; border-radius:10px; height:22px; overflow:hidden; position:relative;">
-        <div style="background:linear-gradient(to right, #ffd54f, #ffeb3b); height:100%; width:${progress}%; transition: width 0.5s;"></div>
-        <div style="position:absolute; inset:0; text-align:center; font-size:12px; font-weight:bold; color:#fff; text-shadow:1px 1px 2px rgba(0,0,0,0.8); line-height:22px;">${timeStr} ${ready ? '' : `(${Math.floor(progress)}%)`}</div>
+    <div style="
+      position: relative;
+      background: radial-gradient(ellipse at center, ${d.color}55, ${d.color}22, rgba(0,0,0,0.6));
+      border: 4px solid ${d.color};
+      border-radius: 18px;
+      padding: 20px 18px;
+      text-align: center;
+      color: white;
+      box-shadow: 0 0 32px ${d.color}88, inset 0 0 24px ${d.color}33;
+      overflow: hidden;
+    ">
+      <!-- 회전 광선 -->
+      <div style="position:absolute; inset:-20%; background: conic-gradient(from 0deg, transparent, ${d.color}55, transparent, ${d.color}55, transparent); animation: dungeonRay 10s linear infinite; pointer-events:none;"></div>
+      <!-- 떠다니는 파티클 -->
+      <div style="position:absolute; inset:0; pointer-events:none; overflow:hidden;">
+        ${Array.from({length: 10}, (_, i) => {
+          const dx = (i * 11) % 100;
+          const dy = (i * 19) % 80;
+          const dur = 2 + (i % 4);
+          const delay = (i * 0.2) % 2;
+          const emoji = ['✨', '⭐', '💫'][i % 3];
+          return `<div style="position:absolute; left:${dx}%; top:${dy}%; font-size:${10 + (i%3)*4}px; animation: dungeonParticle ${dur}s ease-in-out infinite ${delay}s; opacity:0.6;">${emoji}</div>`;
+        }).join('')}
       </div>
-      <div style="margin-top:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px;">
-        <div style="font-size:11px; color:#ffd54f;">🎁 예상 보상</div>
-        <div style="font-size:13px; font-weight:bold; margin-top:4px;">${rewardStr}${petStr}</div>
+      <div style="position:relative; z-index:1;">
+        <!-- 영웅 + 보스 (좌우 배치) -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:24px; margin-bottom:16px;">
+          <!-- 영웅 -->
+          <div style="
+            font-size: 56px;
+            filter: drop-shadow(0 0 12px #ffd700);
+            animation: dungeonHeroBob 1.5s ease-in-out infinite;
+          ">🦸</div>
+          <!-- VS -->
+          <div style="
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 8px #ff5252;
+            animation: defeatedPulse 1s ease-in-out infinite;
+          ">⚔</div>
+          <!-- 던전 보스 -->
+          <div style="
+            font-size: 72px;
+            filter: drop-shadow(0 0 16px ${d.color});
+            animation: dungeonHeroBob 1.5s ease-in-out infinite 0.75s;
+          ">${d.icon}</div>
+        </div>
+        <div style="
+          font-size: 22px;
+          font-weight: bold;
+          color: #fff;
+          text-shadow: 0 0 8px ${d.color}, 0 2px 4px rgba(0,0,0,0.8);
+          letter-spacing: 1px;
+        ">${d.name}</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.85); margin-top:6px; line-height:1.5;">${d.desc}</div>
+
+        <!-- 진행 바 -->
+        <div style="
+          margin-top: 18px;
+          background: rgba(0,0,0,0.6);
+          border: 2px solid ${d.color};
+          border-radius: 12px;
+          height: 28px;
+          overflow: hidden;
+          position: relative;
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+        ">
+          <div style="
+            background: linear-gradient(to right, #ffd54f, #ffeb3b, #ffd54f);
+            background-size: 200% 100%;
+            height: 100%;
+            width: ${progress}%;
+            transition: width 0.5s;
+            position: relative;
+            animation: ${ready ? 'attackBtnGlow 1s linear infinite' : 'hpStripes 1s linear infinite'};
+            box-shadow: 0 0 12px #ffd700;
+          ">
+            <div style="
+              position: absolute;
+              inset: 0;
+              background: repeating-linear-gradient(45deg, rgba(255,255,255,0.2) 0, rgba(255,255,255,0.2) 4px, transparent 4px, transparent 8px);
+            "></div>
+          </div>
+          <div style="
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            letter-spacing: 1px;
+          ">${timeStr} ${ready ? '' : `· ${Math.floor(progress)}%`}</div>
+        </div>
+
+        <!-- 예상 보상 -->
+        <div style="
+          margin-top: 14px;
+          padding: 10px;
+          background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,152,0,0.1));
+          border: 2px solid rgba(255,215,0,0.5);
+          border-radius: 10px;
+        ">
+          <div style="font-size:11px; color:#ffd54f; font-weight:bold;">🎁 예상 보상</div>
+          <div style="font-size:14px; font-weight:bold; margin-top:5px; color:#fff; text-shadow:0 0 4px #ffd70066;">${rewardStr}${petStr}</div>
+        </div>
+
+        <button id="dungeon-claim" type="button" ${!ready ? 'disabled' : ''} style="
+          margin-top: 16px;
+          width: 100%;
+          background: ${ready ? 'linear-gradient(135deg, #66bb6a, #2e7d32, #66bb6a)' : 'linear-gradient(to bottom, #757575, #424242)'};
+          background-size: 200% 200%;
+          color: white;
+          border: 3px solid ${ready ? '#fff' : 'var(--wood-dark)'};
+          border-radius: 14px;
+          padding: 14px;
+          font-family: inherit;
+          font-weight: bold;
+          font-size: 17px;
+          cursor: ${ready ? 'pointer' : 'not-allowed'};
+          box-shadow: 0 4px 0 ${ready ? '#1b5e20' : 'var(--wood-dark)'}, 0 6px 16px rgba(0,0,0,0.4);
+          ${ready ? 'animation: claimBtnPulse 1s ease-in-out infinite;' : ''}
+          letter-spacing: 1px;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        ">${ready ? '🎁 보상 받기!' : '⏳ 탐험 중...'}</button>
+        ${!ready ? `
+          <button id="dungeon-skip" type="button" style="
+            margin-top: 10px;
+            width: 100%;
+            background: linear-gradient(135deg, #ffd54f, #f9a825);
+            color: var(--wood-dark);
+            border: 2px solid var(--wood-dark);
+            border-radius: 10px;
+            padding: 10px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 3px 0 var(--wood-dark);
+          ">💎 ${Math.ceil(remaining/60000) * 5}로 즉시 완료</button>
+        ` : ''}
       </div>
-      <button id="dungeon-claim" type="button" ${!ready ? 'disabled' : ''} style="
-        margin-top: 16px;
-        background: ${ready ? 'linear-gradient(to bottom, #66bb6a, #2e7d32)' : 'linear-gradient(to bottom, #bdbdbd, #757575)'};
-        color: white; border: 3px solid var(--wood-dark); border-radius: 12px;
-        padding: 12px 32px; font-family: inherit; font-weight: bold; font-size: 16px;
-        cursor: ${ready ? 'pointer' : 'not-allowed'}; box-shadow: 0 3px 0 var(--wood-dark);
-        ${ready ? 'animation: pulse 1s infinite;' : ''}
-      ">${ready ? '🎁 보상 받기!' : '⏳ 대기 중...'}</button>
-      ${!ready ? `
-        <button id="dungeon-skip" type="button" style="
-          margin-top: 10px;
-          background: linear-gradient(to bottom, #ffd54f, #f9a825);
-          color: var(--wood-dark); border: 2px solid var(--wood-dark); border-radius: 8px;
-          padding: 8px 20px; font-family: inherit; font-weight: bold; font-size: 12px;
-          cursor: pointer; box-shadow: 0 2px 0 var(--wood-dark);
-        ">💎 ${Math.ceil(remaining/60000) * 5}로 즉시 완료</button>
-      ` : ''}
     </div>
   `;
 
@@ -27248,8 +27419,28 @@ function claimDungeonReward() {
     try { uploadCloudSave(true); } catch (e) {}
   }
 
-  // 결과 모달
-  showDungeonResult(d, summary, petGot);
+  // 결과 모달 - 화려한 보상 모달
+  const rewardsArr = [];
+  if (rewards.exp) rewardsArr.push({ icon: '✨', label: '경험치', amount: rewards.exp });
+  if (rewards.gold) rewardsArr.push({ icon: '💰', label: '금화', amount: rewards.gold });
+  if (rewards.food) rewardsArr.push({ icon: '🍖', label: '식량', amount: rewards.food });
+  if (rewards.wood) rewardsArr.push({ icon: '🪵', label: '목재', amount: rewards.wood });
+  if (rewards.stone) rewardsArr.push({ icon: '🪨', label: '석재', amount: rewards.stone });
+  if (rewards.gem) rewardsArr.push({ icon: '💎', label: '보석', amount: rewards.gem });
+  if (petGot && PETS[petGot]) {
+    rewardsArr.push({ icon: PETS[petGot].emoji || '🦁', label: `${PETS[petGot].name} 획득!`, amount: '★' });
+  }
+  try {
+    showRewardModal({
+      icon: d.icon,
+      title: '🎉 던전 클리어!',
+      subtitle: `${d.name} 완주`,
+      rewards: rewardsArr,
+      bonus: petGot ? `🌟 신규 펫 ${PETS[petGot].name}을(를) 획득했어요!` : null,
+    });
+  } catch (e) {
+    showDungeonResult(d, summary, petGot);
+  }
   updateHUD();
 }
 window.claimDungeonReward = claimDungeonReward;
@@ -29544,63 +29735,352 @@ async function loadRaidContent() {
   const myContribution = totalDamage > 0 ? (myDamage / totalDamage * 100) : 0;
   // 공격력 (내 totalPower의 5%)
   const myAttackDamage = Math.floor((game.totalPower || 100) * 0.05);
+  // HP 단계별 색상 (피흘림 시각 효과)
+  const hpColor = hpPercent > 60 ? '#43a047' : hpPercent > 30 ? '#ff9800' : '#c62828';
+  const hpGradient = hpPercent > 60
+    ? 'linear-gradient(to right, #66bb6a, #43a047, #2e7d32)'
+    : hpPercent > 30
+    ? 'linear-gradient(to right, #ffb74d, #ff9800, #f57c00)'
+    : 'linear-gradient(to right, #ef5350, #c62828, #b71c1c)';
+
   c.innerHTML = `
-    <div style="background:rgba(0,0,0,0.6); border:2px solid ${boss.color}; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:inset 0 0 14px ${boss.color}44;">
-      <div style="font-size:64px; line-height:1;">${boss.icon}</div>
-      <div style="font-size:18px; font-weight:bold; color:${boss.color}; text-shadow:0 0 6px ${boss.color}aa; margin-top:6px;">${boss.name}</div>
-      <div style="background:rgba(0,0,0,0.7); border-radius:10px; padding:8px; margin-top:8px; border:1px solid ${boss.color};">
-        <div style="display:flex; justify-content:space-between; font-size:10px; color:#fff; margin-bottom:3px;">
-          <span>HP</span>
-          <span>${raidData.remainingHp.toLocaleString()} / ${raidData.totalHp.toLocaleString()}</span>
-        </div>
-        <div style="background:#3e2723; border-radius:6px; height:20px; overflow:hidden; border:1px solid #000;">
-          <div style="height:100%; background:linear-gradient(to right, #c62828, #ef5350); width:${hpPercent}%; transition: width 0.5s; box-shadow:inset 0 0 8px rgba(255,255,255,0.3);"></div>
-        </div>
-        <div style="font-size:14px; font-weight:bold; color:#ffd700; margin-top:4px;">${hpPercent.toFixed(2)}%</div>
+    <!-- 보스 카드 (애니메이션 강화) -->
+    <div style="
+      position: relative;
+      background: radial-gradient(ellipse at center, ${boss.color}33, rgba(0,0,0,0.7));
+      border: 3px solid ${boss.color};
+      border-radius: 16px;
+      padding: 20px 14px 14px;
+      margin-bottom: 12px;
+      box-shadow: inset 0 0 24px ${boss.color}66, 0 0 30px ${boss.color}44;
+      overflow: hidden;
+    ">
+      <!-- 배경 광선 효과 -->
+      <div style="
+        position: absolute;
+        inset: -10%;
+        background: conic-gradient(from 0deg, transparent, ${boss.color}33, transparent, ${boss.color}33, transparent);
+        animation: raidBossRays 8s linear infinite;
+        pointer-events: none;
+      "></div>
+      <!-- 떠다니는 파티클 -->
+      <div style="position:absolute; inset:0; pointer-events:none; overflow:hidden;">
+        ${Array.from({length: 8}, (_, i) => {
+          const dx = (i * 13) % 100;
+          const dy = (i * 23) % 80;
+          const dur = 2 + (i % 4);
+          const delay = (i * 0.3) % 2;
+          return `<div style="position:absolute; left:${dx}%; top:${dy}%; font-size:${10 + (i%3)*4}px; animation: raidParticle ${dur}s ease-in-out infinite ${delay}s; opacity:0.6;">✨</div>`;
+        }).join('')}
       </div>
-      ${raidData.defeated ? `
-        <div style="font-size:20px; font-weight:bold; color:#43a047; margin-top:10px;">🏆 처치됨!</div>
-      ` : ''}
-    </div>
-    <div style="background:rgba(0,0,0,0.4); border-radius:10px; padding:10px; margin-bottom:12px;">
-      <div style="font-size:11px; color:#ce93d8; font-weight:bold; margin-bottom:6px;">📊 내 기여도:</div>
-      <div style="display:flex; justify-content:space-between; font-size:11px; color:#fff;">
-        <span>내 데미지: <b style="color:#ffd700;">${myDamage.toLocaleString()}</b></span>
-        <span>비중: <b style="color:#42a5f5;">${myContribution.toFixed(1)}%</b></span>
+      <div style="position: relative; z-index: 1; text-align: center;">
+        <!-- 보스 아이콘 (흔들림 애니메이션) -->
+        <div id="raid-boss-icon" style="
+          font-size: 88px;
+          line-height: 1;
+          filter: drop-shadow(0 0 16px ${boss.color}cc) drop-shadow(0 0 32px ${boss.color}66);
+          animation: raidBossBob 2s ease-in-out infinite;
+          display: inline-block;
+        ">${boss.icon}</div>
+        <div style="
+          font-size: 22px;
+          font-weight: bold;
+          color: #fff;
+          text-shadow: 0 0 8px ${boss.color}, 0 2px 4px rgba(0,0,0,0.8);
+          margin-top: 8px;
+          letter-spacing: 1px;
+        ">${escapeHtml(boss.name)}</div>
+        <!-- 보스 등급 -->
+        <div style="
+          display: inline-block;
+          margin-top: 6px;
+          padding: 2px 12px;
+          background: linear-gradient(135deg, #ffd700, #ff9800);
+          color: #3e2723;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: bold;
+          letter-spacing: 1px;
+        ">🐲 일일 보스</div>
+        <!-- HP 바 -->
+        <div style="
+          background: rgba(0,0,0,0.7);
+          border-radius: 12px;
+          padding: 10px;
+          margin-top: 12px;
+          border: 2px solid ${boss.color};
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+        ">
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:#fff; margin-bottom:4px; font-weight:bold;">
+            <span>❤️ HP</span>
+            <span>${raidData.remainingHp.toLocaleString()} / ${raidData.totalHp.toLocaleString()}</span>
+          </div>
+          <div style="
+            background: #1a0a08;
+            border-radius: 8px;
+            height: 24px;
+            overflow: hidden;
+            border: 1px solid #000;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+          ">
+            <div style="
+              height: 100%;
+              background: ${hpGradient};
+              width: ${hpPercent}%;
+              transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+              box-shadow: inset 0 0 12px rgba(255,255,255,0.3);
+              position: relative;
+            ">
+              <!-- HP 바 안의 빛나는 줄무늬 -->
+              <div style="
+                position: absolute;
+                inset: 0;
+                background: repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0, rgba(255,255,255,0.15) 4px, transparent 4px, transparent 8px);
+                animation: hpStripes 1s linear infinite;
+              "></div>
+            </div>
+            <!-- HP% 텍스트 -->
+            <div style="
+              position: absolute;
+              inset: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 12px;
+              font-weight: bold;
+              color: #fff;
+              text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+              letter-spacing: 1px;
+            ">${hpPercent.toFixed(2)}%</div>
+          </div>
+        </div>
+        ${raidData.defeated ? `
+          <div style="
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ffd700, #ff9800);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-top: 12px;
+            animation: defeatedPulse 1s ease-in-out infinite;
+          ">🏆 처치 완료!</div>
+        ` : ''}
       </div>
     </div>
+
+    <!-- 내 기여도 카드 -->
+    <div style="
+      background: linear-gradient(135deg, rgba(33,150,243,0.2), rgba(13,71,161,0.3));
+      border: 2px solid #1976d2;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 0 12px rgba(33,150,243,0.3);
+    ">
+      <div style="font-size:11px; color:#90caf9; font-weight:bold; margin-bottom:6px;">📊 내 기여도</div>
+      <div style="display:flex; justify-content:space-between; gap:10px;">
+        <div style="flex:1;">
+          <div style="font-size:9px; color:#bbdefb;">데미지</div>
+          <div style="font-size:16px; color:#ffd700; font-weight:bold; text-shadow:0 0 4px #ffd70088;">${myDamage.toLocaleString()}</div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:9px; color:#bbdefb;">비중</div>
+          <div style="font-size:16px; color:#42a5f5; font-weight:bold;">${myContribution.toFixed(1)}%</div>
+        </div>
+      </div>
+    </div>
+
     ${!raidData.defeated ? `
-      <button id="raid-attack-btn" style="width:100%; padding:14px; background:linear-gradient(135deg,${boss.color},#3e2723); color:#fff; border:2px solid #ffd700; border-radius:12px; font-family:inherit; font-size:16px; font-weight:bold; cursor:pointer; box-shadow:0 0 16px ${boss.color}aa;">⚔ 공격! (${myAttackDamage.toLocaleString()} 데미지)</button>
+      <button id="raid-attack-btn" style="
+        width: 100%;
+        padding: 16px;
+        background: linear-gradient(135deg, ${boss.color}, #c62828, ${boss.color});
+        background-size: 200% 200%;
+        color: #fff;
+        border: 3px solid #ffd700;
+        border-radius: 14px;
+        font-family: inherit;
+        font-size: 17px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 0 20px ${boss.color}aa, 0 4px 12px rgba(0,0,0,0.5);
+        animation: attackBtnGlow 2s ease-in-out infinite;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        letter-spacing: 1px;
+        position: relative;
+        overflow: hidden;
+      ">
+        <span style="position:relative; z-index:1;">⚔ 공격! · ${myAttackDamage.toLocaleString()} 데미지</span>
+      </button>
     ` : `
-      <div style="background:rgba(67,160,71,0.2); border:2px solid #43a047; border-radius:10px; padding:12px; text-align:center; margin-bottom:8px;">
-        <div style="font-size:14px; font-weight:bold; color:#43a047;">🎉 보상 분배 중!</div>
-        <div style="font-size:11px; color:#a5d6a7; margin-top:4px;">데미지 비율에 따라 분배: 🪙${Math.floor(boss.reward.gold * myContribution / 100).toLocaleString()} 💎${Math.floor(boss.reward.gem * myContribution / 100)}</div>
-        <button id="raid-claim-btn" style="margin-top:8px; padding:8px 16px; background:linear-gradient(135deg,#ffd700,#ff9800); color:#3e2723; border:2px solid #f57f17; border-radius:8px; font-family:inherit; font-weight:bold; cursor:pointer;">🎁 보상 받기</button>
+      <div style="
+        background: linear-gradient(135deg, rgba(67,160,71,0.3), rgba(46,125,50,0.4));
+        border: 3px solid #43a047;
+        border-radius: 14px;
+        padding: 14px;
+        text-align: center;
+        margin-bottom: 8px;
+        box-shadow: 0 0 24px rgba(67,160,71,0.5);
+      ">
+        <div style="font-size:18px; font-weight:bold; color:#a5d6a7; text-shadow:0 0 6px #43a047;">🎉 보상 분배!</div>
+        <div style="font-size:11px; color:#c8e6c9; margin-top:6px;">
+          기여도 ${myContribution.toFixed(1)}%로
+        </div>
+        <div style="font-size:14px; color:#fff; margin-top:4px; font-weight:bold;">
+          🪙 ${Math.floor(boss.reward.gold * myContribution / 100).toLocaleString()}
+          · 💎 ${Math.floor(boss.reward.gem * myContribution / 100)}
+        </div>
+        <button id="raid-claim-btn" style="
+          margin-top: 10px;
+          padding: 10px 24px;
+          background: linear-gradient(135deg, #ffd700, #ff9800);
+          color: #3e2723;
+          border: 2px solid #f57f17;
+          border-radius: 10px;
+          font-family: inherit;
+          font-weight: bold;
+          font-size: 14px;
+          cursor: pointer;
+          box-shadow: 0 4px 0 #f57f17, 0 6px 12px rgba(0,0,0,0.3);
+          animation: claimBtnPulse 1.5s ease-in-out infinite;
+        ">🎁 보상 받기</button>
       </div>
     `}
-    <div style="background:rgba(0,0,0,0.4); border-radius:10px; padding:10px;">
-      <div style="font-size:11px; color:#ce93d8; font-weight:bold; margin-bottom:6px;">🏆 공격자 랭킹 (${attackerList.length}명):</div>
-      <div style="max-height:150px; overflow-y:auto;">
-        ${attackerList.slice(0, 10).map((a, i) => `
-          <div style="display:flex; align-items:center; gap:6px; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:6px; margin-bottom:3px;">
-            <div style="font-size:11px; font-weight:bold; color:#ffd700; min-width:20px;">${i+1}.</div>
-            <div style="font-size:14px;">${a.avatar || '⛺'}</div>
-            <div style="flex:1; font-size:10px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.nickname}</div>
-            <div style="font-size:10px; color:#ef5350; font-weight:bold;">⚔${(a.damage || 0).toLocaleString()}</div>
-          </div>
-        `).join('')}
+
+    <!-- 공격자 랭킹 -->
+    <div style="
+      background: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.2));
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+    ">
+      <div style="font-size:11px; color:#ce93d8; font-weight:bold; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+        🏆 공격자 랭킹
+        <span style="background:linear-gradient(135deg, #ffd700, #ff9800); color:#3e2723; padding:1px 6px; border-radius:6px; font-size:9px;">${attackerList.length}명</span>
+      </div>
+      <div style="max-height:160px; overflow-y:auto; padding-right:4px;">
+        ${attackerList.slice(0, 10).map((a, i) => {
+          const isMe = a.nickname === game.player.nickname;
+          const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+          const rankBg = isMe
+            ? 'linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,152,0,0.2))'
+            : i < 3
+            ? 'linear-gradient(135deg, rgba(156,39,176,0.2), rgba(0,0,0,0.3))'
+            : 'rgba(0,0,0,0.3)';
+          return `
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 6px 10px;
+              background: ${rankBg};
+              border-radius: 8px;
+              margin-bottom: 4px;
+              ${isMe ? 'border: 1px solid #ffd700;' : ''}
+              transition: transform 0.2s;
+            ">
+              <div style="font-size:13px; font-weight:bold; color:#ffd700; min-width:24px;">
+                ${rankIcon || (i+1) + '.'}
+              </div>
+              <div style="font-size:16px;">${a.avatar || '⛺'}</div>
+              <div style="flex:1; font-size:11px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:${isMe ? 'bold' : 'normal'};">
+                ${escapeHtml(safeNick(a.nickname, '익명'))}${isMe ? ' (나)' : ''}
+              </div>
+              <div style="font-size:11px; color:#ef5350; font-weight:bold; text-shadow:0 0 4px #ef535088;">
+                ⚔ ${(a.damage || 0).toLocaleString()}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     </div>
+
+    <style>
+      @keyframes raidBossRays { to { transform: rotate(360deg); } }
+      @keyframes raidBossBob {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-8px) scale(1.03); }
+      }
+      @keyframes raidParticle {
+        0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+        50% { transform: translateY(-15px) scale(1.4); opacity: 0.9; }
+      }
+      @keyframes hpStripes {
+        to { background-position: 16px 0; }
+      }
+      @keyframes attackBtnGlow {
+        0%, 100% {
+          box-shadow: 0 0 20px ${boss.color}aa, 0 4px 12px rgba(0,0,0,0.5);
+          background-position: 0% 50%;
+        }
+        50% {
+          box-shadow: 0 0 32px ${boss.color}ff, 0 4px 16px rgba(0,0,0,0.6);
+          background-position: 100% 50%;
+        }
+      }
+      @keyframes claimBtnPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 4px 0 #f57f17, 0 6px 12px rgba(0,0,0,0.3); }
+        50% { transform: scale(1.04); box-shadow: 0 4px 0 #f57f17, 0 6px 20px rgba(255,215,0,0.5); }
+      }
+      @keyframes defeatedPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      @keyframes damageFloat {
+        0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+        20% { transform: translate(-50%, -10px) scale(1.3); opacity: 1; }
+        100% { transform: translate(-50%, -80px) scale(1); opacity: 0; }
+      }
+      #raid-boss-icon.hit {
+        animation: bossHit 0.4s ease-out !important;
+      }
+      @keyframes bossHit {
+        0% { transform: scale(1); filter: drop-shadow(0 0 16px ${boss.color}) brightness(1); }
+        20% { transform: scale(1.15) rotate(-5deg); filter: brightness(2) drop-shadow(0 0 32px #ff5252); }
+        50% { transform: scale(0.92) rotate(3deg); filter: brightness(0.5); }
+        100% { transform: scale(1); filter: drop-shadow(0 0 16px ${boss.color}) brightness(1); }
+      }
+    </style>
   `;
-  // 공격 버튼
+
+  // 공격 버튼 - 데미지 숫자 폭발 효과
   const attackBtn = c.querySelector('#raid-attack-btn');
   if (attackBtn) {
     attackBtn.onclick = async () => {
       attackBtn.disabled = true;
-      attackBtn.textContent = '⚔ 공격 중...';
+      attackBtn.innerHTML = '<span>⚔ 공격 중...</span>';
+      // 보스 흔들림 + 데미지 숫자
+      const bossIcon = document.getElementById('raid-boss-icon');
+      if (bossIcon) {
+        bossIcon.classList.add('hit');
+        setTimeout(() => bossIcon.classList.remove('hit'), 400);
+        // 데미지 숫자 떠오르기
+        const bossRect = bossIcon.getBoundingClientRect();
+        const dmgEl = document.createElement('div');
+        dmgEl.style.cssText = `
+          position: fixed;
+          left: ${bossRect.left + bossRect.width / 2}px;
+          top: ${bossRect.top + bossRect.height / 2}px;
+          color: #ffd700;
+          font-size: 28px;
+          font-weight: bold;
+          text-shadow: 0 0 8px #ff5252, 0 2px 4px rgba(0,0,0,0.9);
+          pointer-events: none;
+          z-index: 10010;
+          animation: damageFloat 1.2s ease-out forwards;
+          transform: translate(-50%, 0);
+        `;
+        dmgEl.textContent = `-${myAttackDamage.toLocaleString()}`;
+        document.body.appendChild(dmgEl);
+        setTimeout(() => dmgEl.remove(), 1200);
+      }
+      try { playSound('hit'); } catch (e) {}
+      try { haptic('medium'); } catch (e) {}
       await attackRaid(myAttackDamage);
       // 폴링이 갱신해줌
-      setTimeout(() => { loadRaidContent(); }, 300);
+      setTimeout(() => { loadRaidContent(); }, 400);
     };
   }
   // 보상 받기
@@ -29626,9 +30106,9 @@ async function loadRaidContent() {
       // 🎁 화려한 보상 모달 (z-index 100001 - 모든 것 위에)
       try {
         showRewardModal({
-          icon: '👹',
+          icon: boss.icon,
           title: '레이드 보상 획득!',
-          subtitle: `기여도 ${myContribution}% · ${boss.name || '보스'} 처치`,
+          subtitle: `기여도 ${myContribution.toFixed(1)}% · ${boss.name} 처치`,
           rewards: [
             { icon: '🪙', label: '금화', amount: goldReward },
             { icon: '💎', label: '보석', amount: gemReward },

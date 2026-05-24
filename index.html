@@ -9566,20 +9566,12 @@ const IMG_LOAD_STATUS = {};      // 'loading' | 'loaded' | 'failed'
 
 // 펫 이미지 매핑 (수동 오버라이드용 — 비워두면 자동 인식)
 // 자동 인식: assets/pets/{petKey}.png  (예: assets/pets/wolf.png)
+// 일러스트를 추가하려면:
+//   1. assets/pets/wolf.png 파일 업로드
+//   2. PET_IMAGES_OVERRIDE에 { wolf: 'wolf.png' } 추가
 const PET_IMAGES_OVERRIDE = {
-  // 🌟 DIVINE 5종 (운영자 한정)
-  divine_dragon: 'divine_dragon.png',     // ⚜ 황금 신룡
-  divine_phoenix: 'divine_phoenix.png',   // 🔥 영원의 불사조
-  divine_chronos: 'divine_chronos.png',   // ⏰ 차원의 시간 군주
-  divine_voidlord: 'divine_voidlord.png', // 🌌 공허의 흑마룡
-  divine_angel: 'divine_angel.png',       // 🪽 천상의 빛 천사
-  // 💫 MYTHIC
-  dragon: 'dragon.png',                   // 🐉 용 (붉은 드래곤)
-  hydra: 'hydra.png',                     // 🐍 히드라 (삼두룡)
-  demon: 'demon.png',                     // 👹 악마 (마녀 chibi)
-  // ⚔ EPIC
-  golden_lion: 'golden_lion.png',         // 🦁 황금사자
-  wolf: 'wolf.png',                       // 🐺 회색늑대
+  // 매핑 비워둠 — 모두 SVG로 표시
+  // 일러스트 추가 시 위 형식으로 추가하세요
 };
 
 // 건물 이미지 매핑 (수동 오버라이드용)

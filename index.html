@@ -1324,7 +1324,7 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* === 🦁 펫 카드 비주얼 강화 — 진짜 일러스트처럼 === */
+  /* === 🦁 펫 카드 비주얼 강화 — 진짜 살아있는 일러스트처럼 === */
   .pet-card-svg {
     animation: petFloat 3s ease-in-out infinite;
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
@@ -1332,6 +1332,173 @@
   @keyframes petFloat {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-4px); }
+  }
+
+  /* === 펫 이미지 내부 살아있는 효과 (펫 카드 안의 img/span에 적용) === */
+  /* 기본 - 호흡 + 부드러운 흔들기 */
+  .pet-img-wrap {
+    animation: petBreath 2.4s ease-in-out infinite, petSway 4s ease-in-out infinite;
+    transform-origin: center bottom;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .pet-img-wrap > img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  @keyframes petBreath {
+    0%, 100% { transform: scaleX(1) scaleY(1); }
+    50% { transform: scaleX(1.03) scaleY(0.97); }
+  }
+  @keyframes petSway {
+    0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+    50% { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
+  }
+  /* 카드 호버 시 점프 + 회전 */
+  .pet-card-enhanced:hover .pet-img-wrap {
+    animation: petJump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes petJump {
+    0% { transform: translateY(0) scale(1) rotate(0); }
+    35% { transform: translateY(-10px) scale(1.1) rotate(-5deg); }
+    65% { transform: translateY(-6px) scale(1.08) rotate(5deg); }
+    100% { transform: translateY(0) scale(1) rotate(0); }
+  }
+  /* 클릭 시 짧은 흔들기 */
+  .pet-card-enhanced:active .pet-img-wrap {
+    animation: petShake 0.3s ease-in-out;
+  }
+  @keyframes petShake {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    25% { transform: translateX(-3px) rotate(-3deg); }
+    75% { transform: translateX(3px) rotate(3deg); }
+  }
+
+  /* === 등급별 추가 효과 === */
+  /* COMMON: 기본만 (이미 적용됨) */
+
+  /* RARE: 녹색 글로우 펄스 */
+  .pet-bg-rare .pet-img-wrap {
+    animation: petBreath 2.4s ease-in-out infinite,
+               rareGlow 3s ease-in-out infinite;
+  }
+  @keyframes rareGlow {
+    0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(76,175,80,0.4)); }
+    50% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 16px rgba(76,175,80,0.7)); }
+  }
+
+  /* EPIC: 파란 마법 글로우 + 더 강한 호흡 */
+  .pet-bg-epic .pet-img-wrap {
+    animation: petBreathStrong 2s ease-in-out infinite,
+               epicGlow 2.5s ease-in-out infinite;
+  }
+  @keyframes petBreathStrong {
+    0%, 100% { transform: scaleX(1) scaleY(1); }
+    50% { transform: scaleX(1.05) scaleY(0.95); }
+  }
+  @keyframes epicGlow {
+    0%, 100% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 10px rgba(33,150,243,0.5)); }
+    50% { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 22px rgba(33,150,243,0.9)); }
+  }
+
+  /* LEGENDARY: 황금 펄스 + 호흡 + 살짝 회전 */
+  .pet-bg-legendary .pet-img-wrap {
+    animation: legendaryDance 3.5s ease-in-out infinite,
+               legendaryGlow 2s ease-in-out infinite;
+  }
+  @keyframes legendaryDance {
+    0%, 100% { transform: scaleX(1) scaleY(1) rotate(0deg); }
+    25% { transform: scaleX(1.04) scaleY(0.96) rotate(-1deg); }
+    50% { transform: scaleX(1) scaleY(1) rotate(0deg); }
+    75% { transform: scaleX(1.04) scaleY(0.96) rotate(1deg); }
+  }
+  @keyframes legendaryGlow {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(255,215,0,0.6)) drop-shadow(0 0 8px rgba(255,152,0,0.5)) brightness(1); }
+    50% { filter: drop-shadow(0 0 24px rgba(255,215,0,1)) drop-shadow(0 0 16px rgba(255,152,0,0.8)) brightness(1.1); }
+  }
+
+  /* MYTHIC: 강한 호흡 + 무지개 색상 시프트 + 회전 */
+  .pet-bg-mythic .pet-img-wrap {
+    animation: mythicDance 3s ease-in-out infinite,
+               mythicRainbow 4s linear infinite;
+  }
+  @keyframes mythicDance {
+    0%, 100% { transform: scaleX(1) scaleY(1) rotate(0deg) translateY(0); }
+    25% { transform: scaleX(1.05) scaleY(0.95) rotate(-2deg) translateY(-2px); }
+    50% { transform: scaleX(1) scaleY(1) rotate(0deg) translateY(-4px); }
+    75% { transform: scaleX(1.05) scaleY(0.95) rotate(2deg) translateY(-2px); }
+  }
+  @keyframes mythicRainbow {
+    0%   { filter: drop-shadow(0 0 14px rgba(255,0,200,0.7)) brightness(1.05); }
+    25%  { filter: drop-shadow(0 0 14px rgba(255,200,0,0.7)) brightness(1.05); }
+    50%  { filter: drop-shadow(0 0 14px rgba(0,200,255,0.7)) brightness(1.05); }
+    75%  { filter: drop-shadow(0 0 14px rgba(100,255,100,0.7)) brightness(1.05); }
+    100% { filter: drop-shadow(0 0 14px rgba(255,0,200,0.7)) brightness(1.05); }
+  }
+
+  /* DIVINE: 신성한 황금/순백 + 후광 + 강한 호흡 (가장 화려) */
+  .pet-card-enhanced[class*="bg-divine"] .pet-img-wrap,
+  .pet-bg-divine .pet-img-wrap {
+    animation: divineDance 2.5s ease-in-out infinite,
+               divineHalo 3s ease-in-out infinite;
+  }
+  /* divine 등급은 PET_TIER에 따라 자동 지정. 펫 키 prefix로도 지원 */
+  .pet-img-wrap[data-pet^="divine_"] {
+    animation: divineDance 2.5s ease-in-out infinite,
+               divineHalo 3s ease-in-out infinite !important;
+  }
+  @keyframes divineDance {
+    0%, 100% { transform: scaleX(1) scaleY(1) rotate(0deg) translateY(0); }
+    25% { transform: scaleX(1.06) scaleY(0.94) rotate(-2deg) translateY(-3px); }
+    50% { transform: scaleX(1) scaleY(1) rotate(0deg) translateY(-5px); }
+    75% { transform: scaleX(1.06) scaleY(0.94) rotate(2deg) translateY(-3px); }
+  }
+  @keyframes divineHalo {
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 18px rgba(255,255,255,0.9))
+        drop-shadow(0 0 30px rgba(255,215,0,0.7))
+        drop-shadow(0 0 12px rgba(255,215,0,0.6))
+        brightness(1.1);
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 32px rgba(255,255,255,1))
+        drop-shadow(0 0 50px rgba(255,215,0,1))
+        drop-shadow(0 0 22px rgba(255,215,0,0.9))
+        brightness(1.2);
+    }
+  }
+
+  /* 페어 카드 (도감/소환 결과 모달 등)는 더 큰 hover 효과 */
+  .pet-feature-card .pet-img-wrap {
+    animation-duration: 1.8s;
+  }
+  .pet-feature-card:hover .pet-img-wrap {
+    transform: scale(1.15);
+  }
+
+  /* === 전투 중 펫 공격 모션 === */
+  .pet-img-wrap.pet-attack-anim {
+    animation: petAttackMotion 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+  @keyframes petAttackMotion {
+    0% { transform: translateX(0) rotate(0); }
+    20% { transform: translateX(-8px) rotate(-10deg); }
+    50% { transform: translateX(15px) rotate(15deg) scale(1.1); }
+    80% { transform: translateX(-3px) rotate(-3deg); }
+    100% { transform: translateX(0) rotate(0); }
+  }
+  /* 피격 모션 */
+  .pet-img-wrap.pet-hit-anim {
+    animation: petHitMotion 0.4s ease-out !important;
+  }
+  @keyframes petHitMotion {
+    0% { transform: scale(1); filter: brightness(1); }
+    20% { transform: scale(1.1) rotate(-5deg); filter: brightness(2) drop-shadow(0 0 12px #ff5252); }
+    50% { transform: scale(0.92) rotate(3deg); filter: brightness(0.5); }
+    100% { transform: scale(1); filter: brightness(1); }
   }
   /* mythic 펫 회전 오라 */
   .pet-aura-mythic {
@@ -1410,6 +1577,11 @@
     transform: scale(0.96);
   }
   /* 등급별 펫 카드 배경 그라데이션 강화 */
+  .pet-bg-divine {
+    background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.6), rgba(50, 30, 0, 0.95)) !important;
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 24px rgba(255, 215, 0, 0.8), inset 0 0 18px rgba(255, 215, 0, 0.3) !important;
+  }
   .pet-bg-mythic {
     background: radial-gradient(ellipse at center, rgba(156, 39, 176, 0.5), rgba(20, 10, 40, 0.95)) !important;
   }
@@ -9394,10 +9566,20 @@ const IMG_LOAD_STATUS = {};      // 'loading' | 'loaded' | 'failed'
 
 // 펫 이미지 매핑 (수동 오버라이드용 — 비워두면 자동 인식)
 // 자동 인식: assets/pets/{petKey}.png  (예: assets/pets/wolf.png)
-// 펫 이미지 매핑 (수동 오버라이드용 — 비워두면 자동 인식)
-// 자동 인식: assets/pets/{petKey}.png  (예: assets/pets/wolf.png)
 const PET_IMAGES_OVERRIDE = {
-  // 매핑 비워둠 — 모두 SVG로 표시
+  // 🌟 DIVINE 5종 (운영자 한정)
+  divine_dragon: 'divine_dragon.png',     // ⚜ 황금 신룡
+  divine_phoenix: 'divine_phoenix.png',   // 🔥 영원의 불사조
+  divine_chronos: 'divine_chronos.png',   // ⏰ 차원의 시간 군주
+  divine_voidlord: 'divine_voidlord.png', // 🌌 공허의 흑마룡
+  divine_angel: 'divine_angel.png',       // 🪽 천상의 빛 천사
+  // 💫 MYTHIC
+  dragon: 'dragon.png',                   // 🐉 용 (붉은 드래곤)
+  hydra: 'hydra.png',                     // 🐍 히드라 (삼두룡)
+  demon: 'demon.png',                     // 👹 악마 (마녀 chibi)
+  // ⚔ EPIC
+  golden_lion: 'golden_lion.png',         // 🦁 황금사자
+  wolf: 'wolf.png',                       // 🐺 회색늑대
 };
 
 // 건물 이미지 매핑 (수동 오버라이드용)
@@ -9465,10 +9647,91 @@ function _getPetKey(def) {
 }
 
 // === HTML용 펫 이미지 태그 생성 (SVG 대체) ===
+// ============================================================================
+// 🎨 펫 스프라이트 시트 시스템 - 시트 한 장으로 여러 펫 자동 분할
+// PET_SHEETS 객체에 시트 정의를 추가하면 자동으로 각 펫에 매핑됨
+// 사용 예:
+//   const PET_SHEETS = {
+//     'common_sheet1.png': {
+//       cols: 6, rows: 4,            // 시트 격자 크기
+//       sheetWidth: 1408,            // 시트 전체 너비
+//       sheetHeight: 952,            // 시트 전체 높이
+//       mapping: {
+//         chameleon: { row: 0, col: 0 },
+//         axolotl:   { row: 0, col: 1 },
+//         fennec:    { row: 0, col: 2 },
+//         // ... 펫 키별 격자 위치
+//       }
+//     }
+//   };
+// ============================================================================
+const PET_SHEETS = {
+  // 시트 이미지를 등록할 때 여기에 추가
+  // 예시 (실제 파일 없으면 자동 비활성):
+  // 'common_sheet.png': {
+  //   cols: 6, rows: 4,
+  //   sheetWidth: 1408, sheetHeight: 952,
+  //   mapping: {
+  //     chameleon: { row: 0, col: 0 },
+  //     axolotl:   { row: 0, col: 1 },
+  //   }
+  // }
+};
+
+// 시트 내 위치 → 펫키 역방향 룩업 캐시
+let _PET_SHEET_LOOKUP = null;
+function _buildPetSheetLookup() {
+  _PET_SHEET_LOOKUP = {};
+  for (const [sheetFile, def] of Object.entries(PET_SHEETS)) {
+    if (!def.mapping) continue;
+    for (const [petKey, pos] of Object.entries(def.mapping)) {
+      _PET_SHEET_LOOKUP[petKey] = { sheetFile, ...def, ...pos };
+    }
+  }
+}
+function getPetSheetEntry(petKey) {
+  if (_PET_SHEET_LOOKUP === null) _buildPetSheetLookup();
+  return _PET_SHEET_LOOKUP[petKey];
+}
+window.PET_SHEETS = PET_SHEETS;
+window.getPetSheetEntry = getPetSheetEntry;
+// 시트 매핑이 변경되었을 때 캐시 무효화
+window.invalidatePetSheetCache = function() { _PET_SHEET_LOOKUP = null; };
+
 function petImageHTML(def, size) {
   const key = _getPetKey(def);
   if (!key) return petSVG(def, size);
 
+  // === 0. 시트 매핑 우선 확인 ===
+  const sheetEntry = getPetSheetEntry(key);
+  if (sheetEntry) {
+    const cacheKey = `pets/${sheetEntry.sheetFile}`;
+    if (IMG_LOAD_STATUS[cacheKey] !== 'failed') {
+      // 백그라운드 로드 시작
+      if (!IMG_LOAD_STATUS[cacheKey]) loadImage(sheetEntry.sheetFile, 'pets');
+      // 시트에서 해당 위치를 background-position으로 표시
+      const cellW = sheetEntry.sheetWidth / sheetEntry.cols;
+      const cellH = sheetEntry.sheetHeight / sheetEntry.rows;
+      const scale = size / Math.min(cellW, cellH);
+      const dispW = sheetEntry.sheetWidth * scale;
+      const dispH = sheetEntry.sheetHeight * scale;
+      const bgX = -sheetEntry.col * cellW * scale;
+      const bgY = -sheetEntry.row * cellH * scale;
+      const escapedKey = key.replace(/'/g, "\\'");
+      return `<span class="pet-img-wrap" data-pet="${escapedKey}" style="
+        display: inline-block;
+        width: ${size}px;
+        height: ${size}px;
+        background-image: url('${ASSET_BASE}/pets/${sheetEntry.sheetFile}');
+        background-size: ${dispW}px ${dispH}px;
+        background-position: ${bgX}px ${bgY}px;
+        background-repeat: no-repeat;
+        vertical-align: middle;
+      "></span>`;
+    }
+  }
+
+  // === 1. 단일 파일 매핑 ===
   const filename = PET_IMAGES[key];
   if (!filename) return petSVG(def, size);  // 매핑 없으면 SVG 폴백
 
@@ -9480,7 +9743,7 @@ function petImageHTML(def, size) {
 
   // 컨테이너로 감싸기 (이미지 실패 시 SVG가 들어갈 자리)
   const escapedKey = key.replace(/'/g, "\\'");
-  return `<span class="pet-img-wrap" style="display:inline-flex; align-items:center; justify-content:center; width:${size}px; height:${size}px; vertical-align:middle;"><img src="${ASSET_BASE}/pets/${filename}" width="${size}" height="${size}" style="image-rendering: pixelated; image-rendering: crisp-edges; max-width:100%; max-height:100%;" onerror="window._handlePetImgError(this, '${escapedKey}', ${size});" alt="${def.name}"></span>`;
+  return `<span class="pet-img-wrap" data-pet="${escapedKey}" style="display:inline-flex; align-items:center; justify-content:center; width:${size}px; height:${size}px; vertical-align:middle;"><img src="${ASSET_BASE}/pets/${filename}" width="${size}" height="${size}" style="image-rendering: pixelated; image-rendering: crisp-edges; max-width:100%; max-height:100%;" onerror="window._handlePetImgError(this, '${escapedKey}', ${size});" alt="${def.name}"></span>`;
 }
 
 // 이미지 로딩 실패 시: img를 SVG로 완전 교체
@@ -31982,7 +32245,7 @@ function renderPetCatalogTab(tab) {
       const lvBonusPct = (petLv - 1) * 10;
       html += `
         <div class="pet-card-enhanced pet-bg-${def.tier}" style="border: 2px solid ${isSummoned ? '#4caf50' : color}; border-radius: 12px; padding: 8px; position: relative; box-shadow: 0 0 ${isSummoned ? '18px #4caf5099' : '14px ' + color + '77, inset 0 0 14px ' + color + '22'}; overflow: hidden;">
-          ${def.tier === 'mythic' ? '<div class="pet-aura-mythic"></div><div class="pet-particles"></div>' : def.tier === 'legendary' ? '<div class="pet-aura-legendary"></div><div class="pet-particles"></div>' : ''}
+          ${def.tier === 'divine' ? '<div class="pet-aura-mythic"></div><div class="pet-aura-legendary"></div><div class="pet-particles"></div>' : def.tier === 'mythic' ? '<div class="pet-aura-mythic"></div><div class="pet-particles"></div>' : def.tier === 'legendary' ? '<div class="pet-aura-legendary"></div><div class="pet-particles"></div>' : ''}
           ${isSummoned ? '<div style="position:absolute; top:-7px; right:-4px; background:#4caf50; color:white; border-radius:10px; padding:2px 7px; font-size:9px; font-weight:bold; border:1.5px solid #1b5e20; box-shadow:0 0 6px #4caf50; z-index:5;">✦ 소환중</div>' : ''}
           ${stars ? '<div style="position:absolute; top:-6px; left:-4px; background:linear-gradient(135deg, #ffd700, #f9a825); color:#3e2723; border-radius:10px; padding:2px 6px; font-size:10px; font-weight:bold; border:1.5px solid #f57f17; box-shadow:0 0 8px rgba(255,215,0,0.6); z-index:5;">' + stars + '</div>' : ''}
           <div style="position:absolute; top:6px; right:6px; background:linear-gradient(135deg,#1976d2,#0d47a1); color:#fff; border-radius:8px; padding:1px 6px; font-size:9px; font-weight:bold; border:1px solid #42a5f5; box-shadow:0 0 6px rgba(33,150,243,0.5); z-index:5;">Lv.${petLv}${isMaxLv ? ' MAX' : ''}</div>

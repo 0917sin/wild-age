@@ -9802,7 +9802,7 @@ const ICON_IMAGES_OVERRIDE = {
 // === 📂 실제 업로드된 이미지 파일 목록 ===
 // 여기 있는 키만 PNG로 표시, 나머지는 SVG (깨진 아이콘 방지)
 // 새 PNG 올리면 여기에 키 추가
-const PET_FILES_AVAILABLE = new Set(['amaterasu','amethyst_dragon','angel','anubis','bahamut','baihu','banshee','basilisk','bear','behemoth','bull','centaur','cerberus','cerberus_3h','chimera','chronos','cobra','cosmic_god','croc','crystal_golem','cthulhu','cyclops','demon','djinn','dragon','dragon_blue','dragon_gold','dragon_green','dragon_red','dragon_white','elephant','emerald_dragon','fenghuang','fenrir','gaia_mother','garuda','garuda_king','giraffe','golem_crystal','golem_iron','golem_stone','gorilla','griffin','hippo','hydra','ice_phoenix','ifrit','ignis_lord','jaguar','jormungandr','kraken','lava_golem','leviathan','lioness','manticore','minotaur','moonlight_unicorn','nine_tail','odin_raven','ouroboros','panther','pegasus','pegasus_w','phoenix','phoenix_dawn','phoenix_night','qilin','qinglong','ra','rainbow_serpent','rhino','roc','ruby_dragon','sapphire_dragon','shadow_phoenix','shark','shenlong','sleipnir','sphinx','squid','starlight_griffin','storm_dragon','susanoo','thunder_phoenix','thunder_tiger','thunderbird','tiamat','tiger','tigercub','titan_frost','treant','unicorn','void_dragon','void_wolf','volcano_dragon','vulture','whale','wolf','worldgod','xuanwu','yamato','yeti','ymir','zeus_king','zhuque','ziz']);
+const PET_FILES_AVAILABLE = new Set(['amaterasu','amethyst_dragon','angel','anubis','bahamut','baihu','banshee','basilisk','bear','behemoth','bull','centaur','cerberus','cerberus_3h','chimera','chronos','cobra','cosmic_god','croc','crystal_golem','cthulhu','cyclops','demon','divine_angel','divine_chronos','divine_dragon','divine_phoenix','divine_voidlord','djinn','dragon','dragon_blue','dragon_gold','dragon_green','dragon_red','dragon_white','elephant','emerald_dragon','fenghuang','fenrir','gaia_mother','garuda','garuda_king','giraffe','golem_crystal','golem_iron','golem_stone','gorilla','griffin','hippo','hydra','ice_phoenix','ifrit','ignis_lord','jaguar','jormungandr','kraken','lava_golem','leviathan','lioness','manticore','minotaur','moonlight_unicorn','nine_tail','odin_raven','ouroboros','panther','pegasus','pegasus_w','phoenix','phoenix_dawn','phoenix_night','qilin','qinglong','ra','rainbow_serpent','rhino','roc','ruby_dragon','sapphire_dragon','shadow_phoenix','shark','shenlong','sleipnir','sphinx','squid','starlight_griffin','storm_dragon','susanoo','thunder_phoenix','thunder_tiger','thunderbird','tiamat','tiger','tigercub','titan_frost','treant','unicorn','void_dragon','void_wolf','volcano_dragon','vulture','whale','wolf','worldgod','xuanwu','yamato','yeti','ymir','zeus_king','zhuque','ziz']);
 const BUILDING_FILES_AVAILABLE = new Set(['altar','barracks','blacksmith','crystal','farm','fishery','forge','garden','goldmine','greenhouse','hospital','hut','lab','library','market','mill','mushroom','observatory','pet_house','quarry','shrine','stable','stone_altar','temple','trader_post','warehouse','watchtower','windmill']);
 window.PET_FILES_AVAILABLE = PET_FILES_AVAILABLE;
 window.BUILDING_FILES_AVAILABLE = BUILDING_FILES_AVAILABLE;
@@ -10258,19 +10258,6 @@ const PETS = {
   bunny:      { name: '솜토끼',       icon: '🐇', emoji: '🐇', power: 36, tier: 'common', desc: '복슬복슬한 토끼.' },
   pigeon:     { name: '비둘기',       icon: '🕊️', emoji: '🕊️', power: 38, tier: 'common', desc: '평화를 전하는 새.' },
   sparrow:    { name: '참새',         icon: '🐦', emoji: '🐦', power: 32, tier: 'common', desc: '재잘대는 작은 새.' },
-  starling:   { name: '찌르레기',     icon: '🐦', emoji: '🐦', power: 35, tier: 'common', desc: '무리지어 군무를 추는 새.' },
-  penguin_baby:{name: '아기 펭귄',    icon: '🐧', emoji: '🐧', power: 46, tier: 'common', desc: '아장아장 걷는 어린 펭귄.' },
-  seal:       { name: '바다표범',     icon: '🦭', emoji: '🦭', power: 58, tier: 'common', desc: '바위 위에서 햇볕을 쬔다.' },
-  otter:      { name: '수달',         icon: '🦦', emoji: '🦦', power: 54, tier: 'common', desc: '물에서 노는 사랑스러운 동물.' },
-  hedgehog:   { name: '고슴도치',     icon: '🦔', emoji: '🦔', power: 44, tier: 'common', desc: '가시로 무장한 작은 동물.' },
-  bat_small:  { name: '작은 박쥐',    icon: '🦇', emoji: '🦇', power: 42, tier: 'common', desc: '밤하늘을 가르는 작은 비행체.' },
-  donkey:     { name: '당나귀',       icon: '🫏', emoji: '🫏', power: 55, tier: 'common', desc: '온순한 짐꾼.' },
-  pony:       { name: '조랑말',       icon: '🐴', emoji: '🐴', power: 58, tier: 'common', desc: '아이들의 친구.' },
-  llama_baby: { name: '아기 라마',    icon: '🦙', emoji: '🦙', power: 52, tier: 'common', desc: '고원의 어린 라마.' },
-  oyster:     { name: '굴',           icon: '🦪', emoji: '🦪', power: 30, tier: 'common', desc: '진주를 품을 수도 있다.' },
-  jellyfish:  { name: '해파리',       icon: '🪼', emoji: '🪼', power: 36, tier: 'common', desc: '바다를 떠다니는 투명한 존재.' },
-  firefly:    { name: '반딧불이',     icon: '✨', emoji: '✨', power: 40, tier: 'common', desc: '여름밤을 밝히는 작은 빛.' },
-  mantis_baby:{ name: '아기 사마귀',  icon: '🦗', emoji: '🦗', power: 44, tier: 'common', desc: '풀잎을 가르는 어린 사냥꾼.' },
 
   // ===== 희귀 추가 35종 (power 70~120) =====
   panda:      { name: '판다',         icon: '🐼', emoji: '🐼', power: 95, tier: 'rare', desc: '대나무를 사랑하는 흑백 곰.' },
@@ -10281,33 +10268,7 @@ const PETS = {
   hippo:      { name: '하마',         icon: '🦛', emoji: '🦛', power: 108, tier: 'rare', desc: '거대한 입의 강 지배자.' },
   rhino:      { name: '코뿔소',       icon: '🦏', emoji: '🦏', power: 115, tier: 'rare', desc: '강철 같은 뿔의 돌격자.' },
   flamingo:   { name: '플라밍고',     icon: '🦩', emoji: '🦩', power: 80, tier: 'rare', desc: '분홍빛 우아한 외다리 새.' },
-  peacock:    { name: '공작',         icon: '🦚', emoji: '🦚', power: 90, tier: 'rare', desc: '화려한 꼬리를 펼치는 자.' },
-  pelican:    { name: '펠리컨',       icon: '🐦', emoji: '🐦', power: 85, tier: 'rare', desc: '큰 부리에 물고기를 담는다.' },
-  ostrich:    { name: '타조',         icon: '🐦', emoji: '🐦', power: 105, tier: 'rare', desc: '땅 위 가장 빠른 새.' },
-  emu:        { name: '에뮤',         icon: '🐦', emoji: '🐦', power: 95, tier: 'rare', desc: '호주 평원의 거대한 새.' },
-  okapi:      { name: '오카피',       icon: '🦒', emoji: '🦒', power: 88, tier: 'rare', desc: '숲의 신비로운 동물.' },
-  tapir:      { name: '맥',           icon: '🐗', emoji: '🐗', power: 90, tier: 'rare', desc: '꿈을 먹는다는 전설의 동물.' },
-  porcupine:  { name: '호저',         icon: '🦔', emoji: '🦔', power: 85, tier: 'rare', desc: '길고 날카로운 가시.' },
-  armadillo:  { name: '아르마딜로',   icon: '🦔', emoji: '🦔', power: 82, tier: 'rare', desc: '갑옷을 두른 작은 짐승.' },
-  sloth:      { name: '나무늘보',     icon: '🦥', emoji: '🦥', power: 75, tier: 'rare', desc: '느림의 미학.' },
-  capybara:   { name: '카피바라',     icon: '🦫', emoji: '🦫', power: 88, tier: 'rare', desc: '온순한 거대 설치류.' },
-  meerkat:    { name: '미어캣',       icon: '🦦', emoji: '🦦', power: 78, tier: 'rare', desc: '사막의 영리한 보초.' },
-  weasel:     { name: '족제비',       icon: '🦦', emoji: '🦦', power: 82, tier: 'rare', desc: '날렵하고 사나운 사냥꾼.' },
-  ferret:     { name: '페럿',         icon: '🦦', emoji: '🦦', power: 80, tier: 'rare', desc: '굴을 누비는 사냥꾼.' },
-  mongoose:   { name: '몽구스',       icon: '🦔', emoji: '🦔', power: 95, tier: 'rare', desc: '독사를 사냥하는 자.' },
-  hyena:      { name: '하이에나',     icon: '🐺', emoji: '🐺', power: 100, tier: 'rare', desc: '잔혹한 웃음의 청소부.' },
-  jackal:     { name: '자칼',         icon: '🦊', emoji: '🦊', power: 92, tier: 'rare', desc: '사막의 교활한 사냥꾼.' },
-  coyote:     { name: '코요테',       icon: '🦊', emoji: '🦊', power: 95, tier: 'rare', desc: '황야의 떠돌이.' },
-  dingo:      { name: '딩고',         icon: '🐺', emoji: '🐺', power: 98, tier: 'rare', desc: '호주 야생의 들개.' },
-  lynx:       { name: '스라소니',     icon: '🐈', emoji: '🐈', power: 110, tier: 'rare', desc: '귀끝의 깃털과 날카로운 발톱.' },
-  bobcat:     { name: '밥캣',         icon: '🐈', emoji: '🐈', power: 105, tier: 'rare', desc: '북미 숲의 작은 사냥꾼.' },
-  cheetah_young:{ name: '치타 새끼',  icon: '🐆', emoji: '🐆', power: 100, tier: 'rare', desc: '가장 빠른 어린 사냥꾼.' },
-  jaguar_young:{ name: '재규어 새끼', icon: '🐆', emoji: '🐆', power: 108, tier: 'rare', desc: '정글의 점박이 어린 왕.' },
   vulture:    { name: '독수리',       icon: '🦅', emoji: '🦅', power: 100, tier: 'rare', desc: '죽음을 향해 날아드는 새.' },
-  raven:      { name: '큰까마귀',     icon: '🐦‍⬛', emoji: '🐦‍⬛', power: 95, tier: 'rare', desc: '지혜의 검은 새.' },
-  crow:       { name: '까마귀',       icon: '🐦‍⬛', emoji: '🐦‍⬛', power: 90, tier: 'rare', desc: '영리하고 신비로운 자.' },
-  woodpecker: { name: '딱따구리',     icon: '🐦', emoji: '🐦', power: 88, tier: 'rare', desc: '나무를 두드리는 의사.' },
-  iguana:     { name: '이구아나',     icon: '🦎', emoji: '🦎', power: 90, tier: 'rare', desc: '햇살 좋아하는 큰 도마뱀.' },
 
   // ===== 에픽 추가 40종 (power 130~220) =====
   bear_grizzly:{ name: '회색곰',      icon: '🐻', emoji: '🐻', power: 180, tier: 'epic', desc: '북미 숲의 거대한 사냥꾼.' },
@@ -10333,23 +10294,8 @@ const PETS = {
   yak:        { name: '야크',         icon: '🐂', emoji: '🐂', power: 175, tier: 'epic', desc: '히말라야의 털복숭이 거수.' },
   bison:      { name: '바이슨',       icon: '🦬', emoji: '🦬', power: 200, tier: 'epic', desc: '북미 대평원의 왕.' },
   moose:      { name: '무스',         icon: '🫎', emoji: '🫎', power: 190, tier: 'epic', desc: '거대한 뿔의 숲의 거인.' },
-  caribou:    { name: '카리부',       icon: '🦌', emoji: '🦌', power: 165, tier: 'epic', desc: '북극 툰드라의 순록.' },
-  elk:        { name: '엘크',         icon: '🦌', emoji: '🦌', power: 175, tier: 'epic', desc: '거대한 가지뿔의 사슴.' },
   walrus:     { name: '바다코끼리',   icon: '🦭', emoji: '🦭', power: 195, tier: 'epic', desc: '두 개의 거대한 송곳니.' },
-  orca:       { name: '범고래',       icon: '🐋', emoji: '🐋', power: 215, tier: 'epic', desc: '바다의 검은 사냥꾼.' },
-  shark_great:{ name: '백상아리',     icon: '🦈', emoji: '🦈', power: 220, tier: 'epic', desc: '바다의 톱니 이빨.' },
-  shark_hammer:{ name: '귀상어',      icon: '🦈', emoji: '🦈', power: 180, tier: 'epic', desc: '망치 모양의 머리.' },
-  swordfish:  { name: '황새치',       icon: '🐟', emoji: '🐟', power: 165, tier: 'epic', desc: '검과 같은 부리.' },
-  marlin:     { name: '청새치',       icon: '🐟', emoji: '🐟', power: 175, tier: 'epic', desc: '바다의 가장 빠른 검투사.' },
-  manta_ray:  { name: '쥐가오리',     icon: '🐠', emoji: '🐠', power: 170, tier: 'epic', desc: '바다 위를 비행하듯 헤엄친다.' },
-  electric_eel:{ name: '전기뱀장어',  icon: '⚡', emoji: '⚡', power: 160, tier: 'epic', desc: '600볼트의 충격.' },
-  giant_squid:{ name: '대왕오징어',   icon: '🦑', emoji: '🦑', power: 200, tier: 'epic', desc: '심해의 거대한 두족류.' },
-  kraken_baby:{ name: '아기 크라켄',  icon: '🐙', emoji: '🐙', power: 195, tier: 'epic', desc: '어린 심해의 공포.' },
-  griffin_baby:{ name: '새끼 그리핀', icon: '🦅', emoji: '🦅', power: 185, tier: 'epic', desc: '독수리와 사자의 어린 잡종.' },
-  hippogriff_y:{ name: '새끼 히포그리프',icon:'🦄', emoji: '🦄', power: 180, tier: 'epic', desc: '독수리-말의 어린 마수.' },
   manticore:  { name: '맨티코어',     icon: '🦁', emoji: '🦁', power: 215, tier: 'epic', desc: '사자 몸에 인간 얼굴, 전갈 꼬리.' },
-  basilisk_b: { name: '아기 바실리스크',icon: '🐍', emoji: '🐍', power: 200, tier: 'epic', desc: '눈빛으로 돌이 되게 한다.' },
-  wyrm:       { name: '윔',           icon: '🐍', emoji: '🐍', power: 210, tier: 'epic', desc: '대지를 휘감는 거대 뱀.' },
 
   // ===== 전설 추가 30종 (power 240~350) =====
   phoenix_dawn:{ name: '여명의 불사조',icon: '🦅', emoji: '🦅', power: 320, tier: 'legendary', desc: '새벽의 첫 빛에서 태어난다.' },
@@ -10399,270 +10345,8 @@ const PETS = {
   sleipnir:   { name: '슬레이프니르', icon: '🐴', emoji: '🐴', power: 495, tier: 'mythic', desc: '오딘의 여덟 다리 말.' },
   void_dragon:{ name: '공허의 용',    icon: '🌑', emoji: '🌑', power: 580, tier: 'mythic', desc: '존재 너머에서 온 절멸의 용.' },
   cosmic_god: { name: '우주의 신',    icon: '🌠', emoji: '🌠', power: 600, tier: 'mythic', desc: '별과 은하를 지배하는 절대자.' },
-  mole_baby: { name: '두더지 새끼', icon: '🐀', emoji: '🐀', power: 25, tier: 'common', desc: '땅속을 파는 어린 두더지.' },
-  shrew: { name: '뾰족뒤쥐', icon: '🐭', emoji: '🐭', power: 27, tier: 'common', desc: '아주 작은 식충 동물.' },
-  vole: { name: '들쥐', icon: '🐹', emoji: '🐹', power: 29, tier: 'common', desc: '풀밭에 사는 작은 설치류.' },
-  lemming: { name: '레밍', icon: '🐹', emoji: '🐹', power: 31, tier: 'common', desc: '북극 툰드라의 작은 동물.' },
-  gerbil: { name: '저빌', icon: '🐹', emoji: '🐹', power: 33, tier: 'common', desc: '사막의 작은 쥐.' },
-  chipmunk_b: { name: '얼룩 다람쥐', icon: '🐿️', emoji: '🐿️', power: 35, tier: 'common', desc: '줄무늬가 있는 다람쥐.' },
-  dormouse: { name: '도마우스', icon: '🐭', emoji: '🐭', power: 37, tier: 'common', desc: '잠을 많이 자는 작은 쥐.' },
-  mole2: { name: '두더지', icon: '🐀', emoji: '🐀', power: 39, tier: 'common', desc: '땅속 굴의 주인.' },
-  weasel_b: { name: '작은 족제비', icon: '🦦', emoji: '🦦', power: 41, tier: 'common', desc: '날쌘 사냥꾼.' },
-  marmot: { name: '마멋', icon: '🐹', emoji: '🐹', power: 43, tier: 'common', desc: '땅굴에 사는 통통한 설치류.' },
-  mongoose_b: { name: '아기 몽구스', icon: '🦔', emoji: '🦔', power: 45, tier: 'common', desc: '뱀을 잡는 작은 포유류.' },
-  cricket_b: { name: '귀뚜라미', icon: '🦗', emoji: '🦗', power: 30, tier: 'common', desc: '밤에 우는 곤충.' },
-  grasshopper: { name: '메뚜기', icon: '🦗', emoji: '🦗', power: 32, tier: 'common', desc: '풀밭의 점프 선수.' },
-  katydid: { name: '여치', icon: '🦗', emoji: '🦗', power: 34, tier: 'common', desc: '나뭇잎 모양의 곤충.' },
-  mantis: { name: '사마귀', icon: '🦗', emoji: '🦗', power: 38, tier: 'common', desc: '풀숲의 사냥꾼.' },
-  ladybug2: { name: '무당벌레', icon: '🐞', emoji: '🐞', power: 36, tier: 'common', desc: '빨간 점이 있는 곤충.' },
-  firefly2: { name: '반딧불이', icon: '✨', emoji: '✨', power: 40, tier: 'common', desc: '빛을 내는 작은 곤충.' },
   caterpillar: { name: '애벌레', icon: '🐛', emoji: '🐛', power: 28, tier: 'common', desc: '나비가 되기 전의 모습.' },
-  worm_b: { name: '지렁이', icon: '🪱', emoji: '🪱', power: 26, tier: 'common', desc: '땅을 비옥하게 하는 벌레.' },
-  millipede: { name: '노래기', icon: '🐛', emoji: '🐛', power: 34, tier: 'common', desc: '다리 많은 절지동물.' },
-  centipede: { name: '지네', icon: '🐛', emoji: '🐛', power: 42, tier: 'common', desc: '독을 가진 절지동물.' },
-  snail2: { name: '달팽이', icon: '🐌', emoji: '🐌', power: 30, tier: 'common', desc: '느린 연체동물.' },
-  slug: { name: '민달팽이', icon: '🐌', emoji: '🐌', power: 28, tier: 'common', desc: '껍데기 없는 달팽이.' },
-  moth: { name: '나방', icon: '🦋', emoji: '🦋', power: 35, tier: 'common', desc: '밤에 활동하는 나비 친척.' },
-  butterfly2: { name: '나비', icon: '🦋', emoji: '🦋', power: 38, tier: 'common', desc: '꽃밭을 누비는 곤충.' },
-  dragonfly: { name: '잠자리', icon: '🦗', emoji: '🦗', power: 42, tier: 'common', desc: '날카로운 시력의 비행 곤충.' },
-  mayfly: { name: '하루살이', icon: '🦟', emoji: '🦟', power: 25, tier: 'common', desc: '하루만 사는 곤충.' },
-  mosquito: { name: '모기', icon: '🦟', emoji: '🦟', power: 27, tier: 'common', desc: '여름의 골칫거리.' },
-  housefly: { name: '집파리', icon: '🪰', emoji: '🪰', power: 29, tier: 'common', desc: '쓰레기를 좋아하는 곤충.' },
-  cockroach: { name: '바퀴벌레', icon: '🪳', emoji: '🪳', power: 35, tier: 'common', desc: '끈질긴 생명력의 곤충.' },
-  termite: { name: '흰개미', icon: '🐜', emoji: '🐜', power: 31, tier: 'common', desc: '나무를 갉아먹는 곤충.' },
-  wasp: { name: '말벌', icon: '🐝', emoji: '🐝', power: 48, tier: 'common', desc: '독침을 가진 위험한 곤충.' },
-  hornet: { name: '장수말벌', icon: '🐝', emoji: '🐝', power: 52, tier: 'common', desc: '강력한 독침을 가진 큰 말벌.' },
-  aphid: { name: '진딧물', icon: '🐜', emoji: '🐜', power: 24, tier: 'common', desc: '식물의 적인 작은 곤충.' },
-  flea: { name: '벼룩', icon: '🪲', emoji: '🪲', power: 26, tier: 'common', desc: '점프하는 작은 흡혈 곤충.' },
-  tick: { name: '진드기', icon: '🪲', emoji: '🪲', power: 28, tier: 'common', desc: '피를 빠는 작은 절지동물.' },
-  mite: { name: '응애', icon: '🪲', emoji: '🪲', power: 22, tier: 'common', desc: '아주 작은 절지동물.' },
-  woodlouse: { name: '쥐며느리', icon: '🐛', emoji: '🐛', power: 30, tier: 'common', desc: '습기를 좋아하는 절지동물.' },
-  sparrow2: { name: '참새', icon: '🐦', emoji: '🐦', power: 32, tier: 'common', desc: '도시의 흔한 작은 새.' },
-  swallow: { name: '제비', icon: '🐦', emoji: '🐦', power: 40, tier: 'common', desc: '봄을 알리는 빠른 새.' },
-  finch: { name: '되새', icon: '🐦', emoji: '🐦', power: 36, tier: 'common', desc: '씨앗을 먹는 작은 새.' },
-  canary: { name: '카나리아', icon: '🐤', emoji: '🐤', power: 38, tier: 'common', desc: '노란색 노래 새.' },
-  robin: { name: '울새', icon: '🐦', emoji: '🐦', power: 42, tier: 'common', desc: '빨간 가슴의 새.' },
-  bluetit: { name: '파랑새', icon: '🐦', emoji: '🐦', power: 40, tier: 'common', desc: '푸른 깃털의 작은 새.' },
-  wren: { name: '굴뚝새', icon: '🐦', emoji: '🐦', power: 35, tier: 'common', desc: '아주 작은 갈색 새.' },
-  starling2: { name: '찌르레기', icon: '🐦', emoji: '🐦', power: 44, tier: 'common', desc: '무리 짓는 검은 새.' },
-  crow_baby: { name: '아기 까마귀', icon: '🐦', emoji: '🐦', power: 46, tier: 'common', desc: '검은 깃털의 영리한 새.' },
-  magpie: { name: '까치', icon: '🐦', emoji: '🐦', power: 50, tier: 'common', desc: '흰검 깃털의 새.' },
-  jay: { name: '어치', icon: '🐦', emoji: '🐦', power: 48, tier: 'common', desc: '도토리를 묻는 새.' },
-  cuckoo: { name: '뻐꾸기', icon: '🐦', emoji: '🐦', power: 45, tier: 'common', desc: '남의 둥지에 알을 낳는 새.' },
-  dove: { name: '비둘기', icon: '🐦', emoji: '🐦', power: 38, tier: 'common', desc: '평화의 상징.' },
-  quail: { name: '메추라기', icon: '🐦', emoji: '🐦', power: 42, tier: 'common', desc: '땅을 걷는 작은 새.' },
-  pheasant: { name: '꿩', icon: '🐦', emoji: '🐦', power: 55, tier: 'common', desc: '화려한 깃털의 들새.' },
-  partridge: { name: '자고새', icon: '🐦', emoji: '🐦', power: 50, tier: 'common', desc: '땅을 다니는 새.' },
-  grouse: { name: '뇌조', icon: '🐦', emoji: '🐦', power: 52, tier: 'common', desc: '산속에 사는 새.' },
-  woodpecker_b: { name: '딱따구리', icon: '🐦', emoji: '🐦', power: 48, tier: 'common', desc: '나무를 쪼는 새.' },
-  hummingbird: { name: '벌새', icon: '🐦', emoji: '🐦', power: 44, tier: 'common', desc: '날개를 빠르게 흔드는 작은 새.' },
-  swift: { name: '칼새', icon: '🐦', emoji: '🐦', power: 46, tier: 'common', desc: '빠른 비행의 작은 새.' },
-  martin: { name: '소쩍새', icon: '🐦', emoji: '🐦', power: 40, tier: 'common', desc: '밤에 우는 부엉이 종류.' },
-  chickadee: { name: '박새', icon: '🐦', emoji: '🐦', power: 36, tier: 'common', desc: '추위에 강한 작은 새.' },
-  warbler: { name: '휘파람새', icon: '🐦', emoji: '🐦', power: 38, tier: 'common', desc: '아름다운 소리의 새.' },
-  catfish: { name: '메기', icon: '🐟', emoji: '🐟', power: 45, tier: 'common', desc: '강의 큰 물고기.' },
-  trout: { name: '송어', icon: '🐟', emoji: '🐟', power: 50, tier: 'common', desc: '맑은 물의 물고기.' },
-  salmon: { name: '연어', icon: '🐟', emoji: '🐟', power: 60, tier: 'common', desc: '강을 거슬러 오르는 물고기.' },
-  carp: { name: '잉어', icon: '🐟', emoji: '🐟', power: 48, tier: 'common', desc: '연못의 큰 물고기.' },
-  goldfish: { name: '금붕어', icon: '🐠', emoji: '🐠', power: 32, tier: 'common', desc: '예쁜 관상어.' },
-  bass: { name: '배스', icon: '🐟', emoji: '🐟', power: 55, tier: 'common', desc: '낚시꾼의 표적.' },
-  pike: { name: '강꼬치고기', icon: '🐟', emoji: '🐟', power: 58, tier: 'common', desc: '날카로운 이빨의 물고기.' },
-  eel: { name: '뱀장어', icon: '🐟', emoji: '🐟', power: 50, tier: 'common', desc: '뱀처럼 긴 물고기.' },
-  sardine: { name: '정어리', icon: '🐟', emoji: '🐟', power: 30, tier: 'common', desc: '무리 짓는 작은 물고기.' },
-  herring: { name: '청어', icon: '🐟', emoji: '🐟', power: 35, tier: 'common', desc: '바다의 흔한 물고기.' },
-  anchovy: { name: '멸치', icon: '🐟', emoji: '🐟', power: 28, tier: 'common', desc: '아주 작은 바닷물고기.' },
-  mackerel: { name: '고등어', icon: '🐟', emoji: '🐟', power: 42, tier: 'common', desc: '푸른 등의 물고기.' },
-  tuna_small: { name: '작은 참치', icon: '🐟', emoji: '🐟', power: 55, tier: 'common', desc: '바다의 빠른 물고기.' },
-  cod: { name: '대구', icon: '🐟', emoji: '🐟', power: 50, tier: 'common', desc: '북쪽 바다의 물고기.' },
-  flounder: { name: '광어', icon: '🐠', emoji: '🐠', power: 48, tier: 'common', desc: '바닥에 사는 납작한 물고기.' },
-  sole: { name: '서대', icon: '🐠', emoji: '🐠', power: 45, tier: 'common', desc: '한쪽 눈이 이동한 물고기.' },
-  sardine_school: { name: '정어리 떼', icon: '🐟', emoji: '🐟', power: 35, tier: 'common', desc: '무리 지은 정어리.' },
-  seahorse: { name: '해마', icon: '🐠', emoji: '🐠', power: 40, tier: 'common', desc: '말 모양의 작은 물고기.' },
-  starfish: { name: '불가사리', icon: '⭐', emoji: '⭐', power: 38, tier: 'common', desc: '별 모양의 바다 생물.' },
-  seaurchin: { name: '성게', icon: '🌰', emoji: '🌰', power: 36, tier: 'common', desc: '가시 많은 바다 생물.' },
-  anemone: { name: '말미잘', icon: '🌺', emoji: '🌺', power: 34, tier: 'common', desc: '꽃 같은 바다 생물.' },
-  coral: { name: '산호', icon: '🪸', emoji: '🪸', power: 40, tier: 'common', desc: '바다의 보석.' },
-  clam: { name: '조개', icon: '🦪', emoji: '🦪', power: 32, tier: 'common', desc: '진주를 만들 수도 있는 조개.' },
-  mussel: { name: '홍합', icon: '🦪', emoji: '🦪', power: 30, tier: 'common', desc: '바위에 붙는 조개.' },
-  scallop: { name: '가리비', icon: '🦪', emoji: '🦪', power: 38, tier: 'common', desc: '맛있는 조개.' },
-  squid_b: { name: '오징어', icon: '🦑', emoji: '🦑', power: 50, tier: 'common', desc: '먹물을 뿜는 연체동물.' },
-  cuttlefish: { name: '갑오징어', icon: '🦑', emoji: '🦑', power: 52, tier: 'common', desc: '색을 바꾸는 오징어.' },
-  jellyfish_s: { name: '작은 해파리', icon: '🪼', emoji: '🪼', power: 36, tier: 'common', desc: '투명한 바다 생물.' },
-  crab_small: { name: '작은 게', icon: '🦀', emoji: '🦀', power: 42, tier: 'common', desc: '바위 틈의 작은 게.' },
-  hermit_crab: { name: '소라게', icon: '🦀', emoji: '🦀', power: 38, tier: 'common', desc: '껍데기를 빌려쓰는 게.' },
-  shrimp_b: { name: '새우', icon: '🦐', emoji: '🦐', power: 35, tier: 'common', desc: '바다의 작은 절지동물.' },
-  lobster: { name: '바닷가재', icon: '🦞', emoji: '🦞', power: 60, tier: 'common', desc: '집게가 큰 바다 생물.' },
-  crayfish: { name: '가재', icon: '🦞', emoji: '🦞', power: 45, tier: 'common', desc: '민물의 작은 바닷가재.' },
-  frog2: { name: '두꺼비', icon: '🐸', emoji: '🐸', power: 38, tier: 'common', desc: '습기 좋아하는 양서류.' },
-  toad2: { name: '청개구리', icon: '🐸', emoji: '🐸', power: 36, tier: 'common', desc: '비를 알리는 개구리.' },
-  newt: { name: '도롱뇽', icon: '🦎', emoji: '🦎', power: 35, tier: 'common', desc: '물가의 작은 양서류.' },
-  salamander: { name: '도롱뇽', icon: '🦎', emoji: '🦎', power: 42, tier: 'common', desc: '재생력 좋은 양서류.' },
-  axolotl: { name: '아홀로틀', icon: '🦎', emoji: '🦎', power: 45, tier: 'common', desc: '귀여운 외형의 양서류.' },
-  gecko: { name: '도마뱀붙이', icon: '🦎', emoji: '🦎', power: 40, tier: 'common', desc: '벽을 기는 도마뱀.' },
-  skink: { name: '도마뱀', icon: '🦎', emoji: '🦎', power: 38, tier: 'common', desc: '매끄러운 비늘의 도마뱀.' },
-  chameleon: { name: '카멜레온', icon: '🦎', emoji: '🦎', power: 50, tier: 'common', desc: '색을 바꾸는 도마뱀.' },
-  lizard_b: { name: '도마뱀 새끼', icon: '🦎', emoji: '🦎', power: 32, tier: 'common', desc: '작은 도마뱀.' },
-  horntoad: { name: '뿔두꺼비', icon: '🐸', emoji: '🐸', power: 44, tier: 'common', desc: '뿔이 있는 두꺼비.' },
-  mud_skipper: { name: '진흙 메기', icon: '🐟', emoji: '🐟', power: 42, tier: 'common', desc: '갯벌의 물고기.' },
-  puddle_fish: { name: '웅덩이 물고기', icon: '🐟', emoji: '🐟', power: 30, tier: 'common', desc: '작은 웅덩이 물고기.' },
-  field_mouse: { name: '들쥐', icon: '🐭', emoji: '🐭', power: 26, tier: 'common', desc: '들판의 작은 쥐.' },
-  barn_owl: { name: '외양간 부엉이', icon: '🦉', emoji: '🦉', power: 60, tier: 'common', desc: '외양간에 사는 부엉이.' },
-  tree_frog: { name: '청개구리', icon: '🐸', emoji: '🐸', power: 38, tier: 'common', desc: '나무 위 개구리.' },
-  pond_frog: { name: '연못 개구리', icon: '🐸', emoji: '🐸', power: 35, tier: 'common', desc: '연못에 사는 개구리.' },
-  garden_snake: { name: '정원 뱀', icon: '🐍', emoji: '🐍', power: 50, tier: 'common', desc: '정원의 작은 뱀.' },
-  grass_snake: { name: '풀숲 뱀', icon: '🐍', emoji: '🐍', power: 48, tier: 'common', desc: '풀숲에 사는 뱀.' },
-  worm_lizard: { name: '벌레도마뱀', icon: '🦎', emoji: '🦎', power: 36, tier: 'common', desc: '다리 없는 도마뱀.' },
-  tortoise: { name: '거북', icon: '🐢', emoji: '🐢', power: 55, tier: 'common', desc: '느린 육지 거북.' },
-  terrapin: { name: '민물거북', icon: '🐢', emoji: '🐢', power: 50, tier: 'common', desc: '강의 거북.' },
-  soft_turtle: { name: '자라', icon: '🐢', emoji: '🐢', power: 52, tier: 'common', desc: '부드러운 등껍질의 거북.' },
-  field_rabbit: { name: '들토끼', icon: '🐰', emoji: '🐰', power: 45, tier: 'common', desc: '들판의 토끼.' },
-  snowshoe: { name: '눈신토끼', icon: '🐰', emoji: '🐰', power: 48, tier: 'common', desc: '눈 위를 뛰는 토끼.' },
-  jackrabbit: { name: '잭래빗', icon: '🐰', emoji: '🐰', power: 50, tier: 'common', desc: '긴 귀의 토끼.' },
-  cottontail: { name: '솜꼬리토끼', icon: '🐰', emoji: '🐰', power: 46, tier: 'common', desc: '꼬리가 솜 같은 토끼.' },
-  pika: { name: '우는토끼', icon: '🐹', emoji: '🐹', power: 38, tier: 'common', desc: '산속의 작은 토끼.' },
-  shrew_b: { name: '땃쥐', icon: '🐭', emoji: '🐭', power: 28, tier: 'common', desc: '작은 식충동물.' },
-  hedgehog_b: { name: '아기 고슴도치', icon: '🦔', emoji: '🦔', power: 35, tier: 'common', desc: '작은 가시 동물.' },
-  porcupine_b: { name: '아기 호저', icon: '🦔', emoji: '🦔', power: 38, tier: 'common', desc: '작은 가시 동물.' },
-  opossum: { name: '주머니쥐', icon: '🐭', emoji: '🐭', power: 50, tier: 'common', desc: '죽은 척하는 동물.' },
-  aardvark_b: { name: '아기 땅돼지', icon: '🐗', emoji: '🐗', power: 55, tier: 'common', desc: '개미를 먹는 동물.' },
-  echidna: { name: '바늘두더지', icon: '🦔', emoji: '🦔', power: 52, tier: 'common', desc: '알 낳는 포유류.' },
-  platypus: { name: '오리너구리', icon: '🦫', emoji: '🦫', power: 58, tier: 'common', desc: '독특한 포유류.' },
-  numbat: { name: '주머니개미핥기', icon: '🐾', emoji: '🐾', power: 48, tier: 'common', desc: '호주의 작은 동물.' },
-  quokka: { name: '쿼카', icon: '🐹', emoji: '🐹', power: 50, tier: 'common', desc: '항상 웃는 듯한 동물.' },
-  wallaby: { name: '왈라비', icon: '🦘', emoji: '🦘', power: 60, tier: 'common', desc: '작은 캥거루.' },
-  possum: { name: '주머니쥐', icon: '🐹', emoji: '🐹', power: 45, tier: 'common', desc: '나무를 타는 작은 동물.' },
-  coypu: { name: '뉴트리아', icon: '🦫', emoji: '🦫', power: 55, tier: 'common', desc: '큰 물쥐.' },
-  chinchilla: { name: '친칠라', icon: '🐹', emoji: '🐹', power: 42, tier: 'common', desc: '부드러운 털의 설치류.' },
-  guinea_pig: { name: '기니피그', icon: '🐹', emoji: '🐹', power: 38, tier: 'common', desc: '귀여운 설치류.' },
-  snow_leopard: { name: '눈표범', icon: '🐆', emoji: '🐆', power: 100, tier: 'rare', desc: '히말라야의 회색 표범.' },
-  clouded_leopard: { name: '구름표범', icon: '🐆', emoji: '🐆', power: 105, tier: 'rare', desc: '얼룩진 큰 고양이.' },
-  caracal: { name: '카라칼', icon: '🐆', emoji: '🐆', power: 95, tier: 'rare', desc: '귀 끝이 뾰족한 고양이.' },
-  serval: { name: '서벌', icon: '🐆', emoji: '🐆', power: 98, tier: 'rare', desc: '긴 다리의 야생 고양이.' },
-  ocelot: { name: '오셀롯', icon: '🐆', emoji: '🐆', power: 92, tier: 'rare', desc: '얼룩무늬 고양이.' },
-  margay: { name: '마게이', icon: '🐆', emoji: '🐆', power: 90, tier: 'rare', desc: '나무를 타는 고양이.' },
-  lynx_iberian: { name: '이베리아 스라소니', icon: '🐆', emoji: '🐆', power: 102, tier: 'rare', desc: '유럽의 야생 고양이.' },
-  bobcat_b: { name: '아기 밥캣', icon: '🐆', emoji: '🐆', power: 88, tier: 'rare', desc: '북미의 야생 고양이.' },
-  dhole: { name: '인도들개', icon: '🐺', emoji: '🐺', power: 95, tier: 'rare', desc: '아시아의 야생 개.' },
-  maned_wolf: { name: '갈기늑대', icon: '🐺', emoji: '🐺', power: 110, tier: 'rare', desc: '긴 다리의 남미 늑대.' },
-  fennec: { name: '페넥여우', icon: '🦊', emoji: '🦊', power: 85, tier: 'rare', desc: '큰 귀의 사막 여우.' },
-  arctic_fox: { name: '북극여우', icon: '🦊', emoji: '🦊', power: 92, tier: 'rare', desc: '하얀 털의 북극 여우.' },
-  red_fox: { name: '붉은여우', icon: '🦊', emoji: '🦊', power: 95, tier: 'rare', desc: '붉은 털의 영리한 여우.' },
-  kit_fox: { name: '키트여우', icon: '🦊', emoji: '🦊', power: 88, tier: 'rare', desc: '북미 사막의 작은 여우.' },
-  gray_fox: { name: '회색여우', icon: '🦊', emoji: '🦊', power: 90, tier: 'rare', desc: '나무를 타는 여우.' },
-  honey_badger: { name: '꿀먹이오소리', icon: '🦡', emoji: '🦡', power: 115, tier: 'rare', desc: '두려움 없는 작은 사냥꾼.' },
-  wolverine: { name: '울버린', icon: '🦡', emoji: '🦡', power: 120, tier: 'rare', desc: '강력한 작은 포식자.' },
-  tasmanian: { name: '태즈매니아데빌', icon: '🦡', emoji: '🦡', power: 105, tier: 'rare', desc: '호주의 작은 육식 동물.' },
-  binturong: { name: '빈투롱', icon: '🐾', emoji: '🐾', power: 108, tier: 'rare', desc: '곰고양이라 불리는 동물.' },
-  coati: { name: '코아티', icon: '🦝', emoji: '🦝', power: 92, tier: 'rare', desc: '긴 꼬리의 동물.' },
-  genet: { name: '제넷', icon: '🐱', emoji: '🐱', power: 88, tier: 'rare', desc: '얼룩무늬의 작은 육식동물.' },
-  civet: { name: '사향고양이', icon: '🐱', emoji: '🐱', power: 95, tier: 'rare', desc: '향수의 원료가 되는 동물.' },
-  fossa: { name: '포사', icon: '🐱', emoji: '🐱', power: 110, tier: 'rare', desc: '마다가스카르의 사냥꾼.' },
-  gibbon: { name: '긴팔원숭이', icon: '🐒', emoji: '🐒', power: 100, tier: 'rare', desc: '나무를 잘 타는 유인원.' },
-  lemur: { name: '여우원숭이', icon: '🐒', emoji: '🐒', power: 95, tier: 'rare', desc: '마다가스카르의 영장류.' },
-  aye_aye: { name: '아이아이', icon: '🐒', emoji: '🐒', power: 90, tier: 'rare', desc: '독특한 외형의 영장류.' },
-  tarsier: { name: '타르시어', icon: '🐒', emoji: '🐒', power: 85, tier: 'rare', desc: '큰 눈의 작은 영장류.' },
-  mandrill: { name: '맨드릴', icon: '🐒', emoji: '🐒', power: 115, tier: 'rare', desc: '화려한 얼굴의 원숭이.' },
-  proboscis: { name: '코주부원숭이', icon: '🐒', emoji: '🐒', power: 105, tier: 'rare', desc: '큰 코의 원숭이.' },
-  capuchin: { name: '꼬리감는원숭이', icon: '🐒', emoji: '🐒', power: 90, tier: 'rare', desc: '영리한 작은 원숭이.' },
-  howler: { name: '울음원숭이', icon: '🐒', emoji: '🐒', power: 95, tier: 'rare', desc: '큰 소리로 우는 원숭이.' },
-  spider_monkey: { name: '거미원숭이', icon: '🐒', emoji: '🐒', power: 92, tier: 'rare', desc: '긴 팔다리의 원숭이.' },
-  marmoset: { name: '마모셋', icon: '🐒', emoji: '🐒', power: 80, tier: 'rare', desc: '아주 작은 원숭이.' },
-  tamarin: { name: '타마린', icon: '🐒', emoji: '🐒', power: 82, tier: 'rare', desc: '머리에 술이 있는 원숭이.' },
-  macaque: { name: '짧은꼬리원숭이', icon: '🐒', emoji: '🐒', power: 100, tier: 'rare', desc: '아시아의 원숭이.' },
-  baboon_b: { name: '비비', icon: '🐒', emoji: '🐒', power: 108, tier: 'rare', desc: '큰 송곳니의 원숭이.' },
-  gelada: { name: '겔라다', icon: '🐒', emoji: '🐒', power: 102, tier: 'rare', desc: '에티오피아의 원숭이.' },
-  langur: { name: '랑구르', icon: '🐒', emoji: '🐒', power: 95, tier: 'rare', desc: '회색 털의 원숭이.' },
-  macaw: { name: '마코앵무', icon: '🦜', emoji: '🦜', power: 88, tier: 'rare', desc: '화려한 큰 앵무새.' },
-  cockatoo: { name: '코카투', icon: '🦜', emoji: '🦜', power: 85, tier: 'rare', desc: '머리에 깃이 있는 앵무새.' },
-  toucan: { name: '큰부리새', icon: '🐦', emoji: '🐦', power: 95, tier: 'rare', desc: '거대한 부리의 새.' },
-  lorikeet: { name: '로리키트', icon: '🦜', emoji: '🦜', power: 82, tier: 'rare', desc: '무지개색 앵무새.' },
-  hornbill: { name: '코뿔새', icon: '🐦', emoji: '🐦', power: 100, tier: 'rare', desc: '뿔 모양 부리의 새.' },
-  kingfisher: { name: '물총새', icon: '🐦', emoji: '🐦', power: 90, tier: 'rare', desc: '물고기 사냥의 명수.' },
-  flamingo_b: { name: '아기 플라밍고', icon: '🦩', emoji: '🦩', power: 92, tier: 'rare', desc: '분홍색 다리 긴 새.' },
-  crane: { name: '두루미', icon: '🦢', emoji: '🦢', power: 105, tier: 'rare', desc: '우아한 큰 새.' },
-  heron: { name: '왜가리', icon: '🦢', emoji: '🦢', power: 95, tier: 'rare', desc: '강가의 큰 새.' },
-  stork: { name: '황새', icon: '🦢', emoji: '🦢', power: 100, tier: 'rare', desc: '아기를 데려온다는 새.' },
-  ibis: { name: '따오기', icon: '🦢', emoji: '🦢', power: 88, tier: 'rare', desc: '곡선 부리의 새.' },
-  pelican_b: { name: '아기 펠리컨', icon: '🐦', emoji: '🐦', power: 95, tier: 'rare', desc: '큰 부리 주머니의 새.' },
-  albatross_b: { name: '알바트로스', icon: '🐦', emoji: '🐦', power: 110, tier: 'rare', desc: '큰 날개의 바다 새.' },
-  osprey: { name: '물수리', icon: '🦅', emoji: '🦅', power: 115, tier: 'rare', desc: '물고기를 사냥하는 매.' },
-  kestrel: { name: '황조롱이', icon: '🦅', emoji: '🦅', power: 95, tier: 'rare', desc: '작은 매.' },
-  harrier: { name: '개구리매', icon: '🦅', emoji: '🦅', power: 100, tier: 'rare', desc: '습지의 매.' },
-  goshawk: { name: '참매', icon: '🦅', emoji: '🦅', power: 105, tier: 'rare', desc: '숲의 사냥꾼.' },
-  saker: { name: '세이커매', icon: '🦅', emoji: '🦅', power: 102, tier: 'rare', desc: '아시아의 매.' },
-  peregrine: { name: '송골매', icon: '🦅', emoji: '🦅', power: 120, tier: 'rare', desc: '가장 빠른 새.' },
-  barn_owl_b: { name: '외양간올빼미', icon: '🦉', emoji: '🦉', power: 92, tier: 'rare', desc: '하얀 얼굴의 올빼미.' },
-  horned_owl: { name: '큰뿔부엉이', icon: '🦉', emoji: '🦉', power: 110, tier: 'rare', desc: '뿔 같은 깃의 부엉이.' },
-  snowy_owl: { name: '눈올빼미', icon: '🦉', emoji: '🦉', power: 105, tier: 'rare', desc: '하얀 깃털의 부엉이.' },
-  elf_owl: { name: '꼬마부엉이', icon: '🦉', emoji: '🦉', power: 80, tier: 'rare', desc: '가장 작은 부엉이.' },
-  bat_fruit: { name: '과일박쥐', icon: '🦇', emoji: '🦇', power: 88, tier: 'rare', desc: '과일을 먹는 큰 박쥐.' },
-  flying_fox: { name: '플라잉폭스', icon: '🦇', emoji: '🦇', power: 100, tier: 'rare', desc: '여우 얼굴의 큰 박쥐.' },
-  vampire_bat: { name: '흡혈박쥐', icon: '🦇', emoji: '🦇', power: 95, tier: 'rare', desc: '피를 마시는 박쥐.' },
-  horseshoe_bat: { name: '관박쥐', icon: '🦇', emoji: '🦇', power: 85, tier: 'rare', desc: '코가 독특한 박쥐.' },
-  sea_otter: { name: '해달', icon: '🦦', emoji: '🦦', power: 90, tier: 'rare', desc: '바다의 귀여운 동물.' },
-  river_otter: { name: '강달', icon: '🦦', emoji: '🦦', power: 88, tier: 'rare', desc: '강의 활발한 동물.' },
-  giant_otter: { name: '거대수달', icon: '🦦', emoji: '🦦', power: 110, tier: 'rare', desc: '남미의 큰 수달.' },
-  beaver_b: { name: '아기 비버', icon: '🦫', emoji: '🦫', power: 92, tier: 'rare', desc: '댐을 짓는 동물.' },
-  capybara_b: { name: '카피바라', icon: '🐾', emoji: '🐾', power: 100, tier: 'rare', desc: '가장 큰 설치류.' },
-  porcupine_giant: { name: '큰호저', icon: '🦔', emoji: '🦔', power: 105, tier: 'rare', desc: '큰 가시의 동물.' },
-  quoll: { name: '쿼롤', icon: '🐾', emoji: '🐾', power: 88, tier: 'rare', desc: '호주의 작은 육식동물.' },
-  numbat_b: { name: '주머니개미핥기', icon: '🐾', emoji: '🐾', power: 85, tier: 'rare', desc: '호주 특산 동물.' },
-  bilby: { name: '빌비', icon: '🐹', emoji: '🐹', power: 92, tier: 'rare', desc: '긴 귀의 호주 동물.' },
-  bandicoot: { name: '반디쿠트', icon: '🐾', emoji: '🐾', power: 90, tier: 'rare', desc: '호주의 작은 동물.' },
-  cuscus: { name: '쿠스쿠스', icon: '🐾', emoji: '🐾', power: 95, tier: 'rare', desc: '나무 위의 유대류.' },
-  sugar_glider: { name: '슈가글라이더', icon: '🐿️', emoji: '🐿️', power: 88, tier: 'rare', desc: '날아오르는 작은 동물.' },
-  colugo: { name: '날여우원숭이', icon: '🐿️', emoji: '🐿️', power: 100, tier: 'rare', desc: '활공하는 포유류.' },
-  pangolin_b: { name: '아기 천산갑', icon: '🦎', emoji: '🦎', power: 102, tier: 'rare', desc: '비늘이 있는 포유류.' },
-  saber_tooth: { name: '검치호랑이', icon: '🐅', emoji: '🐅', power: 175, tier: 'epic', desc: '거대한 송곳니의 고대 호랑이.' },
-  cave_lion: { name: '동굴사자', icon: '🦁', emoji: '🦁', power: 180, tier: 'epic', desc: '빙하기의 거대 사자.' },
-  cave_bear: { name: '동굴곰', icon: '🐻', emoji: '🐻', power: 195, tier: 'epic', desc: '빙하기의 거대 곰.' },
-  dire_bear: { name: '다이어베어', icon: '🐻', emoji: '🐻', power: 200, tier: 'epic', desc: '거대한 고대 곰.' },
-  great_wolf: { name: '거대늑대', icon: '🐺', emoji: '🐺', power: 165, tier: 'epic', desc: '거대한 회색 늑대.' },
-  alpha_wolf: { name: '알파늑대', icon: '🐺', emoji: '🐺', power: 170, tier: 'epic', desc: '무리의 우두머리.' },
-  thunder_wolf: { name: '천둥늑대', icon: '🐺', emoji: '🐺', power: 178, tier: 'epic', desc: '번개를 닮은 늑대.' },
-  shadow_panther: { name: '그림자표범', icon: '🐆', emoji: '🐆', power: 168, tier: 'epic', desc: '어둠에 숨는 표범.' },
-  jade_tiger: { name: '비취호랑이', icon: '🐅', emoji: '🐅', power: 172, tier: 'epic', desc: '비취색 호랑이.' },
-  white_tiger: { name: '백호', icon: '🐅', emoji: '🐅', power: 185, tier: 'epic', desc: '하얀 줄무늬의 호랑이.' },
-  black_panther: { name: '흑표범', icon: '🐆', emoji: '🐆', power: 175, tier: 'epic', desc: '검은 표범.' },
-  golden_lion: { name: '황금사자', icon: '🦁', emoji: '🦁', power: 190, tier: 'epic', desc: '황금 갈기의 사자.' },
-  mammoth: { name: '매머드', icon: '🐘', emoji: '🐘', power: 220, tier: 'epic', desc: '거대한 털복숭이 코끼리.' },
-  mastodon: { name: '마스토돈', icon: '🐘', emoji: '🐘', power: 215, tier: 'epic', desc: '고대의 거대 코끼리.' },
-  elasmotherium: { name: '엘라스모테리움', icon: '🦏', emoji: '🦏', power: 200, tier: 'epic', desc: '거대한 뿔의 코뿔소.' },
-  rhino_armored: { name: '갑옷코뿔소', icon: '🦏', emoji: '🦏', power: 195, tier: 'epic', desc: '두꺼운 가죽의 코뿔소.' },
-  giant_boar: { name: '거대 멧돼지', icon: '🐗', emoji: '🐗', power: 175, tier: 'epic', desc: '엄청 큰 멧돼지.' },
-  terror_bird: { name: '공포새', icon: '🦃', emoji: '🦃', power: 180, tier: 'epic', desc: '거대한 육식 조류.' },
-  giant_eagle: { name: '거대독수리', icon: '🦅', emoji: '🦅', power: 175, tier: 'epic', desc: '거대한 사냥의 왕.' },
   thunderbird: { name: '천둥새', icon: '🦅', emoji: '🦅', power: 195, tier: 'epic', desc: '폭풍을 부르는 거대 새.' },
-  storm_petrel: { name: '폭풍의 새', icon: '🐦', emoji: '🐦', power: 165, tier: 'epic', desc: '폭풍을 타는 새.' },
-  giant_owl: { name: '거대부엉이', icon: '🦉', emoji: '🦉', power: 170, tier: 'epic', desc: '거대한 밤의 사냥꾼.' },
-  snow_owl_great: { name: '거대 눈올빼미', icon: '🦉', emoji: '🦉', power: 178, tier: 'epic', desc: '북극의 거대 부엉이.' },
-  giant_bat: { name: '거대 박쥐', icon: '🦇', emoji: '🦇', power: 168, tier: 'epic', desc: '거대한 흡혈박쥐.' },
-  dire_wolf: { name: '다이어울프', icon: '🐺', emoji: '🐺', power: 188, tier: 'epic', desc: '거대한 고대 늑대.' },
-  hellhound: { name: '지옥견', icon: '🐕', emoji: '🐕', power: 195, tier: 'epic', desc: '지옥에서 온 사냥개.' },
-  giant_serpent: { name: '거대 뱀', icon: '🐍', emoji: '🐍', power: 175, tier: 'epic', desc: '거대한 뱀.' },
-  anaconda: { name: '아나콘다', icon: '🐍', emoji: '🐍', power: 185, tier: 'epic', desc: '거대한 보아.' },
-  king_cobra: { name: '킹코브라', icon: '🐍', emoji: '🐍', power: 180, tier: 'epic', desc: '독사의 왕.' },
-  giant_squid: { name: '거대 오징어', icon: '🦑', emoji: '🦑', power: 195, tier: 'epic', desc: '심해의 거인.' },
-  great_white: { name: '백상아리', icon: '🦈', emoji: '🦈', power: 200, tier: 'epic', desc: '바다의 최강 포식자.' },
-  orca_great: { name: '거대 범고래', icon: '🐋', emoji: '🐋', power: 210, tier: 'epic', desc: '바다의 늑대.' },
-  killer_whale: { name: '범고래', icon: '🐋', emoji: '🐋', power: 205, tier: 'epic', desc: '바다의 사냥꾼.' },
-  giant_octopus: { name: '거대 문어', icon: '🐙', emoji: '🐙', power: 190, tier: 'epic', desc: '심해의 영리한 거인.' },
-  plesiosaur: { name: '플레시오사우르스', icon: '🦕', emoji: '🦕', power: 215, tier: 'epic', desc: '긴 목의 수생 공룡.' },
-  mosasaur: { name: '모사사우르스', icon: '🐊', emoji: '🐊', power: 220, tier: 'epic', desc: '바다의 거대 도마뱀.' },
-  megalodon_baby: { name: '아기 메갈로돈', icon: '🦈', emoji: '🦈', power: 225, tier: 'epic', desc: '거대한 상어의 새끼.' },
-  giant_lizard: { name: '거대 도마뱀', icon: '🦎', emoji: '🦎', power: 175, tier: 'epic', desc: '거대한 파충류.' },
-  komodo: { name: '코모도왕도마뱀', icon: '🦎', emoji: '🦎', power: 180, tier: 'epic', desc: '독있는 거대 도마뱀.' },
-  giant_turtle: { name: '거대 거북', icon: '🐢', emoji: '🐢', power: 195, tier: 'epic', desc: '거대한 고대 거북.' },
-  giant_crab: { name: '거대 게', icon: '🦀', emoji: '🦀', power: 170, tier: 'epic', desc: '거대한 집게의 게.' },
-  giant_scorpion: { name: '거대 전갈', icon: '🦂', emoji: '🦂', power: 175, tier: 'epic', desc: '거대한 독전갈.' },
-  giant_spider: { name: '거대 거미', icon: '🕷️', emoji: '🕷️', power: 170, tier: 'epic', desc: '거대한 독거미.' },
-  giant_centipede: { name: '거대 지네', icon: '🐛', emoji: '🐛', power: 165, tier: 'epic', desc: '거대한 독지네.' },
-  giant_beetle: { name: '거대 풍뎅이', icon: '🪲', emoji: '🪲', power: 168, tier: 'epic', desc: '거대한 갑충.' },
-  hercules_beetle: { name: '헤라클레스 풍뎅이', icon: '🪲', emoji: '🪲', power: 175, tier: 'epic', desc: '뿔이 큰 풍뎅이.' },
-  giant_wasp: { name: '거대 말벌', icon: '🐝', emoji: '🐝', power: 170, tier: 'epic', desc: '거대한 독말벌.' },
-  giant_mantis: { name: '거대 사마귀', icon: '🦗', emoji: '🦗', power: 172, tier: 'epic', desc: '거대한 사냥 곤충.' },
-  cave_troll_small: { name: '작은 동굴 트롤', icon: '👹', emoji: '👹', power: 200, tier: 'epic', desc: '동굴에 사는 작은 거인.' },
-  forest_giant: { name: '숲의 거인', icon: '🌲', emoji: '🌲', power: 195, tier: 'epic', desc: '숲을 지키는 거인.' },
   emerald_dragon: { name: '에메랄드 드래곤', icon: '🐉', emoji: '🐉', power: 360, tier: 'legendary', desc: '에메랄드빛 비늘의 용.' },
   ruby_dragon: { name: '루비 드래곤', icon: '🐉', emoji: '🐉', power: 355, tier: 'legendary', desc: '루비빛 비늘의 용.' },
   sapphire_dragon: { name: '사파이어 드래곤', icon: '🐉', emoji: '🐉', power: 350, tier: 'legendary', desc: '사파이어빛 비늘의 용.' },
@@ -10824,19 +10508,6 @@ const PET_ART = {
   bunny:      { type: 'rodent',   body: '#fff',    accent: '#ffcdd2', dark: '#9e9e9e', eye: '#e91e63' },
   pigeon:     { type: 'bird',     body: '#90a4ae', accent: '#fff',    dark: '#37474f', eye: '#000' },
   sparrow:    { type: 'bird',     body: '#8d6e63', accent: '#fff',    dark: '#3e2723', eye: '#000' },
-  starling:   { type: 'bird',     body: '#311b92', accent: '#9575cd', dark: '#000',    eye: '#ffeb3b' },
-  penguin_baby:{type: 'bird',     body: '#fafafa', accent: '#212121', dark: '#000',    eye: '#000' },
-  seal:       { type: 'mammoth',  body: '#90a4ae', accent: '#fff',    dark: '#37474f', eye: '#000' },
-  otter:      { type: 'wolf',     body: '#8d6e63', accent: '#fff',    dark: '#3e2723', eye: '#000' },
-  hedgehog:   { type: 'rodent',   body: '#a1887f', accent: '#5d4037', dark: '#3e2723', eye: '#000' },
-  bat_small:  { type: 'bird',     body: '#424242', accent: '#212121', dark: '#000',    eye: '#f44336' },
-  donkey:     { type: 'wolf',     body: '#9e9e9e', accent: '#fff',    dark: '#424242', eye: '#000' },
-  pony:       { type: 'wolf',     body: '#bf8b54', accent: '#fff',    dark: '#5d4037', eye: '#000' },
-  llama_baby: { type: 'mammoth',  body: '#fff8e1', accent: '#ffe0b2', dark: '#6d4c41', eye: '#000' },
-  oyster:     { type: 'reptile',  body: '#cfd8dc', accent: '#fff',    dark: '#37474f', eye: '#000' },
-  jellyfish:  { type: 'octopus',  body: '#b39ddb', accent: '#fff',    dark: '#6a1b9a', eye: '#fff' },
-  firefly:    { type: 'bird',     body: '#ffd54f', accent: '#fff176', dark: '#5d4037', eye: '#000' },
-  mantis_baby:{ type: 'scorpion', body: '#aed581', accent: '#dcedc8', dark: '#33691e', eye: '#000' },
 
   // 희귀 추가 35종
   panda:      { type: 'mammoth',  body: '#fff',    accent: '#212121', dark: '#000',    eye: '#000' },
@@ -10847,33 +10518,7 @@ const PET_ART = {
   hippo:      { type: 'mammoth',  body: '#7e57c2', accent: '#d1c4e9', dark: '#311b92', eye: '#000' },
   rhino:      { type: 'mammoth',  body: '#757575', accent: '#fff',    dark: '#212121', eye: '#000' },
   flamingo:   { type: 'bird',     body: '#f48fb1', accent: '#fce4ec', dark: '#ad1457', eye: '#000' },
-  peacock:    { type: 'bird',     body: '#00897b', accent: '#26c6da', dark: '#004d40', eye: '#ffd700' },
-  pelican:    { type: 'bird',     body: '#fff',    accent: '#ff9800', dark: '#9e9e9e', eye: '#000' },
-  ostrich:    { type: 'bird',     body: '#5d4037', accent: '#fff',    dark: '#3e2723', eye: '#000' },
-  emu:        { type: 'bird',     body: '#6d4c41', accent: '#bcaaa4', dark: '#3e2723', eye: '#000' },
-  okapi:      { type: 'wolf',     body: '#6d4c41', accent: '#fff',    dark: '#3e2723', eye: '#000' },
-  tapir:      { type: 'mammoth',  body: '#fff',    accent: '#212121', dark: '#424242', eye: '#000' },
-  porcupine:  { type: 'rodent',   body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
-  armadillo:  { type: 'rodent',   body: '#a1887f', accent: '#d7ccc8', dark: '#3e2723', eye: '#000' },
-  sloth:      { type: 'wolf',     body: '#a1887f', accent: '#fff',    dark: '#5d4037', eye: '#000' },
-  capybara:   { type: 'rodent',   body: '#bf8b54', accent: '#a1887f', dark: '#5d4037', eye: '#000' },
-  meerkat:    { type: 'rodent',   body: '#bcaaa4', accent: '#5d4037', dark: '#3e2723', eye: '#000' },
-  weasel:     { type: 'wolf',     body: '#a1887f', accent: '#fff',    dark: '#3e2723', eye: '#000' },
-  ferret:     { type: 'wolf',     body: '#fff',    accent: '#5d4037', dark: '#3e2723', eye: '#f44336' },
-  mongoose:   { type: 'wolf',     body: '#a1887f', accent: '#fff',    dark: '#5d4037', eye: '#000' },
-  hyena:      { type: 'wolf',     body: '#a1887f', accent: '#5d4037', dark: '#3e2723', eye: '#ffeb3b' },
-  jackal:     { type: 'wolf',     body: '#bf8b54', accent: '#fff',    dark: '#5d4037', eye: '#ffd700' },
-  coyote:     { type: 'wolf',     body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#ffeb3b' },
-  dingo:      { type: 'wolf',     body: '#d7a05e', accent: '#fff',    dark: '#5d4037', eye: '#ff9800' },
-  lynx:       { type: 'feline',   body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#ffd700' },
-  bobcat:     { type: 'feline',   body: '#bf8b54', accent: '#fff',    dark: '#3e2723', eye: '#ffd700' },
-  cheetah_young:{ type: 'feline', body: '#ffb74d', accent: '#000',    dark: '#5d4037', eye: '#ffd700' },
-  jaguar_young:{ type: 'feline',  body: '#ffd54f', accent: '#5d4037', dark: '#3e2723', eye: '#ff5722' },
   vulture:    { type: 'hawk',     body: '#424242', accent: '#bcaaa4', dark: '#000',    eye: '#f44336' },
-  raven:      { type: 'bird',     body: '#212121', accent: '#424242', dark: '#000',    eye: '#f44336' },
-  crow:       { type: 'bird',     body: '#212121', accent: '#37474f', dark: '#000',    eye: '#ffeb3b' },
-  woodpecker: { type: 'bird',     body: '#d32f2f', accent: '#fff',    dark: '#212121', eye: '#000' },
-  iguana:     { type: 'reptile',  body: '#558b2f', accent: '#aed581', dark: '#1b5e20', eye: '#f44336' },
 
   // 에픽 추가 40종
   bear_grizzly:{ type: 'mammoth', body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
@@ -10899,23 +10544,8 @@ const PET_ART = {
   yak:        { type: 'mammoth',  body: '#5d4037', accent: '#fff',    dark: '#212121', eye: '#000' },
   bison:      { type: 'mammoth',  body: '#3e2723', accent: '#6d4c41', dark: '#000',    eye: '#ffd700' },
   moose:      { type: 'mammoth',  body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#000' },
-  caribou:    { type: 'mammoth',  body: '#bcaaa4', accent: '#fff',    dark: '#5d4037', eye: '#000' },
-  elk:        { type: 'mammoth',  body: '#8d6e63', accent: '#fff',    dark: '#3e2723', eye: '#000' },
   walrus:     { type: 'mammoth',  body: '#8d6e63', accent: '#fff',    dark: '#5d4037', eye: '#000' },
-  orca:       { type: 'reptile',  body: '#212121', accent: '#fff',    dark: '#000',    eye: '#000' },
-  shark_great:{ type: 'reptile',  body: '#90a4ae', accent: '#fff',    dark: '#37474f', eye: '#000' },
-  shark_hammer:{type: 'reptile',  body: '#78909c', accent: '#fff',    dark: '#37474f', eye: '#ffeb3b' },
-  swordfish:  { type: 'reptile',  body: '#1976d2', accent: '#fff',    dark: '#0d47a1', eye: '#000' },
-  marlin:     { type: 'reptile',  body: '#283593', accent: '#fff',    dark: '#1a237e', eye: '#ffeb3b' },
-  manta_ray:  { type: 'reptile',  body: '#37474f', accent: '#fff',    dark: '#000',    eye: '#ffeb3b' },
-  electric_eel:{type: 'reptile',  body: '#ffeb3b', accent: '#fff59d', dark: '#bf8b54', eye: '#000' },
-  giant_squid:{ type: 'octopus',  body: '#d32f2f', accent: '#ffcdd2', dark: '#b71c1c', eye: '#ffeb3b' },
-  kraken_baby:{ type: 'octopus',  body: '#4a148c', accent: '#7e57c2', dark: '#311b92', eye: '#fff' },
-  griffin_baby:{type: 'hawk',     body: '#ffb74d', accent: '#fff',    dark: '#bf8b54', eye: '#ffd700' },
-  hippogriff_y:{type: 'pegasus',  body: '#ffe082', accent: '#fff',    dark: '#bf8b54', eye: '#ffd700' },
   manticore:  { type: 'lion',     body: '#bf360c', accent: '#ffeb3b', dark: '#5d4037', eye: '#f44336' },
-  basilisk_b: { type: 'hydra',    body: '#558b2f', accent: '#aed581', dark: '#1b5e20', eye: '#ffd700' },
-  wyrm:       { type: 'hydra',    body: '#5d4037', accent: '#a1887f', dark: '#3e2723', eye: '#f44336' },
 
   // 전설 추가 30종
   phoenix_dawn:{type: 'hawk',     body: '#ff9800', accent: '#ffeb3b', dark: '#bf360c', eye: '#fff' },
@@ -10965,270 +10595,8 @@ const PET_ART = {
   sleipnir:   { type: 'pegasus',  body: '#37474f', accent: '#fff',    dark: '#000',    eye: '#ffd700' },
   void_dragon:{ type: 'dragon',   body: '#000',    accent: '#311b92', dark: '#000',    eye: '#9c27b0' },
   cosmic_god: { type: 'demon',    body: '#311b92', accent: '#ffd700', dark: '#000',    eye: '#fff' },
-  mole_baby: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  shrew: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  vole: { type: 'rodent',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  lemming: { type: 'rodent',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  gerbil: { type: 'rodent',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  chipmunk_b: { type: 'rodent',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  dormouse: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  mole2: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  weasel_b: { type: 'weasel',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  marmot: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  mongoose_b: { type: 'weasel',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  cricket_b: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  grasshopper: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  katydid: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  mantis: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  ladybug2: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  firefly2: { type: 'beetle',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
   caterpillar: { type: 'worm',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  worm_b: { type: 'worm',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  millipede: { type: 'worm',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  centipede: { type: 'worm',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  snail2: { type: 'crab',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  slug: { type: 'worm',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  moth: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  butterfly2: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  dragonfly: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  mayfly: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  mosquito: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  housefly: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  cockroach: { type: 'beetle',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  termite: { type: 'beetle',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  wasp: { type: 'beetle',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  hornet: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  aphid: { type: 'beetle',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  flea: { type: 'beetle',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  tick: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  mite: { type: 'beetle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  woodlouse: { type: 'crab',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  sparrow2: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  swallow: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  finch: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  canary: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  robin: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  bluetit: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  wren: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  starling2: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  crow_baby: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  magpie: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  jay: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  cuckoo: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  dove: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  quail: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  pheasant: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  partridge: { type: 'bird',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  grouse: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  woodpecker_b: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  hummingbird: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  swift: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  martin: { type: 'bird',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  chickadee: { type: 'bird',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  warbler: { type: 'bird',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  catfish: { type: 'fish',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  trout: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  salmon: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  carp: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  goldfish: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  bass: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  pike: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  eel: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  sardine: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  herring: { type: 'fish',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  anchovy: { type: 'fish',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  mackerel: { type: 'fish',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  tuna_small: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  cod: { type: 'fish',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  flounder: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  sole: { type: 'fish',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  sardine_school: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  seahorse: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  starfish: { type: 'crab',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  seaurchin: { type: 'crab',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  anemone: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  coral: { type: 'crab',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  clam: { type: 'crab',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  mussel: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  scallop: { type: 'crab',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  squid_b: { type: 'octopus',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  cuttlefish: { type: 'octopus',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  jellyfish_s: { type: 'octopus',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  crab_small: { type: 'crab',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  hermit_crab: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  shrimp_b: { type: 'crab',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  lobster: { type: 'crab',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  crayfish: { type: 'crab',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  frog2: { type: 'frog',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  toad2: { type: 'frog',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  newt: { type: 'lizard',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  salamander: { type: 'lizard',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  axolotl: { type: 'lizard',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  gecko: { type: 'lizard',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  skink: { type: 'lizard',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  chameleon: { type: 'lizard',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  lizard_b: { type: 'lizard',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  horntoad: { type: 'frog',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  mud_skipper: { type: 'fish',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  puddle_fish: { type: 'fish',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  field_mouse: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  barn_owl: { type: 'bird',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  tree_frog: { type: 'frog',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  pond_frog: { type: 'frog',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  garden_snake: { type: 'snake',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  grass_snake: { type: 'snake',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  worm_lizard: { type: 'lizard',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  tortoise: { type: 'turtle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  terrapin: { type: 'turtle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  soft_turtle: { type: 'turtle',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  field_rabbit: { type: 'rabbit',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  snowshoe: { type: 'rabbit',     body: '#9e9e9e'   , accent: '#cfd8dc'   , dark: '#424242'   , eye: '#000' },
-  jackrabbit: { type: 'rabbit',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  cottontail: { type: 'rabbit',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  pika: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  shrew_b: { type: 'rodent',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  hedgehog_b: { type: 'rodent',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  porcupine_b: { type: 'rodent',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  opossum: { type: 'rodent',     body: '#90a4ae'   , accent: '#cfd8dc'   , dark: '#37474f'   , eye: '#000' },
-  aardvark_b: { type: 'boar',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  echidna: { type: 'rodent',     body: '#8d6e63'   , accent: '#bcaaa4'   , dark: '#3e2723'   , eye: '#000' },
-  platypus: { type: 'beaver',     body: '#a1887f'   , accent: '#efebe9'   , dark: '#5d4037'   , eye: '#212121' },
-  numbat: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  quokka: { type: 'rodent',     body: '#a1887f'   , accent: '#d7ccc8'   , dark: '#5d4037'   , eye: '#000' },
-  wallaby: { type: 'rodent',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  possum: { type: 'rodent',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  coypu: { type: 'beaver',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  chinchilla: { type: 'rodent',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  guinea_pig: { type: 'rodent',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  snow_leopard: { type: 'lion',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  clouded_leopard: { type: 'lion',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  caracal: { type: 'lion',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  serval: { type: 'lion',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  ocelot: { type: 'lion',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  margay: { type: 'lion',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  lynx_iberian: { type: 'lion',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  bobcat_b: { type: 'lion',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  dhole: { type: 'wolf',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  maned_wolf: { type: 'wolf',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  fennec: { type: 'fox',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  arctic_fox: { type: 'fox',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  red_fox: { type: 'fox',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  kit_fox: { type: 'fox',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  gray_fox: { type: 'fox',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  honey_badger: { type: 'weasel',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  wolverine: { type: 'weasel',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  tasmanian: { type: 'weasel',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  binturong: { type: 'weasel',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  coati: { type: 'weasel',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  genet: { type: 'lion',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  civet: { type: 'lion',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  fossa: { type: 'lion',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  gibbon: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  lemur: { type: 'monkey',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  aye_aye: { type: 'monkey',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  tarsier: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  mandrill: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  proboscis: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  capuchin: { type: 'monkey',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  howler: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  spider_monkey: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  marmoset: { type: 'monkey',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  tamarin: { type: 'monkey',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  macaque: { type: 'monkey',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  baboon_b: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  gelada: { type: 'monkey',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  langur: { type: 'monkey',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  macaw: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  cockatoo: { type: 'bird',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  toucan: { type: 'bird',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  lorikeet: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  hornbill: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  kingfisher: { type: 'bird',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  flamingo_b: { type: 'bird',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  crane: { type: 'bird',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  heron: { type: 'bird',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  stork: { type: 'bird',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  ibis: { type: 'bird',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  pelican_b: { type: 'bird',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  albatross_b: { type: 'bird',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  osprey: { type: 'hawk',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  kestrel: { type: 'hawk',     body: '#ab47bc'   , accent: '#e1bee7'   , dark: '#4a148c'   , eye: '#fff' },
-  harrier: { type: 'hawk',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  goshawk: { type: 'hawk',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  saker: { type: 'hawk',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  peregrine: { type: 'hawk',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  barn_owl_b: { type: 'owl',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  horned_owl: { type: 'owl',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  snowy_owl: { type: 'owl',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  elf_owl: { type: 'owl',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  bat_fruit: { type: 'bat',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  flying_fox: { type: 'bat',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  vampire_bat: { type: 'bat',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  horseshoe_bat: { type: 'bat',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  sea_otter: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  river_otter: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  giant_otter: { type: 'beaver',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  beaver_b: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  capybara_b: { type: 'beaver',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  porcupine_giant: { type: 'rodent',     body: '#66bb6a'   , accent: '#c8e6c9'   , dark: '#1b5e20'   , eye: '#fff' },
-  quoll: { type: 'rodent',     body: '#ff7043'   , accent: '#ffccbc'   , dark: '#bf360c'   , eye: '#fff' },
-  numbat_b: { type: 'rodent',     body: '#ffa726'   , accent: '#ffe0b2'   , dark: '#e65100'   , eye: '#fff' },
-  bilby: { type: 'rodent',     body: '#42a5f5'   , accent: '#bbdefb'   , dark: '#0d47a1'   , eye: '#fff' },
-  bandicoot: { type: 'rodent',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
-  cuscus: { type: 'rodent',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  sugar_glider: { type: 'squirrel',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  colugo: { type: 'squirrel',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
-  pangolin_b: { type: 'lizard',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  saber_tooth: { type: 'lion',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
-  cave_lion: { type: 'lion',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
-  cave_bear: { type: 'bear',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  dire_bear: { type: 'bear',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  great_wolf: { type: 'wolf',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  alpha_wolf: { type: 'wolf',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  thunder_wolf: { type: 'wolf',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  shadow_panther: { type: 'lion',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  jade_tiger: { type: 'lion',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  white_tiger: { type: 'lion',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  black_panther: { type: 'lion',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
-  golden_lion: { type: 'lion',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  mammoth: { type: 'elephant',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  mastodon: { type: 'elephant',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  elasmotherium: { type: 'rhino',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  rhino_armored: { type: 'rhino',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  giant_boar: { type: 'boar',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  terror_bird: { type: 'bird',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  giant_eagle: { type: 'hawk',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
   thunderbird: { type: 'hawk',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  storm_petrel: { type: 'bird',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  giant_owl: { type: 'owl',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  snow_owl_great: { type: 'owl',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  giant_bat: { type: 'bat',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
-  dire_wolf: { type: 'wolf',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  hellhound: { type: 'wolf',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  giant_serpent: { type: 'snake',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  anaconda: { type: 'snake',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  king_cobra: { type: 'snake',     body: '#26a69a'   , accent: '#b2dfdb'   , dark: '#004d40'   , eye: '#fff' },
-  giant_squid: { type: 'octopus',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  great_white: { type: 'fish',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  orca_great: { type: 'whale',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  killer_whale: { type: 'whale',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  giant_octopus: { type: 'octopus',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
-  plesiosaur: { type: 'dragon',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  mosasaur: { type: 'dragon',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  megalodon_baby: { type: 'fish',     body: '#5c6bc0'   , accent: '#c5cae9'   , dark: '#1a237e'   , eye: '#fff' },
-  giant_lizard: { type: 'lizard',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  komodo: { type: 'lizard',     body: '#546e7a'   , accent: '#cfd8dc'   , dark: '#263238'   , eye: '#ffeb3b' },
-  giant_turtle: { type: 'turtle',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  giant_crab: { type: 'crab',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  giant_scorpion: { type: 'crab',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  giant_spider: { type: 'beetle',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  giant_centipede: { type: 'worm',     body: '#ef5350'   , accent: '#ffcdd2'   , dark: '#b71c1c'   , eye: '#fff' },
-  giant_beetle: { type: 'beetle',     body: '#7e57c2'   , accent: '#d1c4e9'   , dark: '#311b92'   , eye: '#fff' },
-  hercules_beetle: { type: 'beetle',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
-  giant_wasp: { type: 'beetle',     body: '#43a047'   , accent: '#a5d6a7'   , dark: '#1b5e20'   , eye: '#ffeb3b' },
-  giant_mantis: { type: 'beetle',     body: '#e53935'   , accent: '#ef9a9a'   , dark: '#b71c1c'   , eye: '#fff' },
-  cave_troll_small: { type: 'demon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
-  forest_giant: { type: 'demon',     body: '#43a047'   , accent: '#a5d6a7'   , dark: '#1b5e20'   , eye: '#ffeb3b' },
   emerald_dragon: { type: 'dragon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
   ruby_dragon: { type: 'dragon',     body: '#1e88e5'   , accent: '#90caf9'   , dark: '#0d47a1'   , eye: '#fff' },
   sapphire_dragon: { type: 'dragon',     body: '#8e24aa'   , accent: '#ce93d8'   , dark: '#4a148c'   , eye: '#fff' },
@@ -12578,26 +11946,38 @@ function petShapeSVG(art, s) {
   // 각 type별 SVG 모양 정의 — 캐릭터형 단순화
   const c = s / 2; // center
   const b = art.body, a = art.accent, d = art.dark, e = art.eye;
+  // 그라데이션 ID 충돌 방지용 고유 ID (매 호출마다 새로)
+  if (!art._uid) art = Object.assign({}, art, { _uid: 'x' + ((Math.random() * 1e9) | 0).toString(36) });
+  const _u = art._uid;
   switch (art.type) {
     case 'beetle': return `
+      <defs><radialGradient id="be${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
       <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.36}" ry="${s*0.28}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.32}" ry="${s*0.24}" fill="${a}"/>
-      <line x1="${c}" y1="${s*0.32}" x2="${c}" y2="${s*0.75}" stroke="${d}" stroke-width="${s*0.04}"/>
-      <path d="M${c-s*0.15} ${s*0.35} L${c-s*0.25} ${s*0.15} M${c+s*0.15} ${s*0.35} L${c+s*0.25} ${s*0.15}" stroke="${d}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c-s*0.1}" cy="${s*0.5}" r="${s*0.05}" fill="${e}"/>
-      <circle cx="${c+s*0.1}" cy="${s*0.5}" r="${s*0.05}" fill="${e}"/>`;
+      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.32}" ry="${s*0.24}" fill="${a}"/>
+      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.32}" ry="${s*0.24}" fill="url(#be${_u})" opacity="0.5"/>
+      <line x1="${c}" y1="${s*0.34}" x2="${c}" y2="${s*0.78}" stroke="${d}" stroke-width="${s*0.04}"/>
+      <ellipse cx="${c-s*0.14}" cy="${s*0.5}" rx="${s*0.05}" ry="${s*0.08}" fill="${d}" opacity="0.3"/>
+      <ellipse cx="${c+s*0.14}" cy="${s*0.5}" rx="${s*0.05}" ry="${s*0.08}" fill="${d}" opacity="0.3"/>
+      <circle cx="${c}" cy="${s*0.3}" r="${s*0.13}" fill="${b}"/>
+      <path d="M${c-s*0.08} ${s*0.22} L${c-s*0.16} ${s*0.1} M${c+s*0.08} ${s*0.22} L${c+s*0.16} ${s*0.1}" stroke="${d}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+      <circle cx="${c-s*0.16}" cy="${s*0.1}" r="${s*0.025}" fill="${d}"/>
+      <circle cx="${c+s*0.16}" cy="${s*0.1}" r="${s*0.025}" fill="${d}"/>
+      <ellipse cx="${c-s*0.05}" cy="${s*0.29}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
+      <ellipse cx="${c+s*0.05}" cy="${s*0.29}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
+      <circle cx="${c-s*0.05}" cy="${s*0.3}" r="${s*0.02}" fill="${e}"/>
+      <circle cx="${c+s*0.05}" cy="${s*0.3}" r="${s*0.02}" fill="${e}"/>`;
     case 'bird': return `
       <defs>
-        <radialGradient id="bd_${art._uid||''}b" cx="40%" cy="35%" r="70%">
+        <radialGradient id="bd_${_u}b" cx="40%" cy="35%" r="70%">
           <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
         </radialGradient>
       </defs>
       <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.27}" ry="${s*0.23}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.27}" ry="${s*0.23}" fill="url(#bd_${art._uid||''}b)" opacity="0.6"/>
+      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.27}" ry="${s*0.23}" fill="url(#bd_${_u}b)" opacity="0.6"/>
       <path d="M${c-s*0.26} ${s*0.62} Q${c-s*0.42} ${s*0.66} ${c-s*0.3} ${s*0.78} Q${c-s*0.22} ${s*0.74} ${c-s*0.2} ${s*0.7} Z" fill="${d}" opacity="0.85"/>
       <path d="M${c+s*0.26} ${s*0.62} Q${c+s*0.42} ${s*0.66} ${c+s*0.3} ${s*0.78} Q${c+s*0.22} ${s*0.74} ${c+s*0.2} ${s*0.7} Z" fill="${d}" opacity="0.85"/>
       <circle cx="${c}" cy="${s*0.34}" r="${s*0.17}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.34}" r="${s*0.17}" fill="url(#bd_${art._uid||''}b)" opacity="0.5"/>
+      <circle cx="${c}" cy="${s*0.34}" r="${s*0.17}" fill="url(#bd_${_u}b)" opacity="0.5"/>
       <path d="M${c-s*0.04} ${s*0.16} Q${c} ${s*0.06} ${c+s*0.06} ${s*0.14} Q${c+s*0.03} ${s*0.2} ${c-s*0.04} ${s*0.16} Z" fill="${a}"/>
       <ellipse cx="${c-s*0.06}" cy="${s*0.33}" rx="${s*0.055}" ry="${s*0.065}" fill="#fff"/>
       <ellipse cx="${c+s*0.06}" cy="${s*0.33}" rx="${s*0.055}" ry="${s*0.065}" fill="#fff"/>
@@ -12611,16 +11991,16 @@ function petShapeSVG(art, s) {
       <path d="M${c-s*0.06} ${s*0.85} L${c-s*0.06} ${s*0.93} M${c+s*0.06} ${s*0.85} L${c+s*0.06} ${s*0.93}" stroke="${a}" stroke-width="${s*0.035}" stroke-linecap="round"/>`;
     case 'rodent': return `
       <defs>
-        <radialGradient id="rd_${art._uid||''}b" cx="40%" cy="30%" r="75%">
+        <radialGradient id="rd_${_u}b" cx="40%" cy="30%" r="75%">
           <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
         </radialGradient>
       </defs>
       <ellipse cx="${c}" cy="${s*0.68}" rx="${s*0.29}" ry="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.68}" rx="${s*0.29}" ry="${s*0.22}" fill="url(#rd_${art._uid||''}b)" opacity="0.55"/>
+      <ellipse cx="${c}" cy="${s*0.68}" rx="${s*0.29}" ry="${s*0.22}" fill="url(#rd_${_u}b)" opacity="0.55"/>
       <ellipse cx="${c-s*0.16}" cy="${s*0.78}" rx="${s*0.07}" ry="${s*0.05}" fill="${d}" opacity="0.6"/>
       <ellipse cx="${c+s*0.16}" cy="${s*0.78}" rx="${s*0.07}" ry="${s*0.05}" fill="${d}" opacity="0.6"/>
       <circle cx="${c}" cy="${s*0.42}" r="${s*0.19}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.42}" r="${s*0.19}" fill="url(#rd_${art._uid||''}b)" opacity="0.5"/>
+      <circle cx="${c}" cy="${s*0.42}" r="${s*0.19}" fill="url(#rd_${_u}b)" opacity="0.5"/>
       <ellipse cx="${c-s*0.14}" cy="${s*0.27}" rx="${s*0.07}" ry="${s*0.1}" fill="${b}"/>
       <ellipse cx="${c+s*0.14}" cy="${s*0.27}" rx="${s*0.07}" ry="${s*0.1}" fill="${b}"/>
       <ellipse cx="${c-s*0.14}" cy="${s*0.28}" rx="${s*0.035}" ry="${s*0.06}" fill="#ffb3ba"/>
@@ -12637,15 +12017,15 @@ function petShapeSVG(art, s) {
       <ellipse cx="${c+s*0.13}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.022}" fill="#ff8a80" opacity="0.45"/>`;
     case 'reptile': return `
       <defs>
-        <linearGradient id="rp_${art._uid||''}b" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id="rp_${_u}b" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
         </linearGradient>
       </defs>
       <path d="M${c+s*0.32} ${s*0.72} Q${c+s*0.42} ${s*0.6} ${c+s*0.3} ${s*0.6}" stroke="${b}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
       <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.34}" ry="${s*0.15}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.34}" ry="${s*0.15}" fill="url(#rp_${art._uid||''}b)" opacity="0.5"/>
+      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.34}" ry="${s*0.15}" fill="url(#rp_${_u}b)" opacity="0.5"/>
       <ellipse cx="${c-s*0.08}" cy="${s*0.52}" rx="${s*0.2}" ry="${s*0.16}" fill="${b}"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.52}" rx="${s*0.2}" ry="${s*0.16}" fill="url(#rp_${art._uid||''}b)" opacity="0.5"/>
+      <ellipse cx="${c-s*0.08}" cy="${s*0.52}" rx="${s*0.2}" ry="${s*0.16}" fill="url(#rp_${_u}b)" opacity="0.5"/>
       ${[...Array(4)].map((_,i)=>`<polygon points="${c-s*0.15+i*s*0.08},${s*0.4} ${c-s*0.12+i*s*0.08},${s*0.3} ${c-s*0.09+i*s*0.08},${s*0.4}" fill="${d}" opacity="0.8"/>`).join('')}
       <ellipse cx="${c+s*0.16}" cy="${s*0.74}" rx="${s*0.08}" ry="${s*0.035}" fill="${d}" opacity="0.6"/>
       <ellipse cx="${c-s*0.18}" cy="${s*0.74}" rx="${s*0.08}" ry="${s*0.035}" fill="${d}" opacity="0.6"/>
@@ -12656,17 +12036,17 @@ function petShapeSVG(art, s) {
       <ellipse cx="${c-s*0.09}" cy="${s*0.6}" rx="${s*0.06}" ry="${s*0.03}" fill="${d}" opacity="0.3"/>`;
     case 'feline': return `
       <defs>
-        <radialGradient id="fl_${art._uid||''}b" cx="40%" cy="30%" r="75%">
+        <radialGradient id="fl_${_u}b" cx="40%" cy="30%" r="75%">
           <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
         </radialGradient>
       </defs>
       <path d="M${c+s*0.24} ${s*0.72} Q${c+s*0.4} ${s*0.62} ${c+s*0.34} ${s*0.5}" stroke="${b}" stroke-width="${s*0.055}" fill="none" stroke-linecap="round"/>
       <ellipse cx="${c}" cy="${s*0.72}" rx="${s*0.25}" ry="${s*0.18}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.72}" rx="${s*0.25}" ry="${s*0.18}" fill="url(#fl_${art._uid||''}b)" opacity="0.5"/>
+      <ellipse cx="${c}" cy="${s*0.72}" rx="${s*0.25}" ry="${s*0.18}" fill="url(#fl_${_u}b)" opacity="0.5"/>
       <ellipse cx="${c-s*0.12}" cy="${s*0.82}" rx="${s*0.06}" ry="${s*0.04}" fill="${d}" opacity="0.55"/>
       <ellipse cx="${c+s*0.12}" cy="${s*0.82}" rx="${s*0.06}" ry="${s*0.04}" fill="${d}" opacity="0.55"/>
       <circle cx="${c}" cy="${s*0.46}" r="${s*0.21}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.46}" r="${s*0.21}" fill="url(#fl_${art._uid||''}b)" opacity="0.5"/>
+      <circle cx="${c}" cy="${s*0.46}" r="${s*0.21}" fill="url(#fl_${_u}b)" opacity="0.5"/>
       <polygon points="${c-s*0.19},${s*0.34} ${c-s*0.09},${s*0.16} ${c-s*0.02},${s*0.32}" fill="${b}"/>
       <polygon points="${c+s*0.19},${s*0.34} ${c+s*0.09},${s*0.16} ${c+s*0.02},${s*0.32}" fill="${b}"/>
       <polygon points="${c-s*0.16},${s*0.31} ${c-s*0.1},${s*0.21} ${c-s*0.05},${s*0.3}" fill="#ffb3ba"/>
@@ -12727,217 +12107,308 @@ function petShapeSVG(art, s) {
       <ellipse cx="${c-s*0.15}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.55"/>
       <ellipse cx="${c+s*0.05}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.55"/>`;
     case 'octopus': return `
-      <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.28}" ry="${s*0.24}" fill="${b}"/>
+      <defs><radialGradient id="oc${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
       ${[...Array(5)].map((_,i) => {
         const x = c - s*0.24 + i * s*0.12;
         return `<path d="M${x} ${s*0.55} Q${x+s*0.03} ${s*0.75} ${x-s*0.02} ${s*0.88}" stroke="${b}" stroke-width="${s*0.08}" fill="none" stroke-linecap="round"/>
         <circle cx="${x+s*0.005}" cy="${s*0.7}" r="${s*0.02}" fill="${a}"/>
         <circle cx="${x-s*0.01}" cy="${s*0.82}" r="${s*0.02}" fill="${a}"/>`;
       }).join('')}
-      <circle cx="${c-s*0.08}" cy="${s*0.38}" r="${s*0.05}" fill="#fff"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.38}" r="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.08}" cy="${s*0.39}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.39}" r="${s*0.025}" fill="${e}"/>`;
+      <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.28}" ry="${s*0.24}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.28}" ry="${s*0.24}" fill="url(#oc${_u})" opacity="0.55"/>
+      <ellipse cx="${c-s*0.08}" cy="${s*0.38}" rx="${s*0.06}" ry="${s*0.07}" fill="#fff"/>
+      <ellipse cx="${c+s*0.08}" cy="${s*0.38}" rx="${s*0.06}" ry="${s*0.07}" fill="#fff"/>
+      <circle cx="${c-s*0.07}" cy="${s*0.39}" r="${s*0.028}" fill="${e}"/>
+      <circle cx="${c+s*0.09}" cy="${s*0.39}" r="${s*0.028}" fill="${e}"/>
+      <circle cx="${c-s*0.06}" cy="${s*0.37}" r="${s*0.01}" fill="#fff"/>
+      <circle cx="${c+s*0.1}" cy="${s*0.37}" r="${s*0.01}" fill="#fff"/>
+      <ellipse cx="${c-s*0.14}" cy="${s*0.46}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>
+      <ellipse cx="${c+s*0.14}" cy="${s*0.46}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>`;
     case 'serpent': return `
-      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${b}" stroke-width="${s*0.18}" fill="none" stroke-linecap="round"/>
-      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${a}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round" stroke-dasharray="${s*0.04} ${s*0.04}"/>
-      <circle cx="${c+s*0.15}" cy="${s*0.2}" r="${s*0.1}" fill="${b}"/>
+      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${d}" stroke-width="${s*0.19}" fill="none" stroke-linecap="round" opacity="0.5"/>
+      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${b}" stroke-width="${s*0.16}" fill="none" stroke-linecap="round"/>
+      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${a}" stroke-width="${s*0.07}" fill="none" stroke-linecap="round" stroke-dasharray="${s*0.04} ${s*0.05}"/>
+      <circle cx="${c+s*0.15}" cy="${s*0.2}" r="${s*0.11}" fill="${b}"/>
+      <ellipse cx="${c+s*0.12}" cy="${s*0.18}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
       <circle cx="${c+s*0.13}" cy="${s*0.18}" r="${s*0.025}" fill="${e}"/>
-      <path d="M${c+s*0.22} ${s*0.22} L${c+s*0.28} ${s*0.2} M${c+s*0.22} ${s*0.24} L${c+s*0.28} ${s*0.26}" stroke="${d}" stroke-width="${s*0.015}"/>`;
+      <path d="M${c+s*0.24} ${s*0.22} L${c+s*0.32} ${s*0.2} M${c+s*0.24} ${s*0.24} L${c+s*0.32} ${s*0.27}" stroke="#e53935" stroke-width="${s*0.013}"/>`;
     case 'bat': return `
+      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.42} ${s*0.28} ${c-s*0.46} ${s*0.55} Q${c-s*0.3} ${s*0.54} ${c-s*0.15} ${s*0.65} Z" fill="${a}"/>
+      <path d="M${c+s*0.15} ${s*0.45} Q${c+s*0.42} ${s*0.28} ${c+s*0.46} ${s*0.55} Q${c+s*0.3} ${s*0.54} ${c+s*0.15} ${s*0.65} Z" fill="${a}"/>
+      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.42} ${s*0.28} ${c-s*0.46} ${s*0.55}" stroke="${d}" stroke-width="${s*0.012}" fill="none" opacity="0.5"/>
       <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.15}" ry="${s*0.2}" fill="${b}"/>
-      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.4} ${s*0.3} ${c-s*0.45} ${s*0.55} Q${c-s*0.3} ${s*0.55} ${c-s*0.15} ${s*0.65} Z" fill="${a}"/>
-      <path d="M${c+s*0.15} ${s*0.45} Q${c+s*0.4} ${s*0.3} ${c+s*0.45} ${s*0.55} Q${c+s*0.3} ${s*0.55} ${c+s*0.15} ${s*0.65} Z" fill="${a}"/>
-      <polygon points="${c-s*0.08},${s*0.4} ${c-s*0.04},${s*0.32} ${c},${s*0.4}" fill="${b}"/>
-      <polygon points="${c+s*0.08},${s*0.4} ${c+s*0.04},${s*0.32} ${c},${s*0.4}" fill="${b}"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.5}" r="${s*0.035}" fill="${e}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.5}" r="${s*0.035}" fill="${e}"/>
-      <polygon points="${c-s*0.025},${s*0.6} ${c+s*0.025},${s*0.6} ${c},${s*0.65}" fill="#fff"/>`;
+      <polygon points="${c-s*0.09},${s*0.4} ${c-s*0.05},${s*0.3} ${c-s*0.01},${s*0.4}" fill="${b}"/>
+      <polygon points="${c+s*0.09},${s*0.4} ${c+s*0.05},${s*0.3} ${c+s*0.01},${s*0.4}" fill="${b}"/>
+      <ellipse cx="${c-s*0.05}" cy="${s*0.5}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
+      <ellipse cx="${c+s*0.05}" cy="${s*0.5}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
+      <circle cx="${c-s*0.05}" cy="${s*0.51}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.05}" cy="${s*0.51}" r="${s*0.025}" fill="${e}"/>
+      <polygon points="${c-s*0.03},${s*0.6} ${c+s*0.03},${s*0.6} ${c},${s*0.66}" fill="#fff"/>`;
     case 'mammoth': return `
-      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.34}" ry="${s*0.25}" fill="${b}"/>
-      <circle cx="${c-s*0.22}" cy="${s*0.5}" r="${s*0.16}" fill="${b}"/>
-      <path d="M${c-s*0.32} ${s*0.55} Q${c-s*0.4} ${s*0.75} ${c-s*0.3} ${s*0.85}" stroke="${b}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round"/>
-      <path d="M${c-s*0.35} ${s*0.55} Q${c-s*0.42} ${s*0.7} ${c-s*0.5} ${s*0.65}" stroke="${e}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c-s*0.26}" cy="${s*0.48}" r="${s*0.025}" fill="${d}"/>
-      <ellipse cx="${c-s*0.1}" cy="${s*0.35}" rx="${s*0.08}" ry="${s*0.05}" fill="${a}"/>`;
+      <defs><radialGradient id="mm${_u}" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <ellipse cx="${c+s*0.05}" cy="${s*0.62}" rx="${s*0.34}" ry="${s*0.25}" fill="${b}"/>
+      <ellipse cx="${c+s*0.05}" cy="${s*0.62}" rx="${s*0.34}" ry="${s*0.25}" fill="url(#mm${_u})" opacity="0.5"/>
+      <circle cx="${c-s*0.22}" cy="${s*0.5}" r="${s*0.17}" fill="${b}"/>
+      <circle cx="${c-s*0.22}" cy="${s*0.5}" r="${s*0.17}" fill="url(#mm${_u})" opacity="0.5"/>
+      <path d="M${c-s*0.3} ${s*0.56} Q${c-s*0.4} ${s*0.76} ${c-s*0.28} ${s*0.86}" stroke="${b}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round"/>
+      <path d="M${c-s*0.34} ${s*0.55} Q${c-s*0.44} ${s*0.7} ${c-s*0.52} ${s*0.64}" stroke="#fffde7" stroke-width="${s*0.045}" fill="none" stroke-linecap="round"/>
+      <ellipse cx="${c-s*0.26}" cy="${s*0.47}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
+      <circle cx="${c-s*0.25}" cy="${s*0.48}" r="${s*0.022}" fill="${e}"/>
+      <ellipse cx="${c-s*0.32}" cy="${s*0.42}" rx="${s*0.09}" ry="${s*0.07}" fill="${a}"/>
+      <ellipse cx="${c-s*0.13}" cy="${s*0.55}" rx="${s*0.03}" ry="${s*0.022}" fill="#ff8a80" opacity="0.35"/>`;
     case 'rhino': return `
-      <ellipse cx="${c}" cy="${s*0.62}" rx="${s*0.32}" ry="${s*0.2}" fill="${b}"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="${b}"/>
-      <polygon points="${c+s*0.3},${s*0.45} ${c+s*0.34},${s*0.32} ${c+s*0.24},${s*0.43}" fill="${e}"/>
-      <polygon points="${c+s*0.36},${s*0.5} ${c+s*0.38},${s*0.42} ${c+s*0.32},${s*0.5}" fill="${e}"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.47}" r="${s*0.022}" fill="${d}"/>
-      <path d="M${c-s*0.18} ${s*0.78} L${c-s*0.18} ${s*0.88} M${c+s*0.08} ${s*0.78} L${c+s*0.08} ${s*0.88}" stroke="${d}" stroke-width="${s*0.05}"/>`;
+      <defs><radialGradient id="rh${_u}" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <ellipse cx="${c}" cy="${s*0.64}" rx="${s*0.32}" ry="${s*0.2}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.64}" rx="${s*0.32}" ry="${s*0.2}" fill="url(#rh${_u})" opacity="0.5"/>
+      <ellipse cx="${c+s*0.2}" cy="${s*0.5}" rx="${s*0.17}" ry="${s*0.15}" fill="${b}"/>
+      <ellipse cx="${c+s*0.2}" cy="${s*0.5}" rx="${s*0.17}" ry="${s*0.15}" fill="url(#rh${_u})" opacity="0.5"/>
+      <polygon points="${c+s*0.32},${s*0.44} ${c+s*0.38},${s*0.3} ${c+s*0.26},${s*0.43}" fill="#fffde7"/>
+      <polygon points="${c+s*0.37},${s*0.5} ${c+s*0.4},${s*0.41} ${c+s*0.33},${s*0.49}" fill="#fffde7"/>
+      <ellipse cx="${c+s*0.16}" cy="${s*0.46}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
+      <circle cx="${c+s*0.17}" cy="${s*0.47}" r="${s*0.022}" fill="${e}"/>
+      <ellipse cx="${c-s*0.16}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>
+      <ellipse cx="${c+s*0.06}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>`;
     case 'turtle': return `
-      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.32}" ry="${s*0.22}" fill="${a}"/>
+      <defs><radialGradient id="tt${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${d}"/></radialGradient></defs>
+      <ellipse cx="${c+s*0.28}" cy="${s*0.55}" rx="${s*0.1}" ry="${s*0.09}" fill="${a}"/>
+      <ellipse cx="${c+s*0.29}" cy="${s*0.53}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
+      <circle cx="${c+s*0.3}" cy="${s*0.54}" r="${s*0.02}" fill="${e}"/>
+      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.33}" ry="${s*0.23}" fill="${d}"/>
       <ellipse cx="${c}" cy="${s*0.58}" rx="${s*0.28}" ry="${s*0.18}" fill="${b}"/>
-      <path d="M${c-s*0.15} ${s*0.5} L${c+s*0.15} ${s*0.5} M${c-s*0.2} ${s*0.6} L${c+s*0.2} ${s*0.6} M${c} ${s*0.45} L${c} ${s*0.7}" stroke="${d}" stroke-width="${s*0.015}" opacity="0.5"/>
-      <circle cx="${c+s*0.28}" cy="${s*0.58}" r="${s*0.08}" fill="${a}"/>
-      <circle cx="${c+s*0.29}" cy="${s*0.56}" r="${s*0.018}" fill="${e}"/>
-      <ellipse cx="${c-s*0.22}" cy="${s*0.75}" rx="${s*0.05}" ry="${s*0.03}" fill="${a}"/>
-      <ellipse cx="${c+s*0.18}" cy="${s*0.78}" rx="${s*0.05}" ry="${s*0.03}" fill="${a}"/>`;
+      <ellipse cx="${c}" cy="${s*0.58}" rx="${s*0.28}" ry="${s*0.18}" fill="url(#tt${_u})" opacity="0.6"/>
+      <path d="M${c-s*0.14} ${s*0.48} L${c-s*0.18} ${s*0.6} L${c-s*0.1} ${s*0.68} M${c+s*0.14} ${s*0.48} L${c+s*0.18} ${s*0.6} L${c+s*0.1} ${s*0.68} M${c} ${s*0.43} L${c} ${s*0.7}" stroke="${d}" stroke-width="${s*0.018}" fill="none" opacity="0.6"/>
+      <ellipse cx="${c-s*0.22}" cy="${s*0.76}" rx="${s*0.055}" ry="${s*0.035}" fill="${a}"/>
+      <ellipse cx="${c+s*0.18}" cy="${s*0.78}" rx="${s*0.055}" ry="${s*0.035}" fill="${a}"/>`;
     case 'lion': return `
-      <circle cx="${c}" cy="${s*0.5}" r="${s*0.32}" fill="${a}"/>
-      <circle cx="${c}" cy="${s*0.5}" r="${s*0.22}" fill="${b}"/>
+      <defs><radialGradient id="li${_u}" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
       <ellipse cx="${c}" cy="${s*0.78}" rx="${s*0.22}" ry="${s*0.12}" fill="${b}"/>
-      <polygon points="${c-s*0.2},${s*0.32} ${c-s*0.13},${s*0.22} ${c-s*0.08},${s*0.32}" fill="${b}"/>
-      <polygon points="${c+s*0.2},${s*0.32} ${c+s*0.13},${s*0.22} ${c+s*0.08},${s*0.32}" fill="${b}"/>
-      <circle cx="${c-s*0.08}" cy="${s*0.48}" r="${s*0.035}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.48}" r="${s*0.035}" fill="${e}"/>
-      <ellipse cx="${c}" cy="${s*0.58}" rx="${s*0.04}" ry="${s*0.03}" fill="${d}"/>
-      <path d="M${c} ${s*0.6} Q${c-s*0.05} ${s*0.64} ${c-s*0.08} ${s*0.62} M${c} ${s*0.6} Q${c+s*0.05} ${s*0.64} ${c+s*0.08} ${s*0.62}" stroke="${d}" stroke-width="${s*0.018}" fill="none"/>`;
+      ${[...Array(10)].map((_,i)=>{const ang=(i/10)*Math.PI*2;return `<ellipse cx="${c+Math.cos(ang)*s*0.3}" cy="${s*0.5+Math.sin(ang)*s*0.3}" rx="${s*0.07}" ry="${s*0.05}" fill="${d}" transform="rotate(${ang*180/Math.PI} ${c+Math.cos(ang)*s*0.3} ${s*0.5+Math.sin(ang)*s*0.3})"/>`;}).join('')}
+      <circle cx="${c}" cy="${s*0.5}" r="${s*0.3}" fill="${a}"/>
+      <circle cx="${c}" cy="${s*0.5}" r="${s*0.23}" fill="${b}"/>
+      <circle cx="${c}" cy="${s*0.5}" r="${s*0.23}" fill="url(#li${_u})" opacity="0.5"/>
+      <polygon points="${c-s*0.18},${s*0.34} ${c-s*0.12},${s*0.24} ${c-s*0.07},${s*0.34}" fill="${b}"/>
+      <polygon points="${c+s*0.18},${s*0.34} ${c+s*0.12},${s*0.24} ${c+s*0.07},${s*0.34}" fill="${b}"/>
+      <ellipse cx="${c-s*0.08}" cy="${s*0.48}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <ellipse cx="${c+s*0.08}" cy="${s*0.48}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c-s*0.07}" cy="${s*0.49}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.09}" cy="${s*0.49}" r="${s*0.025}" fill="${e}"/>
+      <path d="M${c-s*0.04} ${s*0.57} L${c+s*0.04} ${s*0.57} L${c} ${s*0.6} Z" fill="${d}"/>
+      <path d="M${c} ${s*0.6} Q${c-s*0.05} ${s*0.64} ${c-s*0.08} ${s*0.62} M${c} ${s*0.6} Q${c+s*0.05} ${s*0.64} ${c+s*0.08} ${s*0.62}" stroke="${d}" stroke-width="${s*0.016}" fill="none"/>`;
     case 'dragon': return `
+      <defs><radialGradient id="dr${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <path d="M${c-s*0.32} ${s*0.55} Q${c-s*0.48} ${s*0.32} ${c-s*0.4} ${s*0.66} Z" fill="${a}" stroke="${d}" stroke-width="${s*0.01}"/>
+      <path d="M${c-s*0.18} ${s*0.45} Q${c-s*0.34} ${s*0.22} ${c-s*0.22} ${s*0.56} Z" fill="${a}" stroke="${d}" stroke-width="${s*0.01}"/>
       <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.3}" ry="${s*0.2}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.3}" ry="${s*0.2}" fill="url(#dr${_u})" opacity="0.5"/>
       <circle cx="${c+s*0.05}" cy="${s*0.4}" r="${s*0.18}" fill="${b}"/>
-      <path d="M${c-s*0.32} ${s*0.55} Q${c-s*0.45} ${s*0.35} ${c-s*0.4} ${s*0.65} M${c-s*0.18} ${s*0.45} Q${c-s*0.32} ${s*0.25} ${c-s*0.22} ${s*0.55}" fill="${a}" stroke="${d}" stroke-width="${s*0.01}"/>
-      <polygon points="${c+s*0.12},${s*0.25} ${c+s*0.18},${s*0.15} ${c+s*0.2},${s*0.28}" fill="${a}"/>
-      <polygon points="${c-s*0.02},${s*0.25} ${c+s*0.02},${s*0.15} ${c+s*0.06},${s*0.28}" fill="${a}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.4}" r="${s*0.03}" fill="${e}"/>
-      <circle cx="${c-s*0.04}" cy="${s*0.4}" r="${s*0.03}" fill="${e}"/>
-      <path d="M${c+s*0.2} ${s*0.45} L${c+s*0.28} ${s*0.43} M${c+s*0.2} ${s*0.48} L${c+s*0.28} ${s*0.5}" stroke="${d}" stroke-width="${s*0.012}"/>`;
+      <circle cx="${c+s*0.05}" cy="${s*0.4}" r="${s*0.18}" fill="url(#dr${_u})" opacity="0.5"/>
+      <polygon points="${c+s*0.12},${s*0.25} ${c+s*0.18},${s*0.13} ${c+s*0.2},${s*0.28}" fill="${d}"/>
+      <polygon points="${c-s*0.02},${s*0.25} ${c+s*0.02},${s*0.13} ${c+s*0.06},${s*0.28}" fill="${d}"/>
+      <ellipse cx="${c+s*0.08}" cy="${s*0.39}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <ellipse cx="${c-s*0.04}" cy="${s*0.39}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c+s*0.09}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c-s*0.03}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
+      <path d="M${c+s*0.18} ${s*0.46} L${c+s*0.28} ${s*0.44} M${c+s*0.18} ${s*0.49} L${c+s*0.28} ${s*0.51}" stroke="${d}" stroke-width="${s*0.012}"/>`;
     case 'wolf': return `
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.18}" fill="${b}"/>
+      <defs><radialGradient id="wf${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <path d="M${c+s*0.24} ${s*0.72} Q${c+s*0.42} ${s*0.64} ${c+s*0.36} ${s*0.52}" stroke="${b}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
+      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.27}" ry="${s*0.18}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.27}" ry="${s*0.18}" fill="url(#wf${_u})" opacity="0.45"/>
       <circle cx="${c}" cy="${s*0.45}" r="${s*0.2}" fill="${b}"/>
-      <polygon points="${c-s*0.2},${s*0.28} ${c-s*0.12},${s*0.18} ${c-s*0.05},${s*0.3}" fill="${b}"/>
-      <polygon points="${c+s*0.2},${s*0.28} ${c+s*0.12},${s*0.18} ${c+s*0.05},${s*0.3}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.08}" ry="${s*0.06}" fill="${a}"/>
-      <circle cx="${c-s*0.07}" cy="${s*0.45}" r="${s*0.035}" fill="${e}"/>
-      <circle cx="${c+s*0.07}" cy="${s*0.45}" r="${s*0.035}" fill="${e}"/>
-      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.025}" ry="${s*0.018}" fill="${d}"/>
-      <path d="M${c} ${s*0.58} L${c} ${s*0.62}" stroke="${d}" stroke-width="${s*0.015}"/>`;
+      <circle cx="${c}" cy="${s*0.45}" r="${s*0.2}" fill="url(#wf${_u})" opacity="0.45"/>
+      <polygon points="${c-s*0.2},${s*0.28} ${c-s*0.12},${s*0.16} ${c-s*0.04},${s*0.3}" fill="${b}"/>
+      <polygon points="${c+s*0.2},${s*0.28} ${c+s*0.12},${s*0.16} ${c+s*0.04},${s*0.3}" fill="${b}"/>
+      <polygon points="${c-s*0.16},${s*0.27} ${c-s*0.11},${s*0.19} ${c-s*0.07},${s*0.28}" fill="${d}"/>
+      <polygon points="${c+s*0.16},${s*0.27} ${c+s*0.11},${s*0.19} ${c+s*0.07},${s*0.28}" fill="${d}"/>
+      <ellipse cx="${c}" cy="${s*0.54}" rx="${s*0.09}" ry="${s*0.07}" fill="${a}" opacity="0.6"/>
+      <ellipse cx="${c-s*0.07}" cy="${s*0.44}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <ellipse cx="${c+s*0.07}" cy="${s*0.44}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c-s*0.06}" cy="${s*0.45}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.08}" cy="${s*0.45}" r="${s*0.025}" fill="${e}"/>
+      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.03}" ry="${s*0.022}" fill="${d}"/>
+      <path d="M${c} ${s*0.57} L${c} ${s*0.62} M${c} ${s*0.62} Q${c-s*0.03} ${s*0.64} ${c-s*0.05} ${s*0.63} M${c} ${s*0.62} Q${c+s*0.03} ${s*0.64} ${c+s*0.05} ${s*0.63}" stroke="${d}" stroke-width="${s*0.014}" fill="none"/>`;
     case 'trex': return `
-      <ellipse cx="${c-s*0.05}" cy="${s*0.55}" rx="${s*0.3}" ry="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.38}" rx="${s*0.15}" ry="${s*0.13}" fill="${b}"/>
-      <path d="M${c+s*0.28} ${s*0.42} L${c+s*0.35} ${s*0.4} L${c+s*0.28} ${s*0.44}" fill="${a}"/>
-      <path d="M${c-s*0.25} ${s*0.65} Q${c-s*0.35} ${s*0.5} ${c-s*0.45} ${s*0.6}" stroke="${b}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round"/>
-      <polygon points="${c+s*0.2},${s*0.45} ${c+s*0.22},${s*0.48} ${c+s*0.24},${s*0.45}" fill="#fff"/>
-      <polygon points="${c+s*0.26},${s*0.45} ${c+s*0.28},${s*0.48} ${c+s*0.3},${s*0.45}" fill="#fff"/>
-      <circle cx="${c+s*0.22}" cy="${s*0.35}" r="${s*0.028}" fill="${e}"/>
-      <path d="M${c-s*0.15} ${s*0.75} L${c-s*0.15} ${s*0.88} M${c+s*0.08} ${s*0.75} L${c+s*0.08} ${s*0.88}" stroke="${d}" stroke-width="${s*0.05}"/>`;
+      <defs><radialGradient id="tx${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <path d="M${c-s*0.25} ${s*0.65} Q${c-s*0.38} ${s*0.5} ${c-s*0.46} ${s*0.6}" stroke="${b}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round"/>
+      <ellipse cx="${c-s*0.05}" cy="${s*0.56}" rx="${s*0.3}" ry="${s*0.22}" fill="${b}"/>
+      <ellipse cx="${c-s*0.05}" cy="${s*0.56}" rx="${s*0.3}" ry="${s*0.22}" fill="url(#tx${_u})" opacity="0.5"/>
+      <circle cx="${c+s*0.2}" cy="${s*0.38}" r="${s*0.16}" fill="${b}"/>
+      <circle cx="${c+s*0.2}" cy="${s*0.38}" r="${s*0.16}" fill="url(#tx${_u})" opacity="0.5"/>
+      <path d="M${c+s*0.28} ${s*0.42} L${c+s*0.37} ${s*0.4} L${c+s*0.28} ${s*0.45} Z" fill="${d}"/>
+      <polygon points="${c+s*0.18},${s*0.46} ${c+s*0.2},${s*0.5} ${c+s*0.22},${s*0.46}" fill="#fff"/>
+      <polygon points="${c+s*0.24},${s*0.46} ${c+s*0.26},${s*0.5} ${c+s*0.28},${s*0.46}" fill="#fff"/>
+      <ellipse cx="${c+s*0.22}" cy="${s*0.34}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c+s*0.23}" cy="${s*0.35}" r="${s*0.025}" fill="${e}"/>
+      <ellipse cx="${c-s*0.15}" cy="${s*0.78}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>
+      <ellipse cx="${c+s*0.06}" cy="${s*0.78}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>`;
     case 'demon': return `
+      <defs><radialGradient id="dm${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
       <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.18}" fill="${b}"/>
-      <circle cx="${c-s*0.1}" cy="${s*0.42}" r="${s*0.14}" fill="${b}"/>
-      <circle cx="${c+s*0.1}" cy="${s*0.42}" r="${s*0.14}" fill="${b}"/>
-      <polygon points="${c-s*0.2},${s*0.3} ${c-s*0.25},${s*0.2} ${c-s*0.15},${s*0.32}" fill="${a}"/>
-      <polygon points="${c+s*0.2},${s*0.3} ${c+s*0.25},${s*0.2} ${c+s*0.15},${s*0.32}" fill="${a}"/>
-      <circle cx="${c-s*0.13}" cy="${s*0.43}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.13}" cy="${s*0.43}" r="${s*0.025}" fill="${e}"/>
-      <path d="M${c-s*0.18} ${s*0.55} Q${c} ${s*0.62} ${c+s*0.18} ${s*0.55} M${c-s*0.15} ${s*0.58} L${c-s*0.13} ${s*0.61} L${c-s*0.11} ${s*0.58} L${c-s*0.09} ${s*0.61} L${c-s*0.07} ${s*0.58}" stroke="${d}" stroke-width="${s*0.015}" fill="none"/>`;
+      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.18}" fill="url(#dm${_u})" opacity="0.45"/>
+      <circle cx="${c}" cy="${s*0.44}" r="${s*0.2}" fill="${b}"/>
+      <circle cx="${c}" cy="${s*0.44}" r="${s*0.2}" fill="url(#dm${_u})" opacity="0.45"/>
+      <path d="M${c-s*0.2} ${s*0.3} Q${c-s*0.28} ${s*0.14} ${c-s*0.14} ${s*0.22} Q${c-s*0.16} ${s*0.3} ${c-s*0.13} ${s*0.32} Z" fill="${d}"/>
+      <path d="M${c+s*0.2} ${s*0.3} Q${c+s*0.28} ${s*0.14} ${c+s*0.14} ${s*0.22} Q${c+s*0.16} ${s*0.3} ${c+s*0.13} ${s*0.32} Z" fill="${d}"/>
+      <ellipse cx="${c-s*0.08}" cy="${s*0.43}" rx="${s*0.045}" ry="${s*0.04}" fill="#fff"/>
+      <ellipse cx="${c+s*0.08}" cy="${s*0.43}" rx="${s*0.045}" ry="${s*0.04}" fill="#fff"/>
+      <circle cx="${c-s*0.08}" cy="${s*0.44}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.08}" cy="${s*0.44}" r="${s*0.025}" fill="${e}"/>
+      <path d="M${c-s*0.12} ${s*0.55} L${c-s*0.09} ${s*0.59} L${c-s*0.06} ${s*0.55} L${c-s*0.03} ${s*0.59} L${c} ${s*0.55} L${c+s*0.03} ${s*0.59} L${c+s*0.06} ${s*0.55} L${c+s*0.09} ${s*0.59} L${c+s*0.12} ${s*0.55}" stroke="${d}" stroke-width="${s*0.016}" fill="none"/>`;
     case 'pegasus': return `
+      <defs><radialGradient id="pg${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <path d="M${c-s*0.2} ${s*0.5} Q${c-s*0.52} ${s*0.26} ${c-s*0.46} ${s*0.56} Q${c-s*0.34} ${s*0.5} ${c-s*0.18} ${s*0.62} Z" fill="${a}" opacity="0.9"/>
       <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="url(#pg${_u})" opacity="0.5"/>
       <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="${b}"/>
-      <path d="M${c+s*0.18} ${s*0.35} Q${c+s*0.3} ${s*0.2} ${c+s*0.4} ${s*0.3}" stroke="${a}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
-      <polygon points="${c+s*0.2},${s*0.42} ${c+s*0.24},${s*0.2} ${c+s*0.28},${s*0.42}" fill="${a}"/>
-      <path d="M${c-s*0.2} ${s*0.5} Q${c-s*0.5} ${s*0.3} ${c-s*0.45} ${s*0.55} Q${c-s*0.35} ${s*0.5} ${c-s*0.2} ${s*0.6} Z" fill="${a}" opacity="0.85"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.48}" r="${s*0.022}" fill="${e}"/>
-      <path d="M${c-s*0.1} ${s*0.82} L${c-s*0.1} ${s*0.9} M${c+s*0.1} ${s*0.82} L${c+s*0.1} ${s*0.9}" stroke="${d}" stroke-width="${s*0.04}"/>`;
+      <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="url(#pg${_u})" opacity="0.5"/>
+      <path d="M${c+s*0.18} ${s*0.36} Q${c+s*0.32} ${s*0.18} ${c+s*0.42} ${s*0.3}" stroke="${a}" stroke-width="${s*0.05}" fill="none" stroke-linecap="round"/>
+      <polygon points="${c+s*0.2},${s*0.42} ${c+s*0.24},${s*0.18} ${c+s*0.28},${s*0.42}" fill="#fffde7"/>
+      <ellipse cx="${c+s*0.17}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.035}" fill="#fff"/>
+      <circle cx="${c+s*0.18}" cy="${s*0.49}" r="${s*0.02}" fill="${e}"/>
+      <ellipse cx="${c-s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>
+      <ellipse cx="${c+s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>`;
     case 'phoenix': return `
+      <defs><radialGradient id="ph${_u}" cx="50%" cy="40%" r="70%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.48} ${s*0.16} ${c-s*0.3} ${s*0.56} Q${c-s*0.46} ${s*0.5} ${c-s*0.18} ${s*0.66} Z" fill="${a}"/>
+      <path d="M${c+s*0.15} ${s*0.45} Q${c+s*0.48} ${s*0.16} ${c+s*0.3} ${s*0.56} Q${c+s*0.46} ${s*0.5} ${c+s*0.18} ${s*0.66} Z" fill="${a}"/>
+      <path d="M${c} ${s*0.4} Q${c-s*0.06} ${s*0.16} ${c} ${s*0.1} Q${c+s*0.06} ${s*0.16} ${c} ${s*0.4}" fill="${a}"/>
       <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.18}" ry="${s*0.22}" fill="${b}"/>
-      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.45} ${s*0.2} ${c-s*0.3} ${s*0.55} Q${c-s*0.45} ${s*0.5} ${c-s*0.2} ${s*0.65} Z" fill="${a}"/>
-      <path d="M${c+s*0.15} ${s*0.45} Q${c+s*0.45} ${s*0.2} ${c+s*0.3} ${s*0.55} Q${c+s*0.45} ${s*0.5} ${c+s*0.2} ${s*0.65} Z" fill="${a}"/>
-      <path d="M${c} ${s*0.4} Q${c-s*0.05} ${s*0.2} ${c} ${s*0.15} Q${c+s*0.05} ${s*0.2} ${c} ${s*0.4}" fill="${a}"/>
-      <circle cx="${c-s*0.04}" cy="${s*0.5}" r="${s*0.03}" fill="${e}"/>
-      <circle cx="${c+s*0.04}" cy="${s*0.5}" r="${s*0.03}" fill="${e}"/>
-      <polygon points="${c-s*0.02},${s*0.58} ${c+s*0.02},${s*0.58} ${c},${s*0.62}" fill="${a}"/>
-      <path d="M${c-s*0.05} ${s*0.85} Q${c-s*0.15} ${s*0.95} ${c} ${s*0.95} Q${c+s*0.15} ${s*0.95} ${c+s*0.05} ${s*0.85}" fill="${a}" opacity="0.7"/>`;
+      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.18}" ry="${s*0.22}" fill="url(#ph${_u})" opacity="0.6"/>
+      <ellipse cx="${c-s*0.05}" cy="${s*0.49}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <ellipse cx="${c+s*0.05}" cy="${s*0.49}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c-s*0.04}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.06}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
+      <polygon points="${c-s*0.03},${s*0.58} ${c+s*0.03},${s*0.58} ${c},${s*0.63}" fill="#ffb300"/>
+      <path d="M${c-s*0.06} ${s*0.84} Q${c-s*0.16} ${s*0.96} ${c} ${s*0.96} Q${c+s*0.16} ${s*0.96} ${c+s*0.06} ${s*0.84}" fill="${a}" opacity="0.7"/>`;
     case 'kirin': return `
+      <defs><radialGradient id="ki${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
       <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="url(#ki${_u})" opacity="0.5"/>
       <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="${b}"/>
-      <polygon points="${c+s*0.18},${s*0.42} ${c+s*0.22},${s*0.18} ${c+s*0.26},${s*0.42}" fill="${a}"/>
-      <path d="M${c+s*0.05} ${s*0.4} Q${c-s*0.05} ${s*0.3} ${c-s*0.1} ${s*0.4}" stroke="${a}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.48}" r="${s*0.022}" fill="${e}"/>
-      <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.04}" ry="${s*0.04}" fill="${a}" opacity="0.7"/>
-      <ellipse cx="${c-s*0.12}" cy="${s*0.7}" rx="${s*0.04}" ry="${s*0.04}" fill="${a}" opacity="0.7"/>
-      <path d="M${c-s*0.1} ${s*0.82} L${c-s*0.1} ${s*0.9} M${c+s*0.1} ${s*0.82} L${c+s*0.1} ${s*0.9}" stroke="${d}" stroke-width="${s*0.04}"/>
-      <path d="M${c-s*0.22} ${s*0.7} Q${c-s*0.32} ${s*0.62} ${c-s*0.28} ${s*0.78}" stroke="${a}" stroke-width="${s*0.03}" fill="none"/>`;
+      <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="url(#ki${_u})" opacity="0.5"/>
+      <polygon points="${c+s*0.18},${s*0.42} ${c+s*0.22},${s*0.16} ${c+s*0.26},${s*0.42}" fill="#ffd54f"/>
+      <path d="M${c+s*0.05} ${s*0.4} Q${c-s*0.06} ${s*0.28} ${c-s*0.12} ${s*0.4}" stroke="${a}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>
+      <ellipse cx="${c+s*0.17}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.035}" fill="#fff"/>
+      <circle cx="${c+s*0.18}" cy="${s*0.49}" r="${s*0.02}" fill="${e}"/>
+      <ellipse cx="${c-s*0.02}" cy="${s*0.66}" rx="${s*0.04}" ry="${s*0.04}" fill="${a}" opacity="0.7"/>
+      <ellipse cx="${c-s*0.14}" cy="${s*0.7}" rx="${s*0.04}" ry="${s*0.04}" fill="${a}" opacity="0.7"/>
+      <ellipse cx="${c-s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>
+      <ellipse cx="${c+s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>
+      <path d="M${c-s*0.22} ${s*0.68} Q${c-s*0.34} ${s*0.6} ${c-s*0.3} ${s*0.78}" stroke="${a}" stroke-width="${s*0.03}" fill="none"/>`;
     case 'frog': return `
-      <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.3}" ry="${s*0.2}" fill="${b}"/>
-      <ellipse cx="${c-s*0.13}" cy="${s*0.4}" rx="${s*0.1}" ry="${s*0.1}" fill="${b}"/>
-      <ellipse cx="${c+s*0.13}" cy="${s*0.4}" rx="${s*0.1}" ry="${s*0.1}" fill="${b}"/>
-      <circle cx="${c-s*0.13}" cy="${s*0.4}" r="${s*0.05}" fill="${e}"/>
-      <circle cx="${c+s*0.13}" cy="${s*0.4}" r="${s*0.05}" fill="${e}"/>
-      <circle cx="${c-s*0.13}" cy="${s*0.4}" r="${s*0.025}" fill="${d}"/>
-      <circle cx="${c+s*0.13}" cy="${s*0.4}" r="${s*0.025}" fill="${d}"/>
-      <path d="M${c-s*0.15} ${s*0.7} Q${c} ${s*0.78} ${c+s*0.15} ${s*0.7}" stroke="${d}" stroke-width="${s*0.02}" fill="none"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.55}" rx="${s*0.04}" ry="${s*0.03}" fill="${a}"/>
-      <ellipse cx="${c+s*0.12}" cy="${s*0.6}" rx="${s*0.04}" ry="${s*0.03}" fill="${a}"/>`;
+      <defs><radialGradient id="fr${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.2}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.2}" fill="url(#fr${_u})" opacity="0.5"/>
+      <ellipse cx="${c-s*0.2}" cy="${s*0.78}" rx="${s*0.08}" ry="${s*0.04}" fill="${d}" opacity="0.5"/>
+      <ellipse cx="${c+s*0.2}" cy="${s*0.78}" rx="${s*0.08}" ry="${s*0.04}" fill="${d}" opacity="0.5"/>
+      <circle cx="${c-s*0.13}" cy="${s*0.4}" r="${s*0.11}" fill="${b}"/>
+      <circle cx="${c+s*0.13}" cy="${s*0.4}" r="${s*0.11}" fill="${b}"/>
+      <circle cx="${c-s*0.13}" cy="${s*0.39}" r="${s*0.07}" fill="#fff"/>
+      <circle cx="${c+s*0.13}" cy="${s*0.39}" r="${s*0.07}" fill="#fff"/>
+      <circle cx="${c-s*0.12}" cy="${s*0.4}" r="${s*0.035}" fill="${e}"/>
+      <circle cx="${c+s*0.14}" cy="${s*0.4}" r="${s*0.035}" fill="${e}"/>
+      <circle cx="${c-s*0.11}" cy="${s*0.38}" r="${s*0.014}" fill="#fff"/>
+      <circle cx="${c+s*0.15}" cy="${s*0.38}" r="${s*0.014}" fill="#fff"/>
+      <path d="M${c-s*0.16} ${s*0.62} Q${c} ${s*0.72} ${c+s*0.16} ${s*0.62}" stroke="${d}" stroke-width="${s*0.022}" fill="none" stroke-linecap="round"/>
+      <ellipse cx="${c-s*0.16}" cy="${s*0.55}" rx="${s*0.035}" ry="${s*0.025}" fill="#ff8a80" opacity="0.4"/>
+      <ellipse cx="${c+s*0.16}" cy="${s*0.55}" rx="${s*0.035}" ry="${s*0.025}" fill="#ff8a80" opacity="0.4"/>`;
     case 'bee': return `
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.25}" ry="${s*0.2}" fill="${b}"/>
-      <rect x="${c-s*0.25}" y="${s*0.5}" width="${s*0.5}" height="${s*0.08}" fill="${a}"/>
-      <rect x="${c-s*0.22}" y="${s*0.6}" width="${s*0.44}" height="${s*0.06}" fill="${a}"/>
-      <ellipse cx="${c-s*0.1}" cy="${s*0.4}" rx="${s*0.15}" ry="${s*0.1}" fill="#fff" opacity="0.6"/>
-      <ellipse cx="${c+s*0.1}" cy="${s*0.4}" rx="${s*0.15}" ry="${s*0.1}" fill="#fff" opacity="0.6"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.55}" r="${s*0.04}" fill="${a}"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.55}" r="${s*0.02}" fill="${e}"/>
-      <circle cx="${c+s*0.06}" cy="${s*0.55}" r="${s*0.04}" fill="${a}"/>
-      <circle cx="${c+s*0.06}" cy="${s*0.55}" r="${s*0.02}" fill="${e}"/>
-      <line x1="${c-s*0.05}" y1="${s*0.35}" x2="${c-s*0.1}" y2="${s*0.22}" stroke="${a}" stroke-width="${s*0.015}"/>
-      <line x1="${c+s*0.05}" y1="${s*0.35}" x2="${c+s*0.1}" y2="${s*0.22}" stroke="${a}" stroke-width="${s*0.015}"/>
-      <polygon points="${c},${s*0.78} ${c-s*0.03},${s*0.7} ${c+s*0.03},${s*0.7}" fill="${a}"/>`;
+      <ellipse cx="${c-s*0.12}" cy="${s*0.38}" rx="${s*0.16}" ry="${s*0.1}" fill="#fff" opacity="0.55" transform="rotate(-20 ${c-s*0.12} ${s*0.38})"/>
+      <ellipse cx="${c+s*0.12}" cy="${s*0.38}" rx="${s*0.16}" ry="${s*0.1}" fill="#fff" opacity="0.55" transform="rotate(20 ${c+s*0.12} ${s*0.38})"/>
+      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.25}" ry="${s*0.2}" fill="${b}"/>
+      <path d="M${c-s*0.24} ${s*0.5} A ${s*0.25} ${s*0.2} 0 0 1 ${c-s*0.06} ${s*0.36}" stroke="${d}" stroke-width="0" fill="none"/>
+      <rect x="${c-s*0.24}" y="${s*0.5}" width="${s*0.48}" height="${s*0.07}" fill="${d}"/>
+      <rect x="${c-s*0.2}" y="${s*0.61}" width="${s*0.4}" height="${s*0.055}" fill="${d}"/>
+      <ellipse cx="${c-s*0.07}" cy="${s*0.5}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
+      <ellipse cx="${c+s*0.07}" cy="${s*0.5}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c-s*0.06}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.08}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
+      <line x1="${c-s*0.05}" y1="${s*0.36}" x2="${c-s*0.1}" y2="${s*0.22}" stroke="${d}" stroke-width="${s*0.014}"/>
+      <line x1="${c+s*0.05}" y1="${s*0.36}" x2="${c+s*0.1}" y2="${s*0.22}" stroke="${d}" stroke-width="${s*0.014}"/>
+      <circle cx="${c-s*0.1}" cy="${s*0.21}" r="${s*0.02}" fill="${d}"/>
+      <circle cx="${c+s*0.1}" cy="${s*0.21}" r="${s*0.02}" fill="${d}"/>
+      <polygon points="${c},${s*0.78} ${c-s*0.03},${s*0.7} ${c+s*0.03},${s*0.7}" fill="${d}"/>`;
     case 'snake': return `
-      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${b}" stroke-width="${s*0.16}" fill="none" stroke-linecap="round"/>
-      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${a}" stroke-width="${s*0.08}" fill="none" stroke-linecap="round" stroke-dasharray="${s*0.04} ${s*0.06}"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.25}" rx="${s*0.1}" ry="${s*0.08}" fill="${b}"/>
-      <circle cx="${c+s*0.22}" cy="${s*0.23}" r="${s*0.022}" fill="${e}"/>
-      <path d="M${c+s*0.28} ${s*0.25} L${c+s*0.35} ${s*0.23} M${c+s*0.28} ${s*0.27} L${c+s*0.35} ${s*0.29}" stroke="${d}" stroke-width="${s*0.015}"/>
-      <path d="M${c+s*0.2} ${s*0.32} L${c+s*0.18} ${s*0.4} M${c+s*0.22} ${s*0.32} L${c+s*0.24} ${s*0.4}" stroke="#fff" stroke-width="${s*0.012}"/>`;
+      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${d}" stroke-width="${s*0.17}" fill="none" stroke-linecap="round" opacity="0.5"/>
+      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${b}" stroke-width="${s*0.15}" fill="none" stroke-linecap="round"/>
+      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${a}" stroke-width="${s*0.07}" fill="none" stroke-linecap="round" stroke-dasharray="${s*0.04} ${s*0.06}"/>
+      <ellipse cx="${c+s*0.2}" cy="${s*0.25}" rx="${s*0.11}" ry="${s*0.09}" fill="${b}"/>
+      <ellipse cx="${c+s*0.18}" cy="${s*0.23}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
+      <circle cx="${c+s*0.19}" cy="${s*0.23}" r="${s*0.022}" fill="${e}"/>
+      <path d="M${c+s*0.29} ${s*0.25} L${c+s*0.37} ${s*0.23} M${c+s*0.29} ${s*0.27} L${c+s*0.37} ${s*0.3}" stroke="#e53935" stroke-width="${s*0.014}"/>`;
     case 'hawk': return `
-      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.18}" ry="${s*0.22}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.4}" r="${s*0.14}" fill="${b}"/>
-      <path d="M${c-s*0.15} ${s*0.5} Q${c-s*0.4} ${s*0.35} ${c-s*0.42} ${s*0.6}" fill="${a}"/>
-      <path d="M${c+s*0.15} ${s*0.5} Q${c+s*0.4} ${s*0.35} ${c+s*0.42} ${s*0.6}" fill="${a}"/>
-      <polygon points="${c-s*0.04},${s*0.38} ${c+s*0.04},${s*0.38} ${c},${s*0.48}" fill="${e}"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.38}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.38}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.38}" r="${s*0.013}" fill="${d}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.38}" r="${s*0.013}" fill="${d}"/>
-      <path d="M${c-s*0.08} ${s*0.78} L${c-s*0.08} ${s*0.88} M${c+s*0.08} ${s*0.78} L${c+s*0.08} ${s*0.88}" stroke="${e}" stroke-width="${s*0.025}"/>`;
+      <path d="M${c-s*0.15} ${s*0.5} Q${c-s*0.42} ${s*0.32} ${c-s*0.44} ${s*0.62} Q${c-s*0.3} ${s*0.56} ${c-s*0.15} ${s*0.6} Z" fill="${a}"/>
+      <path d="M${c+s*0.15} ${s*0.5} Q${c+s*0.42} ${s*0.32} ${c+s*0.44} ${s*0.62} Q${c+s*0.3} ${s*0.56} ${c+s*0.15} ${s*0.6} Z" fill="${a}"/>
+      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.17}" ry="${s*0.22}" fill="${b}"/>
+      <circle cx="${c}" cy="${s*0.4}" r="${s*0.15}" fill="${b}"/>
+      <polygon points="${c-s*0.04},${s*0.4} ${c+s*0.04},${s*0.4} ${c},${s*0.5}" fill="#ffb300"/>
+      <ellipse cx="${c-s*0.05}" cy="${s*0.38}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
+      <ellipse cx="${c+s*0.05}" cy="${s*0.38}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
+      <circle cx="${c-s*0.05}" cy="${s*0.38}" r="${s*0.022}" fill="${e}"/>
+      <circle cx="${c+s*0.05}" cy="${s*0.38}" r="${s*0.022}" fill="${e}"/>
+      <path d="M${c-s*0.08} ${s*0.8} L${c-s*0.08} ${s*0.88} M${c+s*0.08} ${s*0.8} L${c+s*0.08} ${s*0.88}" stroke="#ffb300" stroke-width="${s*0.025}" stroke-linecap="round"/>`;
     case 'yeti': return `
-      <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.3}" ry="${s*0.22}" fill="${b}"/>
+      <defs><radialGradient id="ye${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.22}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.22}" fill="url(#ye${_u})" opacity="0.5"/>
+      <ellipse cx="${c-s*0.22}" cy="${s*0.66}" rx="${s*0.08}" ry="${s*0.14}" fill="${b}"/>
+      <ellipse cx="${c+s*0.22}" cy="${s*0.66}" rx="${s*0.08}" ry="${s*0.14}" fill="${b}"/>
       <circle cx="${c}" cy="${s*0.4}" r="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.45}" rx="${s*0.16}" ry="${s*0.1}" fill="${a}"/>
-      <circle cx="${c-s*0.07}" cy="${s*0.4}" r="${s*0.035}" fill="${e}"/>
-      <circle cx="${c+s*0.07}" cy="${s*0.4}" r="${s*0.035}" fill="${e}"/>
+      <circle cx="${c}" cy="${s*0.4}" r="${s*0.22}" fill="url(#ye${_u})" opacity="0.5"/>
+      <ellipse cx="${c}" cy="${s*0.46}" rx="${s*0.15}" ry="${s*0.1}" fill="${a}"/>
+      <ellipse cx="${c-s*0.07}" cy="${s*0.39}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
+      <ellipse cx="${c+s*0.07}" cy="${s*0.39}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
+      <circle cx="${c-s*0.06}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
+      <circle cx="${c+s*0.08}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
       <polygon points="${c-s*0.05},${s*0.5} ${c-s*0.02},${s*0.55} ${c-s*0.03},${s*0.5}" fill="#fff"/>
       <polygon points="${c+s*0.05},${s*0.5} ${c+s*0.02},${s*0.55} ${c+s*0.03},${s*0.5}" fill="#fff"/>
-      <ellipse cx="${c-s*0.2}" cy="${s*0.65}" rx="${s*0.08}" ry="${s*0.13}" fill="${b}"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.65}" rx="${s*0.08}" ry="${s*0.13}" fill="${b}"/>
-      <circle cx="${c-s*0.15}" cy="${s*0.32}" r="${s*0.02}" fill="#fff"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.28}" r="${s*0.015}" fill="#fff"/>`;
+      <circle cx="${c-s*0.16}" cy="${s*0.3}" r="${s*0.018}" fill="#fff"/>
+      <circle cx="${c+s*0.18}" cy="${s*0.26}" r="${s*0.014}" fill="#fff"/>`;
     case 'golem': return `
-      <rect x="${c-s*0.25}" y="${s*0.45}" width="${s*0.5}" height="${s*0.35}" fill="${b}" rx="${s*0.04}"/>
-      <rect x="${c-s*0.18}" y="${s*0.25}" width="${s*0.36}" height="${s*0.25}" fill="${b}" rx="${s*0.03}"/>
-      <rect x="${c-s*0.15}" y="${s*0.32}" width="${s*0.08}" height="${s*0.05}" fill="${e}"/>
-      <rect x="${c+s*0.07}" y="${s*0.32}" width="${s*0.08}" height="${s*0.05}" fill="${e}"/>
-      <line x1="${c-s*0.25}" y1="${s*0.58}" x2="${c+s*0.25}" y2="${s*0.58}" stroke="${d}" stroke-width="${s*0.015}"/>
-      <line x1="${c}" y1="${s*0.45}" x2="${c}" y2="${s*0.8}" stroke="${d}" stroke-width="${s*0.012}"/>
+      <defs><linearGradient id="go${_u}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></linearGradient></defs>
       <rect x="${c-s*0.42}" y="${s*0.5}" width="${s*0.12}" height="${s*0.28}" fill="${b}" rx="${s*0.03}"/>
       <rect x="${c+s*0.3}" y="${s*0.5}" width="${s*0.12}" height="${s*0.28}" fill="${b}" rx="${s*0.03}"/>
-      <circle cx="${c-s*0.15}" cy="${s*0.55}" r="${s*0.02}" fill="${a}"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.65}" r="${s*0.018}" fill="${a}"/>`;
+      <rect x="${c-s*0.25}" y="${s*0.45}" width="${s*0.5}" height="${s*0.35}" fill="${b}" rx="${s*0.04}"/>
+      <rect x="${c-s*0.25}" y="${s*0.45}" width="${s*0.5}" height="${s*0.35}" fill="url(#go${_u})" opacity="0.5" rx="${s*0.04}"/>
+      <rect x="${c-s*0.18}" y="${s*0.25}" width="${s*0.36}" height="${s*0.25}" fill="${b}" rx="${s*0.03}"/>
+      <rect x="${c-s*0.18}" y="${s*0.25}" width="${s*0.36}" height="${s*0.25}" fill="url(#go${_u})" opacity="0.5" rx="${s*0.03}"/>
+      <rect x="${c-s*0.14}" y="${s*0.32}" width="${s*0.09}" height="${s*0.055}" fill="${e}" rx="${s*0.01}"/>
+      <rect x="${c+s*0.05}" y="${s*0.32}" width="${s*0.09}" height="${s*0.055}" fill="${e}" rx="${s*0.01}"/>
+      <rect x="${c-s*0.13}" y="${s*0.335}" width="${s*0.04}" height="${s*0.025}" fill="#fff" opacity="0.8"/>
+      <rect x="${c+s*0.06}" y="${s*0.335}" width="${s*0.04}" height="${s*0.025}" fill="#fff" opacity="0.8"/>
+      <line x1="${c-s*0.25}" y1="${s*0.58}" x2="${c+s*0.25}" y2="${s*0.58}" stroke="${d}" stroke-width="${s*0.015}" opacity="0.6"/>
+      <line x1="${c}" y1="${s*0.45}" x2="${c}" y2="${s*0.8}" stroke="${d}" stroke-width="${s*0.012}" opacity="0.6"/>
+      <circle cx="${c-s*0.15}" cy="${s*0.65}" r="${s*0.025}" fill="${a}" opacity="0.8"/>
+      <circle cx="${c+s*0.16}" cy="${s*0.7}" r="${s*0.02}" fill="${a}" opacity="0.8"/>`;
     case 'griffin': return `
+      <defs><radialGradient id="gf${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="${a}"/></radialGradient></defs>
+      <path d="M${c-s*0.18} ${s*0.55} Q${c-s*0.46} ${s*0.28} ${c-s*0.44} ${s*0.66} Q${c-s*0.3} ${s*0.6} ${c-s*0.16} ${s*0.62} Z" fill="${a}" opacity="0.9"/>
+      <path d="M${c+s*0.18} ${s*0.55} Q${c+s*0.46} ${s*0.28} ${c+s*0.44} ${s*0.66} Q${c+s*0.3} ${s*0.6} ${c+s*0.16} ${s*0.62} Z" fill="${a}" opacity="0.9"/>
       <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.26}" ry="${s*0.16}" fill="${b}"/>
       <circle cx="${c}" cy="${s*0.45}" r="${s*0.18}" fill="${a}"/>
-      <path d="M${c-s*0.18} ${s*0.55} Q${c-s*0.45} ${s*0.3} ${c-s*0.42} ${s*0.65}" fill="${a}" opacity="0.85"/>
-      <path d="M${c+s*0.18} ${s*0.55} Q${c+s*0.45} ${s*0.3} ${c+s*0.42} ${s*0.65}" fill="${a}" opacity="0.85"/>
-      <polygon points="${c-s*0.04},${s*0.4} ${c+s*0.04},${s*0.4} ${c},${s*0.52}" fill="${d}"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.42}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c+s*0.06}" cy="${s*0.42}" r="${s*0.028}" fill="${e}"/>
-      <polygon points="${c-s*0.2},${s*0.32} ${c-s*0.12},${s*0.22} ${c-s*0.06},${s*0.32}" fill="${a}"/>
-      <polygon points="${c+s*0.2},${s*0.32} ${c+s*0.12},${s*0.22} ${c+s*0.06},${s*0.32}" fill="${a}"/>
-      <path d="M${c-s*0.1} ${s*0.82} L${c-s*0.1} ${s*0.9} M${c+s*0.1} ${s*0.82} L${c+s*0.1} ${s*0.9}" stroke="${d}" stroke-width="${s*0.04}"/>`;
+      <circle cx="${c}" cy="${s*0.45}" r="${s*0.18}" fill="url(#gf${_u})" opacity="0.6"/>
+      <polygon points="${c-s*0.2},${s*0.32} ${c-s*0.12},${s*0.2} ${c-s*0.05},${s*0.33}" fill="${a}"/>
+      <polygon points="${c+s*0.2},${s*0.32} ${c+s*0.12},${s*0.2} ${c+s*0.05},${s*0.33}" fill="${a}"/>
+      <polygon points="${c-s*0.04},${s*0.42} ${c+s*0.04},${s*0.42} ${c},${s*0.53}" fill="#ffb300"/>
+      <ellipse cx="${c-s*0.06}" cy="${s*0.42}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
+      <ellipse cx="${c+s*0.06}" cy="${s*0.42}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
+      <circle cx="${c-s*0.06}" cy="${s*0.42}" r="${s*0.024}" fill="${e}"/>
+      <circle cx="${c+s*0.06}" cy="${s*0.42}" r="${s*0.024}" fill="${e}"/>
+      <path d="M${c-s*0.1} ${s*0.82} L${c-s*0.1} ${s*0.9} M${c+s*0.1} ${s*0.82} L${c+s*0.1} ${s*0.9}" stroke="#ffb300" stroke-width="${s*0.035}" stroke-linecap="round"/>`;
     case 'hydra': return `
-      <ellipse cx="${c}" cy="${s*0.75}" rx="${s*0.28}" ry="${s*0.14}" fill="${b}"/>
-      <path d="M${c-s*0.15} ${s*0.65} Q${c-s*0.25} ${s*0.4} ${c-s*0.2} ${s*0.3}" stroke="${b}" stroke-width="${s*0.12}" fill="none" stroke-linecap="round"/>
-      <path d="M${c} ${s*0.65} Q${c} ${s*0.4} ${c+s*0.02} ${s*0.25}" stroke="${b}" stroke-width="${s*0.12}" fill="none" stroke-linecap="round"/>
-      <path d="M${c+s*0.15} ${s*0.65} Q${c+s*0.25} ${s*0.4} ${c+s*0.22} ${s*0.3}" stroke="${b}" stroke-width="${s*0.12}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c-s*0.2}" cy="${s*0.3}" r="${s*0.08}" fill="${b}"/>
-      <circle cx="${c+s*0.02}" cy="${s*0.25}" r="${s*0.08}" fill="${b}"/>
-      <circle cx="${c+s*0.22}" cy="${s*0.3}" r="${s*0.08}" fill="${b}"/>
-      <circle cx="${c-s*0.2}" cy="${s*0.3}" r="${s*0.02}" fill="${e}"/>
-      <circle cx="${c+s*0.02}" cy="${s*0.25}" r="${s*0.02}" fill="${e}"/>
-      <circle cx="${c+s*0.22}" cy="${s*0.3}" r="${s*0.02}" fill="${e}"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.72}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.78}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}"/>`;
+      <defs><radialGradient id="hy${_u}" cx="50%" cy="40%" r="70%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <ellipse cx="${c}" cy="${s*0.76}" rx="${s*0.28}" ry="${s*0.14}" fill="${b}"/>
+      <ellipse cx="${c}" cy="${s*0.76}" rx="${s*0.28}" ry="${s*0.14}" fill="url(#hy${_u})" opacity="0.5"/>
+      <path d="M${c-s*0.15} ${s*0.66} Q${c-s*0.25} ${s*0.42} ${c-s*0.2} ${s*0.3}" stroke="${b}" stroke-width="${s*0.11}" fill="none" stroke-linecap="round"/>
+      <path d="M${c} ${s*0.66} Q${c} ${s*0.42} ${c+s*0.02} ${s*0.26}" stroke="${b}" stroke-width="${s*0.11}" fill="none" stroke-linecap="round"/>
+      <path d="M${c+s*0.15} ${s*0.66} Q${c+s*0.25} ${s*0.42} ${c+s*0.22} ${s*0.3}" stroke="${b}" stroke-width="${s*0.11}" fill="none" stroke-linecap="round"/>
+      ${[[-0.2,0.3],[0.02,0.26],[0.22,0.3]].map(([dx,dy])=>`
+        <circle cx="${c+s*dx}" cy="${s*dy}" r="${s*0.085}" fill="${b}"/>
+        <circle cx="${c+s*dx}" cy="${s*dy}" r="${s*0.085}" fill="url(#hy${_u})" opacity="0.5"/>
+        <ellipse cx="${c+s*dx-s*0.02}" cy="${s*dy-s*0.01}" rx="${s*0.025}" ry="${s*0.03}" fill="#fff"/>
+        <circle cx="${c+s*dx-s*0.015}" cy="${s*dy}" r="${s*0.016}" fill="${e}"/>`).join('')}
+      <ellipse cx="${c-s*0.05}" cy="${s*0.73}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}" opacity="0.6"/>
+      <ellipse cx="${c+s*0.08}" cy="${s*0.78}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}" opacity="0.6"/>`;
     default: return `<circle cx="${c}" cy="${c}" r="${s*0.3}" fill="${b}"/>`;
   }
 }
@@ -20456,20 +19927,31 @@ async function renderRankingByType(type) {
 
     // 펫 미리보기 (펫 탭에서) - 등급별 강조
     let petPreview = '';
-    if (type === 'pet' && p.pets && p.pets.length > 0) {
-      const top = p.pets.slice().filter(pt => PETS[pt[0]]).sort((a,b) => (PETS[b[0]].power||0) - (PETS[a[0]].power||0)).slice(0, 5);
-      petPreview = `<div style="margin-top:3px; display:flex; gap:2px; flex-wrap:wrap;">${top.map(pt => {
-        const pdef = PETS[pt[0]];
-        const tierColor = { divine:'#ffd700', mythic:'#b060e0', legendary:'#ff9800', epic:'#42a5f5', rare:'#66bb6a', common:'#9e9e9e' }[pdef.tier] || '#9e9e9e';
-        const isDivine = pdef.tier === 'divine';
-        return `<span style="
-          display:inline-flex; align-items:center; justify-content:center;
-          width:24px; height:24px; font-size:15px;
-          border:1.5px solid ${tierColor}; border-radius:6px;
-          background:radial-gradient(circle, ${tierColor}33, transparent);
-          ${isDivine ? 'box-shadow:0 0 8px '+tierColor+'; animation:coinShine 2s ease-in-out infinite;' : ''}
-        ">${pdef.emoji}</span>`;
-      }).join('')}</div>`;
+    if (type === 'pet' && p.pets) {
+      // pets가 객체({key:count})거나 배열([[key,count]]) 둘 다 처리
+      let petArr = Array.isArray(p.pets) ? p.pets.slice() : Object.entries(p.pets);
+      petArr = petArr.filter(pt => PETS[pt[0]]);
+      if (petArr.length > 0) {
+        // divine(운영자 펫) 최우선, 그다음 전투력 순
+        const tierRank = { divine: 6, mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
+        const top = petArr.sort((a, b) => {
+          const ta = tierRank[PETS[a[0]].tier] || 0, tb = tierRank[PETS[b[0]].tier] || 0;
+          if (tb !== ta) return tb - ta;
+          return (PETS[b[0]].power || 0) - (PETS[a[0]].power || 0);
+        }).slice(0, 5);
+        petPreview = `<div style="margin-top:3px; display:flex; gap:2px; flex-wrap:wrap;">${top.map(pt => {
+          const pdef = PETS[pt[0]];
+          const tierColor = { divine:'#ffd700', mythic:'#b060e0', legendary:'#ff9800', epic:'#42a5f5', rare:'#66bb6a', common:'#9e9e9e' }[pdef.tier] || '#9e9e9e';
+          const isDivine = pdef.tier === 'divine';
+          return `<span style="
+            display:inline-flex; align-items:center; justify-content:center;
+            width:${isDivine ? 28 : 24}px; height:${isDivine ? 28 : 24}px; font-size:${isDivine ? 18 : 15}px;
+            border:${isDivine ? 2 : 1.5}px solid ${tierColor}; border-radius:6px;
+            background:radial-gradient(circle, ${tierColor}${isDivine ? '55' : '33'}, transparent);
+            ${isDivine ? 'box-shadow:0 0 10px '+tierColor+', 0 0 4px '+tierColor+'; animation:coinShine 1.8s ease-in-out infinite;' : ''}
+          " title="${pdef.name}${isDivine ? ' ⚜운영자 펫' : ''}">${pdef.emoji}</span>`;
+        }).join('')}</div>`;
+      }
     }
 
     // 투기장 추가 정보 (arena 탭에서)
@@ -30323,11 +29805,21 @@ async function attackRaid(damage) {
     const newHp = Math.max(0, raidData.remainingHp - damage);
     updates['remainingHp'] = newHp;
     const myDamage = (raidData.attackers && raidData.attackers[myNick] && raidData.attackers[myNick].damage) || 0;
+    // 내 최강 펫 (파티 시각화용)
+    let myRepPet = 'wolf';
+    if (game.pets) {
+      const owned = Object.keys(game.pets).filter(k => game.pets[k] > 0 && PETS[k]);
+      const tierRank = { divine: 6, mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
+      owned.sort((a, b) => (tierRank[PETS[b].tier] || 0) - (tierRank[PETS[a].tier] || 0) || (PETS[b].power || 0) - (PETS[a].power || 0));
+      if (owned[0]) myRepPet = owned[0];
+    }
     updates[`attackers/${myNick}`] = {
       nickname: game.player.nickname,
+      name: game.player.nickname,
       damage: myDamage + damage,
       lastAttack: Date.now(),
       avatar: game.player.avatar || '⛺',
+      representPet: myRepPet,
     };
     if (newHp === 0 && !raidData.defeated) {
       updates['defeated'] = true;
@@ -30477,6 +29969,42 @@ async function loadRaidContent() {
           font-weight: bold;
           letter-spacing: 1px;
         ">🐲 일일 보스</div>
+        <!-- 🆕 8인 파티 펫 공격 시각화 -->
+        <div style="margin-top:14px; padding:8px; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid ${boss.color}55;">
+          <div style="font-size:10px; color:#90caf9; font-weight:bold; margin-bottom:6px; text-align:left;">⚔ 공격대 (${attackerList.length}/8명)</div>
+          <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+            ${Array.from({length: 8}, (_, i) => {
+              const atk = attackerList[i];
+              if (atk) {
+                const atkName = atk.name || atk.nickname || '';
+                // 참여자의 대표 펫 (있으면)
+                const petKey = atk.representPet && PETS[atk.representPet] ? atk.representPet : null;
+                const petEmoji = petKey ? PETS[petKey].emoji : '🗡️';
+                const isMe = atkName === game.player.nickname;
+                const isAdmin = ADMIN_NICKNAMES.includes(atkName);
+                return `<div class="raid-party-member" style="
+                  display:flex; flex-direction:column; align-items:center;
+                  animation: raidPartyAttack ${1.2 + (i % 4) * 0.2}s ease-in-out infinite ${i * 0.15}s;
+                ">
+                  <div style="
+                    width:34px; height:34px; border-radius:8px;
+                    display:flex; align-items:center; justify-content:center; font-size:20px;
+                    background:radial-gradient(circle, ${isAdmin ? '#ffd70055' : isMe ? '#4caf5044' : 'rgba(255,255,255,0.1)'}, transparent);
+                    border:2px solid ${isAdmin ? '#ffd700' : isMe ? '#4caf50' : 'rgba(255,255,255,0.3)'};
+                    ${isAdmin ? 'box-shadow:0 0 8px #ffd700; animation:coinShine 1.8s ease-in-out infinite;' : ''}
+                  ">${petEmoji}</div>
+                  <div style="font-size:7px; color:${isAdmin ? '#ffd700' : isMe ? '#81c784' : '#bbb'}; margin-top:2px; max-width:36px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:${isMe || isAdmin ? 'bold' : 'normal'};">${isAdmin ? '⚜' : ''}${escapeHtml(atkName.slice(0, 4))}</div>
+                </div>`;
+              } else {
+                // 빈 자리
+                return `<div style="display:flex; flex-direction:column; align-items:center; opacity:0.3;">
+                  <div style="width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; background:rgba(255,255,255,0.05); border:2px dashed rgba(255,255,255,0.2);">➕</div>
+                  <div style="font-size:7px; color:#666; margin-top:2px;">빈자리</div>
+                </div>`;
+              }
+            }).join('')}
+          </div>
+        </div>
         <!-- HP 바 -->
         <div style="
           background: rgba(0,0,0,0.7);
@@ -30682,6 +30210,11 @@ async function loadRaidContent() {
         0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
         50% { transform: translateY(-15px) scale(1.4); opacity: 0.9; }
       }
+      @keyframes raidPartyAttack {
+        0%, 100% { transform: translateY(0) scale(1); }
+        40% { transform: translateY(-6px) scale(1.08) rotate(-3deg); }
+        60% { transform: translateY(-3px) scale(1.05) rotate(2deg); }
+      }
       @keyframes hpStripes {
         to { background-position: 16px 0; }
       }
@@ -30728,6 +30261,13 @@ async function loadRaidContent() {
       attackBtn.innerHTML = '<span>⚔ 공격 중...</span>';
       const bossIcon = document.getElementById('raid-boss-icon');
       let critical = Math.random() < 0.2;
+      // 🆕 파티 펫 일제 돌진 연출
+      const partyMembers = document.querySelectorAll('.raid-party-member');
+      partyMembers.forEach((m, i) => {
+        m.style.transition = 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)';
+        m.style.transform = 'translateY(-14px) scale(1.2)';
+        setTimeout(() => { m.style.transform = ''; }, 250 + i * 30);
+      });
       if (bossIcon) {
         bossIcon.classList.add('hit');
         setTimeout(() => bossIcon.classList.remove('hit'), 400);

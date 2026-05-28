@@ -8852,18 +8852,36 @@ class PetCompanion {
       ctx.restore();
     }
 
-    // body — render proper art on canvas
+    // body — render proper art on canvas (DIVINE은 SVG 오버레이로)
     const artSize = 44 * this.size;
     const key = this.key;
-    ctx.save();
-    if (this.facing < 0) {
-      ctx.translate(sx, sy - artSize * 0.5);
-      ctx.scale(-1, 1);
-      drawPetCanvas(ctx, key, -artSize / 2, -artSize / 2, artSize);
+    if (key && key.startsWith('divine_') && typeof _showDivineOverlay === 'function' && this.def && PETS[key]) {
+      // SVG 오버레이로 표시 (애니메이션 살림)
+      try {
+        const instanceId = this.uid || (this.uid = 'p' + ((Math.random()*1e9)|0));
+        const overlaySize = Math.round(artSize * 1.6);  // 후광 포함되게 크게
+        // 화면 좌표 계산 (canvas 변환 행렬 반영)
+        const tm = ctx.getTransform();
+        const screenX = tm.a * sx + tm.c * (sy - artSize * 0.45) + tm.e;
+        const screenY = tm.b * sx + tm.d * (sy - artSize * 0.45) + tm.f;
+        // canvas DPR 보정
+        const canvas = ctx.canvas;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = rect.width / canvas.width;
+        const scaleY = rect.height / canvas.height;
+        _showDivineOverlay(key, instanceId, screenX * scaleX, screenY * scaleY, overlaySize * scaleX, this.facing);
+      } catch (e) {}
     } else {
-      drawPetCanvas(ctx, key, sx - artSize / 2, sy - artSize * 0.95, artSize);
+      ctx.save();
+      if (this.facing < 0) {
+        ctx.translate(sx, sy - artSize * 0.5);
+        ctx.scale(-1, 1);
+        drawPetCanvas(ctx, key, -artSize / 2, -artSize / 2, artSize);
+      } else {
+        drawPetCanvas(ctx, key, sx - artSize / 2, sy - artSize * 0.95, artSize);
+      }
+      ctx.restore();
     }
-    ctx.restore();
 
     // mythic sparkle
     if (this.def.tier === 'mythic') {
@@ -8900,6 +8918,76 @@ function getSvgPetImage(key, size) {
   _SVG_IMAGE_CACHE[cacheKey] = img;
   return img;
 }
+
+// === 🌟 DIVINE 펫 SVG 오버레이 시스템 (애니메이션 SVG를 캔버스 위에 띄움) ===
+const _DIVINE_OVERLAYS = {};  // key → { el, lastFrame }
+let _DIVINE_OVERLAY_FRAME = 0;
+function _getDivineOverlayContainer() {
+  let c = document.getElementById('divine-overlays');
+  if (!c) {
+    c = document.createElement('div');
+    c.id = 'divine-overlays';
+    c.style.cssText = 'position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; overflow:hidden; z-index:5;';
+    const game = document.getElementById('game');
+    if (game) {
+      // game이 position:relative 보장
+      if (getComputedStyle(game).position === 'static') game.style.position = 'relative';
+      game.appendChild(c);
+    } else {
+      document.body.appendChild(c);
+    }
+  }
+  return c;
+}
+function _showDivineOverlay(key, instanceId, screenX, screenY, size, facing) {
+  const overlayKey = key + '_' + instanceId;
+  let entry = _DIVINE_OVERLAYS[overlayKey];
+  if (!entry) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:absolute; pointer-events:none; will-change:transform; transition:none;';
+    let svgHTML = null;
+    if (key === 'divine_dragon' && typeof divineDragonSVG === 'function') svgHTML = divineDragonSVG(size);
+    else if (key === 'divine_phoenix' && typeof divinePhoenixSVG === 'function') svgHTML = divinePhoenixSVG(size);
+    else if (key === 'divine_chronos' && typeof divineChronosSVG === 'function') svgHTML = divineChronosSVG(size);
+    else if (key === 'divine_voidlord' && typeof divineVoidlordSVG === 'function') svgHTML = divineVoidlordSVG(size);
+    else if (key === 'divine_angel' && typeof divineAngelSVG === 'function') svgHTML = divineAngelSVG(size);
+    if (!svgHTML) return;
+    el.innerHTML = svgHTML;
+    _getDivineOverlayContainer().appendChild(el);
+    entry = { el, lastFrame: _DIVINE_OVERLAY_FRAME, size };
+    _DIVINE_OVERLAYS[overlayKey] = entry;
+  }
+  // 크기 변경 시 재생성
+  if (entry.size !== size) {
+    let svgHTML = null;
+    if (key === 'divine_dragon' && typeof divineDragonSVG === 'function') svgHTML = divineDragonSVG(size);
+    else if (key === 'divine_phoenix' && typeof divinePhoenixSVG === 'function') svgHTML = divinePhoenixSVG(size);
+    else if (key === 'divine_chronos' && typeof divineChronosSVG === 'function') svgHTML = divineChronosSVG(size);
+    else if (key === 'divine_voidlord' && typeof divineVoidlordSVG === 'function') svgHTML = divineVoidlordSVG(size);
+    else if (key === 'divine_angel' && typeof divineAngelSVG === 'function') svgHTML = divineAngelSVG(size);
+    if (svgHTML) entry.el.innerHTML = svgHTML;
+    entry.size = size;
+  }
+  // 위치 갱신 (CSS transform)
+  const flip = facing < 0 ? ' scaleX(-1)' : '';
+  entry.el.style.transform = `translate(${screenX - size/2}px, ${screenY - size}px)${flip}`;
+  entry.el.style.width = size + 'px';
+  entry.el.style.height = size + 'px';
+  entry.lastFrame = _DIVINE_OVERLAY_FRAME;
+}
+function _cleanupDivineOverlays() {
+  _DIVINE_OVERLAY_FRAME++;
+  for (const k in _DIVINE_OVERLAYS) {
+    const e = _DIVINE_OVERLAYS[k];
+    if (_DIVINE_OVERLAY_FRAME - e.lastFrame > 2) {
+      // 2프레임 이상 안 쓰임 → 제거
+      if (e.el && e.el.parentNode) e.el.parentNode.removeChild(e.el);
+      delete _DIVINE_OVERLAYS[k];
+    }
+  }
+}
+window._showDivineOverlay = _showDivineOverlay;
+window._cleanupDivineOverlays = _cleanupDivineOverlays;
 
 function drawPetCanvas(ctx, key, x, y, size) {
   // === ⚜ DIVINE 펫은 SVG 일러스트 사용 ===
@@ -35263,6 +35351,7 @@ function tick(now) {
   }
 
     try { render(); } catch (e) { console.warn('render error', e); }
+    try { if (typeof _cleanupDivineOverlays === 'function') _cleanupDivineOverlays(); } catch (e) {}
     try { updateHUD(); } catch (e) { console.warn('updateHUD error', e); }
   } catch (e) {
     console.error('tick error:', e);

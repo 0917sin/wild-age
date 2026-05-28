@@ -9799,18 +9799,23 @@ const ICON_IMAGES_OVERRIDE = {
   // gold: 'gold_coin.png',
 };
 
-// === 🆕 자동 인식 시스템 (Proxy) ===
-// PET_IMAGES[key]를 요청하면:
-//   1. OVERRIDE에 있으면 그걸 사용
-//   2. 없으면 자동으로 '{key}.png' 반환 (파일 있으면 표시, 없으면 onerror로 SVG 폴백)
-// 로딩 실패한 키는 기억해서 다시 시도 안 함 (깜빡임 방지)
+// === 📂 실제 업로드된 이미지 파일 목록 ===
+// 여기 있는 키만 PNG로 표시, 나머지는 SVG (깨진 아이콘 방지)
+// 새 PNG 올리면 여기에 키 추가
+const PET_FILES_AVAILABLE = new Set(['amaterasu','amethyst_dragon','angel','anubis','bahamut','baihu','banshee','basilisk','bear','behemoth','bull','centaur','cerberus','cerberus_3h','chimera','chronos','cobra','cosmic_god','croc','crystal_golem','cthulhu','cyclops','demon','djinn','dragon','dragon_blue','dragon_gold','dragon_green','dragon_red','dragon_white','elephant','emerald_dragon','fenghuang','fenrir','gaia_mother','garuda','garuda_king','giraffe','golem_crystal','golem_iron','golem_stone','gorilla','griffin','hippo','hydra','ice_phoenix','ifrit','ignis_lord','jaguar','jormungandr','kraken','lava_golem','leviathan','lioness','manticore','minotaur','moonlight_unicorn','nine_tail','odin_raven','ouroboros','panther','pegasus','pegasus_w','phoenix','phoenix_dawn','phoenix_night','qilin','qinglong','ra','rainbow_serpent','rhino','roc','ruby_dragon','sapphire_dragon','shadow_phoenix','shark','shenlong','sleipnir','sphinx','squid','starlight_griffin','storm_dragon','susanoo','thunder_phoenix','thunder_tiger','thunderbird','tiamat','tiger','tigercub','titan_frost','treant','unicorn','void_dragon','void_wolf','volcano_dragon','vulture','whale','wolf','worldgod','xuanwu','yamato','yeti','ymir','zeus_king','zhuque','ziz']);
+const BUILDING_FILES_AVAILABLE = new Set(['altar','barracks','blacksmith','crystal','farm','fishery','forge','garden','goldmine','greenhouse','hospital','hut','lab','library','market','mill','mushroom','observatory','pet_house','quarry','shrine','stable','stone_altar','temple','trader_post','warehouse','watchtower','windmill']);
+window.PET_FILES_AVAILABLE = PET_FILES_AVAILABLE;
+window.BUILDING_FILES_AVAILABLE = BUILDING_FILES_AVAILABLE;
+
+// === 🆕 자동 인식 시스템 (실제 존재하는 파일만 등록) ===
+// 아래 PET_FILES_AVAILABLE 세트에 있는 키만 PNG 사용, 나머지는 SVG
+// (자동 Proxy가 모든 키에 {key}.png를 시도하면 없는 파일이 깨진 아이콘으로 잠깐 뜨는 문제 해결)
 const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
   get(target, key) {
     if (typeof key !== 'string') return undefined;
     if (key in target) return target[key];
-    // 펫 키가 실제 존재하면 자동으로 {key}.png 시도
-    if (typeof PETS !== 'undefined' && PETS[key]) {
-      // 이미 실패한 파일이면 undefined (SVG 폴백)
+    // 실제 업로드된 파일 목록에 있는 것만 PNG 사용
+    if (typeof PET_FILES_AVAILABLE !== 'undefined' && PET_FILES_AVAILABLE.has(key)) {
       if (IMG_LOAD_STATUS[`pets/${key}.png`] === 'failed') return undefined;
       return `${key}.png`;
     }
@@ -9821,7 +9826,7 @@ const BUILDING_IMAGES = new Proxy(BUILDING_IMAGES_OVERRIDE, {
   get(target, key) {
     if (typeof key !== 'string') return undefined;
     if (key in target) return target[key];
-    if (typeof BUILDING_TYPES !== 'undefined' && BUILDING_TYPES[key]) {
+    if (typeof BUILDING_FILES_AVAILABLE !== 'undefined' && BUILDING_FILES_AVAILABLE.has(key)) {
       if (IMG_LOAD_STATUS[`buildings/${key}.png`] === 'failed') return undefined;
       return `${key}.png`;
     }

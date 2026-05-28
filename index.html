@@ -1576,6 +1576,159 @@
   .pet-card-enhanced:active {
     transform: scale(0.96);
   }
+
+  /* ============================================================ */
+  /* 🏆 금속 프레임 카드 (Cat Hero 스타일) */
+  /* ============================================================ */
+  .metal-card {
+    position: relative;
+    border-radius: 14px;
+    padding: 6px;
+    background:
+      linear-gradient(135deg, #8a8a9a 0%, #c8c8d8 15%, #6a6a7a 30%, #b0b0c0 50%, #5a5a6a 70%, #a0a0b0 85%, #707080 100%);
+    box-shadow:
+      0 4px 12px rgba(0,0,0,0.5),
+      inset 0 1px 2px rgba(255,255,255,0.6),
+      inset 0 -1px 2px rgba(0,0,0,0.4);
+    overflow: visible;
+  }
+  /* 금속 프레임 안쪽 베벨 */
+  .metal-card::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 11px;
+    border: 1px solid rgba(255,255,255,0.3);
+    pointer-events: none;
+    z-index: 1;
+  }
+  /* 모서리 리벳 (나사) */
+  .metal-card .rivet {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #fff, #888 60%, #444);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    z-index: 3;
+  }
+  .metal-card .rivet.tl { top: 5px; left: 5px; }
+  .metal-card .rivet.tr { top: 5px; right: 5px; }
+  .metal-card .rivet.bl { bottom: 5px; left: 5px; }
+  .metal-card .rivet.br { bottom: 5px; right: 5px; }
+  /* 등급별 금속 색조 */
+  .metal-card.metal-divine {
+    background: linear-gradient(135deg, #fff4c0 0%, #ffd700 15%, #b8860b 30%, #ffe55c 50%, #9a7a0b 70%, #ffd700 85%, #806000 100%);
+    box-shadow: 0 4px 16px rgba(255,215,0,0.6), inset 0 1px 2px rgba(255,255,255,0.8), inset 0 -1px 2px rgba(0,0,0,0.3);
+  }
+  .metal-card.metal-mythic {
+    background: linear-gradient(135deg, #e0b0ff 0%, #b060e0 15%, #7020a0 30%, #d090ff 50%, #6010a0 70%, #c080ff 85%, #500080 100%);
+    box-shadow: 0 4px 16px rgba(176,96,224,0.5), inset 0 1px 2px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.4);
+  }
+  .metal-card.metal-legendary {
+    background: linear-gradient(135deg, #ffe0a0 0%, #ffb040 15%, #c07000 30%, #ffd070 50%, #a05000 70%, #ffc060 85%, #804000 100%);
+    box-shadow: 0 4px 16px rgba(255,160,40,0.5), inset 0 1px 2px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.4);
+  }
+  .metal-card.metal-epic {
+    background: linear-gradient(135deg, #a0d0ff 0%, #5090e0 15%, #2050a0 30%, #80b0ff 50%, #103080 70%, #6090e0 85%, #002060 100%);
+    box-shadow: 0 4px 16px rgba(80,144,224,0.5), inset 0 1px 2px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.4);
+  }
+
+  /* 🪙 S/S+ 등급 코인 배지 */
+  .grade-coin {
+    position: absolute;
+    top: -8px; left: -8px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900;
+    font-size: 14px;
+    font-family: 'Black Han Sans', 'Do Hyeon', sans-serif;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.5);
+    z-index: 10;
+    animation: coinShine 3s ease-in-out infinite;
+  }
+  @keyframes coinShine {
+    0%, 100% { box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.5); }
+    50% { box-shadow: 0 2px 12px rgba(255,215,0,0.8), inset 0 1px 4px rgba(255,255,255,0.8); }
+  }
+  /* === ⚔ 레이드/전투 이펙트 === */
+  @keyframes raidSlash {
+    0% { transform: translate(-50%, -50%) rotate(var(--angle, 45deg)) scaleX(0); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(var(--angle, 45deg)) scaleX(1.5); opacity: 0; }
+  }
+  @keyframes raidShockwave {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; border-width: 4px; }
+    100% { transform: translate(-50%, -50%) scale(3); opacity: 0; border-width: 1px; }
+  }
+  @keyframes comboPopup {
+    0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+    30% { transform: translate(-50%, -10px) scale(1.3); opacity: 1; }
+    100% { transform: translate(-50%, -40px) scale(1); opacity: 0; }
+  }
+  /* === 🔮 가챠 소환 연출 === */
+  @keyframes gachaRays { to { transform: rotate(360deg); } }
+  @keyframes gachaTitlePulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.08); filter: brightness(1.3); }
+  }
+  @keyframes gachaCardReveal {
+    0% { transform: scale(0.3) rotateY(180deg); opacity: 0; }
+    60% { transform: scale(1.1) rotateY(0deg); opacity: 1; }
+    100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+  }
+  .pet-result-hi {
+    animation: gachaCardReveal 0.5s cubic-bezier(0.34,1.56,0.64,1) both,
+               gachaHiGlow 1.5s ease-in-out infinite 0.5s !important;
+  }
+  @keyframes gachaHiGlow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.15); }
+  }
+  .grade-coin.grade-S {
+    background: radial-gradient(circle at 35% 30%, #ff8a80, #e53935 60%, #b71c1c);
+  }
+  .grade-coin.grade-Splus {
+    background: radial-gradient(circle at 35% 30%, #ffe082, #ffb300 50%, #ff6f00);
+  }
+  .grade-coin.grade-A {
+    background: radial-gradient(circle at 35% 30%, #b39ddb, #7e57c2 60%, #4527a0);
+  }
+  .grade-coin.grade-B {
+    background: radial-gradient(circle at 35% 30%, #90caf9, #42a5f5 60%, #1565c0);
+  }
+  .grade-coin.grade-C {
+    background: radial-gradient(circle at 35% 30%, #c5e1a5, #9ccc65 60%, #558b2f);
+  }
+  .grade-coin .plus {
+    font-size: 9px;
+    position: absolute;
+    top: 2px; right: 3px;
+  }
+
+  /* 🏷 카드 하단 이름 라벨 (갈색 나무판) */
+  .card-name-label {
+    background: linear-gradient(to bottom, #a0522d, #6b3410);
+    border: 1.5px solid #4a2410;
+    border-radius: 6px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 11px;
+    text-align: center;
+    padding: 3px 6px;
+    margin-top: 4px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.2), 0 1px 2px rgba(0,0,0,0.3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    z-index: 2;
+  }
+
   /* 등급별 펫 카드 배경 그라데이션 강화 */
   .pet-bg-divine {
     background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.6), rgba(50, 30, 0, 0.95)) !important;
@@ -5681,19 +5834,38 @@ const BUILDING_TYPES = {
   },
 };
 
-// === 모든 건물 건설 비용 ×5 일괄 적용 ===
+// === 하드코어 밸런스: 건물 비용 ×12 + 생산 시간 증가 ===
 (function applyBuildingCostMultiplier() {
-  const MULT = 5;
+  const COST_MULT = 12;       // 건설 비용 12배
+  const YIELD_TIME_MULT = 1.5; // 생산 시간 1.5배 (느리게)
   for (const key of Object.keys(BUILDING_TYPES)) {
     const def = BUILDING_TYPES[key];
-    if (!def || !def.cost) continue;
-    for (const res of Object.keys(def.cost)) {
-      if (typeof def.cost[res] === 'number') {
-        def.cost[res] = Math.max(1, Math.ceil(def.cost[res] * MULT));
+    if (!def) continue;
+    if (def.cost) {
+      for (const res of Object.keys(def.cost)) {
+        if (typeof def.cost[res] === 'number') {
+          def.cost[res] = Math.max(1, Math.ceil(def.cost[res] * COST_MULT));
+        }
       }
+    }
+    // 생산 시간 늘리기 (자원 천천히)
+    if (typeof def.yieldTime === 'number') {
+      def.yieldTime = Math.ceil(def.yieldTime * YIELD_TIME_MULT);
     }
   }
 })();
+
+// === 건물 비용 (고정 - 누진 없음) ===
+function getBuildingCost(type) {
+  const def = BUILDING_TYPES[type];
+  if (!def || !def.cost) return {};
+  const cost = {};
+  for (const res of Object.keys(def.cost)) {
+    cost[res] = def.cost[res];
+  }
+  return cost;
+}
+window.getBuildingCost = getBuildingCost;
 
 class Building {
   constructor(type, gx, gy) {
@@ -5731,6 +5903,25 @@ class Building {
       if (this.buildProgress >= this.def.buildTime) {
         this.state = 'complete';
         showToast(`${this.def.name} 완공!`, 'gain');
+
+        // 🆕 건물 완공 경험치 (건물 가격 비례)
+        try {
+          const cost = this.def.cost || {};
+          const totalCost = (cost.gold || 0) + (cost.wood || 0) + (cost.stone || 0) + (cost.food || 0);
+          const buildExp = Math.max(50, Math.floor(totalCost * 0.5) + (this.def.levelReq || 1) * 100);
+          game.exp = (game.exp || 0) + buildExp;
+          if (game.home) {
+            try {
+              const fx = new FloatingText(
+                (this.gx + this.def.size / 2) * TILE,
+                this.gy * TILE - 10,
+                `+${buildExp} EXP`, '#80d8ff'
+              );
+              if (game.floatingTexts) game.floatingTexts.push(fx);
+            } catch (e) {}
+          }
+          checkLevelUp();
+        } catch (e) {}
 
         // 새 건물에 bonusPower나 storageBoost가 있으면 즉시 적용
         if (this.def.bonusPower) recomputePower();
@@ -5815,6 +6006,12 @@ class Building {
     const amount = stored;
     this.stored = 0;
     this.state = 'complete';
+    // 🆕 수확 경험치 (수확량 비례, 소량)
+    try {
+      const harvestExp = Math.max(5, Math.floor(amount * 0.1));
+      game.exp = (game.exp || 0) + harvestExp;
+      checkLevelUp();
+    } catch (e) {}
     return { res: resKey, amount };
   }
   /**
@@ -5880,6 +6077,25 @@ class Building {
     } else {
       // Building visuals per type
       this.drawComplete(ctx, screenX, screenY, w, h);
+
+      // 🆕 건물 상단 하이라이트 (입체감)
+      const hlGrad = ctx.createLinearGradient(screenX, screenY, screenX, screenY + h * 0.4);
+      hlGrad.addColorStop(0, 'rgba(255,255,255,0.18)');
+      hlGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hlGrad;
+      ctx.fillRect(screenX, screenY, w, h * 0.4);
+
+      // 🆕 고급 건물 (성벽/장식)은 은은한 발광 테두리
+      if (this.def && (this.def.defenseBonus >= 0.25 || this.type === 'magic_wall' || this.type === 'crystal')) {
+        const glow = Math.sin(Date.now() * 0.002) * 0.5 + 0.5;
+        ctx.save();
+        ctx.strokeStyle = `rgba(156, 39, 176, ${0.3 + glow * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#9c27b0';
+        ctx.shadowBlur = 8 + glow * 8;
+        ctx.strokeRect(screenX + 2, screenY + 2, w - 4, h - 4);
+        ctx.restore();
+      }
 
       // ready_to_harvest shimmer
       if (this.state === 'ready_to_harvest') {
@@ -9565,17 +9781,15 @@ const IMG_LOAD_STATUS = {};      // 'loading' | 'loaded' | 'failed'
 // 명시적 매핑이 필요한 경우 (파일명이 다른 경우)만 아래에 추가
 
 // 펫 이미지 매핑 (수동 오버라이드용 — 비워두면 자동 인식)
-// 자동 인식: assets/pets/{petKey}.png  (예: assets/pets/wolf.png)
-// 일러스트를 추가하려면:
-//   1. assets/pets/wolf.png 파일 업로드
-//   2. PET_IMAGES_OVERRIDE에 { wolf: 'wolf.png' } 추가
+// 🆕 자동 인식 ON: assets/pets/{petKey}.png 파일을 올리면 자동 적용됨
+//    PNG가 없으면 자동으로 SVG 폴백 (깨진 이미지 안 보임)
 const PET_IMAGES_OVERRIDE = {
-  // 매핑 비워둠 — 모두 SVG로 표시
-  // 일러스트 추가 시 위 형식으로 추가하세요
+  // 특별히 다른 파일명을 쓰고 싶을 때만 여기에 추가
+  // 예: wolf: 'cool_wolf_v2.png'
 };
 
-// 건물 이미지 매핑 (수동 오버라이드용)
-// 자동 인식: assets/buildings/{buildingType}.png
+// 건물 이미지 매핑
+// 🆕 자동 인식 ON: assets/buildings/{buildingType}.png 올리면 자동 적용
 const BUILDING_IMAGES_OVERRIDE = {
   // 예: hut: 'wooden_hut.png'
 };
@@ -9585,14 +9799,35 @@ const ICON_IMAGES_OVERRIDE = {
   // gold: 'gold_coin.png',
 };
 
-// === 이미지 매핑 ===
-// Proxy 자동 매핑 비활성화 - 명시적으로 OVERRIDE에 등록된 파일만 사용
-// (자동 매핑 시 실제 파일이 없으면 깨진 이미지가 표시되는 문제 방지)
-// 일러스트를 추가하려면:
-//   1. assets/pets/wolf.png 파일 업로드
-//   2. PET_IMAGES_OVERRIDE에 { wolf: 'wolf.png' } 추가
-const PET_IMAGES = PET_IMAGES_OVERRIDE;
-const BUILDING_IMAGES = BUILDING_IMAGES_OVERRIDE;
+// === 🆕 자동 인식 시스템 (Proxy) ===
+// PET_IMAGES[key]를 요청하면:
+//   1. OVERRIDE에 있으면 그걸 사용
+//   2. 없으면 자동으로 '{key}.png' 반환 (파일 있으면 표시, 없으면 onerror로 SVG 폴백)
+// 로딩 실패한 키는 기억해서 다시 시도 안 함 (깜빡임 방지)
+const PET_IMAGES = new Proxy(PET_IMAGES_OVERRIDE, {
+  get(target, key) {
+    if (typeof key !== 'string') return undefined;
+    if (key in target) return target[key];
+    // 펫 키가 실제 존재하면 자동으로 {key}.png 시도
+    if (typeof PETS !== 'undefined' && PETS[key]) {
+      // 이미 실패한 파일이면 undefined (SVG 폴백)
+      if (IMG_LOAD_STATUS[`pets/${key}.png`] === 'failed') return undefined;
+      return `${key}.png`;
+    }
+    return undefined;
+  }
+});
+const BUILDING_IMAGES = new Proxy(BUILDING_IMAGES_OVERRIDE, {
+  get(target, key) {
+    if (typeof key !== 'string') return undefined;
+    if (key in target) return target[key];
+    if (typeof BUILDING_TYPES !== 'undefined' && BUILDING_TYPES[key]) {
+      if (IMG_LOAD_STATUS[`buildings/${key}.png`] === 'failed') return undefined;
+      return `${key}.png`;
+    }
+    return undefined;
+  }
+});
 const ICON_IMAGES = ICON_IMAGES_OVERRIDE;
 
 // === 이미지 로딩 (비동기, 캐시됨) ===
@@ -14327,9 +14562,9 @@ const SHOP_ITEMS = [
   { id: 'sh_battle_axe',   name: '대전투 도끼',   icon: '🪓', desc: '전투력 +500', cost: { gem: 60 }, effect: () => { game.bonusPower = (game.bonusPower||0) + 500; recomputePower(); }, category: 'combat' },
 ];
 
-// === 상점 모든 아이템 가격 ×5 일괄 적용 ===
+// === 하드코어 밸런스: 상점 모든 아이템 가격 ×15 ===
 (function applyShopPriceMultiplier() {
-  const MULT = 5;
+  const MULT = 15;
   for (const item of SHOP_ITEMS) {
     if (!item.cost) continue;
     for (const key of Object.keys(item.cost)) {
@@ -15314,7 +15549,12 @@ const MAX_LEVEL = 999;
 // 레벨 N에서 N+1로 가는데 필요한 경험치 = N * 2000
 // Lv1→2: 2000, Lv2→3: 4000, Lv30→31: 60000, Lv59→60: 118000
 function getExpForNextLevel(level) {
-  return level * 10000;  // 2000 → 10000 (5배 증가)
+  // 하드코어 지수 곡선: 초반 완만, 후반 급증
+  // Lv1: 1,000 / Lv10: ~16K / Lv50: ~1.5M / Lv100: ~16M / Lv500: ~수십억
+  // 공식: base * level^2.2 * 성장계수
+  const base = 1000;
+  const exp = Math.floor(base * Math.pow(level, 2.2) * (1 + level * 0.015));
+  return exp;
 }
 window.getExpForNextLevel = getExpForNextLevel;
 
@@ -20137,11 +20377,22 @@ async function renderRankingByType(type) {
       ? `<span style="display:inline-block; background:${tt.color}; color:white; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:bold; margin-left:4px;">${tt.short}</span>`
       : '';
 
-    // 펫 미리보기 (펫 탭에서)
+    // 펫 미리보기 (펫 탭에서) - 등급별 강조
     let petPreview = '';
     if (type === 'pet' && p.pets && p.pets.length > 0) {
-      const top = p.pets.slice().sort((a,b) => PETS[b[0]].power - PETS[a[0]].power).slice(0, 5);
-      petPreview = `<div style="margin-top:3px;">${top.map(pt => `<span style="font-size:16px;">${PETS[pt[0]].emoji}</span>`).join(' ')}</div>`;
+      const top = p.pets.slice().filter(pt => PETS[pt[0]]).sort((a,b) => (PETS[b[0]].power||0) - (PETS[a[0]].power||0)).slice(0, 5);
+      petPreview = `<div style="margin-top:3px; display:flex; gap:2px; flex-wrap:wrap;">${top.map(pt => {
+        const pdef = PETS[pt[0]];
+        const tierColor = { divine:'#ffd700', mythic:'#b060e0', legendary:'#ff9800', epic:'#42a5f5', rare:'#66bb6a', common:'#9e9e9e' }[pdef.tier] || '#9e9e9e';
+        const isDivine = pdef.tier === 'divine';
+        return `<span style="
+          display:inline-flex; align-items:center; justify-content:center;
+          width:24px; height:24px; font-size:15px;
+          border:1.5px solid ${tierColor}; border-radius:6px;
+          background:radial-gradient(circle, ${tierColor}33, transparent);
+          ${isDivine ? 'box-shadow:0 0 8px '+tierColor+'; animation:coinShine 2s ease-in-out infinite;' : ''}
+        ">${pdef.emoji}</span>`;
+      }).join('')}</div>`;
     }
 
     // 투기장 추가 정보 (arena 탭에서)
@@ -23356,24 +23607,24 @@ function openPetSummon() {
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       <button class="event-choice" id="summon-1" style="text-align:center; font-size:14px;">
-        🔮 1회 소환<br><span class="effect">💎 1000 보석</span>
+        🔮 1회 소환<br><span class="effect">💎 2,500 보석</span>
       </button>
       <button class="event-choice" id="summon-10" style="text-align:center; font-size:14px;">
-        ✨ 10회 소환 (전설+ 1회 확정)<br><span class="effect">💎 20000 보석</span>
+        ✨ 10회 소환 (전설+ 1회 확정)<br><span class="effect">💎 22,500 보석 (10% 할인)</span>
       </button>
     </div>
   `;
   document.getElementById('summon-1').onclick = () => {
     showConfirmDialog(
       '🔮 1회 소환',
-      `💎 1000 보석을 사용해서 펫 1마리를 소환하시겠어요?\n\n현재 보석: 💎 ${(game.res.gem || 0).toLocaleString()}`,
+      `💎 2,500 보석을 사용해서 펫 1마리를 소환하시겠어요?\n\n현재 보석: 💎 ${(game.res.gem || 0).toLocaleString()}`,
       () => doSummon(1)
     );
   };
   document.getElementById('summon-10').onclick = () => {
     showConfirmDialog(
       '✨ 10회 소환',
-      `💎 20000 보석을 사용해서 펫 10마리를 소환하시겠어요?\n전설+ 1회 확정!\n\n현재 보석: 💎 ${(game.res.gem || 0).toLocaleString()}`,
+      `💎 22,500 보석을 사용해서 펫 10마리를 소환하시겠어요?\n전설+ 1회 확정!\n\n현재 보석: 💎 ${(game.res.gem || 0).toLocaleString()}`,
       () => doSummon(10)
     );
   };
@@ -23382,7 +23633,8 @@ function openPetSummon() {
 
 function doSummon(count) {
   // 무료 소환 효과 (📦 소환 10연)
-  let cost = count === 10 ? 20000 : 1000;
+  // 하드코어: 1회 2,500 / 10연 22,500 (10% 할인)
+  let cost = count === 10 ? 22500 : 2500;
   if (game.summonFreeCount > 0) {
     const useFree = Math.min(count, game.summonFreeCount);
     if (useFree === count) cost = 0;
@@ -23522,40 +23774,81 @@ function doSummon(count) {
 
 function showSummonResult(results) {
   const body = document.getElementById('summon-body');
+  // 최고 등급 판정 (연출용)
+  const tierRank = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4, divine: 5 };
+  let bestTier = 'common';
+  results.forEach(r => { if (tierRank[r.def.tier] > tierRank[bestTier]) bestTier = r.def.tier; });
+  const bestColor = PET_TIER_COLORS[bestTier];
+  const isHighTier = tierRank[bestTier] >= 3; // legendary 이상
+  // 최고 등급에 따라 사운드/햅틱
+  try { playSound(isHighTier ? 'rare' : 'gemGet'); } catch (e) {}
+  try { haptic(isHighTier ? [30,50,30,50,80] : 'success'); } catch (e) {}
+
   body.innerHTML = `
-    <div style="text-align:center; margin-bottom:12px;">
-      <div style="font-size:20px; color:var(--red); font-weight:bold; letter-spacing:2px;">
-        ✨ 소환 결과 ✨
+    <!-- 가챠 연출 배경 (최고 등급 색) -->
+    <div style="position:relative; overflow:hidden;">
+      ${isHighTier ? `
+        <div style="position:absolute; inset:-50%; pointer-events:none; z-index:0;
+          background: conic-gradient(from 0deg, transparent, ${bestColor}55, transparent, ${bestColor}55, transparent, ${bestColor}55, transparent);
+          animation: gachaRays 6s linear infinite;"></div>
+      ` : ''}
+      <div style="position:relative; z-index:1;">
+        <div style="text-align:center; margin-bottom:12px;">
+          <div style="font-size:22px; font-weight:900; letter-spacing:2px; font-family:'Black Han Sans',sans-serif;
+            background:linear-gradient(135deg, ${bestColor}, #fff, ${bestColor});
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            animation: ${isHighTier ? 'gachaTitlePulse 0.8s ease-in-out infinite' : 'none'};">
+            ${bestTier === 'divine' ? '🌟 신성 강림! 🌟' : bestTier === 'mythic' ? '💫 신화 등장! 💫' : bestTier === 'legendary' ? '👑 전설 획득! 👑' : '✨ 소환 결과 ✨'}
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(${results.length > 1 ? 5 : 1}, 1fr); gap:6px; max-height: 50vh; overflow-y:auto;">
+          ${results.map((r, i) => {
+            const tColor = PET_TIER_COLORS[r.def.tier];
+            const tRank = tierRank[r.def.tier];
+            const isHi = tRank >= 3;
+            return `
+            <div class="pet-result ${isHi ? 'pet-result-hi' : ''}" style="
+              animation: gachaCardReveal 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.08}s both;
+              background: radial-gradient(ellipse at center, ${tColor}44, rgba(20,15,30,0.9));
+              border: 3px solid ${tColor};
+              border-radius: 12px;
+              padding: 8px 4px;
+              text-align: center;
+              box-shadow: 0 0 ${isHi ? '20px' : '10px'} ${tColor}88, inset 0 0 12px ${tColor}33;
+              position: relative;
+              overflow: hidden;
+              ${r.duplicate ? 'opacity: 0.7;' : ''}
+            ">
+              ${isHi && !r.duplicate ? `<div style="position:absolute; inset:0; pointer-events:none;
+                background: conic-gradient(from 0deg, transparent, ${tColor}66, transparent, ${tColor}66, transparent);
+                animation: gachaRays 4s linear infinite;"></div>` : ''}
+              ${r.duplicate ? `<div style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.7); color:#fff176; font-size:8px; padding:1px 4px; border-radius:6px; font-weight:bold; z-index:3;">중복 💎+${r.refund}</div>` : ''}
+              <div style="line-height:1; position:relative; z-index:2; ${r.duplicate ? 'filter:grayscale(0.5);' : ''}">${petImageHTML(r.def, results.length > 1 ? 52 : 96)}</div>
+              <div style="font-size:${results.length > 1 ? '9' : '15'}px; font-weight:bold; margin-top:4px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.9); position:relative; z-index:2;">${r.def.name}</div>
+              <div style="font-size:${results.length > 1 ? '8' : '11'}px; color:${tColor}; font-weight:bold; text-shadow:0 0 4px ${tColor}; position:relative; z-index:2;">
+                ${PET_TIER_NAMES[r.def.tier]}
+              </div>
+              <div style="font-size:${results.length > 1 ? '9' : '13'}px; color:#ff5252; margin-top:2px; font-weight:bold; position:relative; z-index:2;">⚔ ${r.def.power}</div>
+            </div>
+          `;}).join('')}
+        </div>
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <button class="event-choice" style="flex:1; text-align:center;" onclick="openPetSummon()">🔮 다시 소환</button>
+          <button class="event-choice" style="flex:1; text-align:center;" onclick="document.getElementById('m-summon').classList.remove('show'); openPetDex();">📖 도감 열기</button>
+        </div>
       </div>
     </div>
-    <div style="display:grid; grid-template-columns: repeat(${results.length > 1 ? 5 : 1}, 1fr); gap:6px; max-height: 50vh; overflow-y:auto;">
-      ${results.map((r, i) => `
-        <div class="pet-result" style="
-          animation: popIn 0.4s ${i * 0.05}s both;
-          background: linear-gradient(to bottom, #fff, ${PET_TIER_COLORS[r.def.tier]}33);
-          border: 3px solid ${PET_TIER_COLORS[r.def.tier]};
-          border-radius: 10px;
-          padding: 8px 4px;
-          text-align: center;
-          box-shadow: 0 2px 8px ${PET_TIER_COLORS[r.def.tier]}66;
-          position: relative;
-          ${r.duplicate ? 'opacity: 0.65;' : ''}
-        ">
-          ${r.duplicate ? `<div style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff176; font-size:8px; padding:1px 4px; border-radius:6px; font-weight:bold;">중복 💎+${r.refund}</div>` : ''}
-          <div style="line-height:1; ${r.duplicate ? 'filter:grayscale(0.5);' : ''}">${petSVG(r.def, results.length > 1 ? 48 : 90)}</div>
-          <div style="font-size:${results.length > 1 ? '9' : '14'}px; font-weight:bold; margin-top:4px;">${r.def.name}</div>
-          <div style="font-size:${results.length > 1 ? '8' : '11'}px; color:${PET_TIER_COLORS[r.def.tier]}; font-weight:bold;">
-            ${PET_TIER_NAMES[r.def.tier]}
-          </div>
-          <div style="font-size:${results.length > 1 ? '9' : '12'}px; color:var(--red); margin-top:2px;">⚔ ${r.def.power}</div>
-        </div>
-      `).join('')}
-    </div>
-    <div style="display:flex; gap:8px; margin-top:14px;">
-      <button class="event-choice" style="flex:1; text-align:center;" onclick="openPetSummon()">🔮 다시 소환</button>
-      <button class="event-choice" style="flex:1; text-align:center;" onclick="document.getElementById('m-summon').classList.remove('show'); openPetDex();">📖 도감 열기</button>
-    </div>
   `;
+  // 최고 등급이 legendary 이상이면 화면 파티클
+  if (isHighTier) {
+    setTimeout(() => {
+      try {
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        if (typeof emitConfetti === 'function' && game.home) emitConfetti(game.home.x, game.home.y - 20, 60);
+      } catch (e) {}
+    }, 300);
+  }
 }
 
 function recomputePower() {
@@ -27402,12 +27695,60 @@ function enterDungeon(id) {
       if (typeof isOnlineMode === 'function' && isOnlineMode()) {
         try { uploadCloudSave(true); } catch (e) {}
       }
+      // 🎬 던전 진입 시네마틱
+      showDungeonEntrance(d);
       showToast(`🗝 "${d.name}" 탐험 시작!`, 'gain');
       renderDungeonModal();
     }
   );
 }
 window.enterDungeon = enterDungeon;
+
+// 🎬 던전 진입 시네마틱 연출
+function showDungeonEntrance(d) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 100002;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; overflow: hidden;
+  `;
+  overlay.innerHTML = `
+    <style>
+      @keyframes dungeonGateOpen {
+        0% { transform: scaleX(1); }
+        100% { transform: scaleX(0); }
+      }
+      @keyframes dungeonEntranceText {
+        0% { transform: scale(0.3) translateY(40px); opacity: 0; }
+        30% { transform: scale(1.1) translateY(0); opacity: 1; }
+        70% { transform: scale(1) translateY(0); opacity: 1; }
+        100% { transform: scale(1.3) translateY(-20px); opacity: 0; }
+      }
+      @keyframes dungeonHeroRun {
+        0% { transform: translateX(-200px) scale(0.5); opacity: 0; }
+        40% { transform: translateX(0) scale(1); opacity: 1; }
+        60% { transform: translateX(0) scale(1); opacity: 1; }
+        100% { transform: translateX(300px) scale(0.8); opacity: 0; }
+      }
+    </style>
+    <!-- 좌우 문 (열림) -->
+    <div style="position:absolute; left:0; top:0; width:50%; height:100%; background:linear-gradient(90deg, #1a0a2e, ${d.color}44); transform-origin:left; animation: dungeonGateOpen 1.2s ease-in-out forwards; border-right:3px solid ${d.color};"></div>
+    <div style="position:absolute; right:0; top:0; width:50%; height:100%; background:linear-gradient(270deg, #1a0a2e, ${d.color}44); transform-origin:right; animation: dungeonGateOpen 1.2s ease-in-out forwards; border-left:3px solid ${d.color};"></div>
+    <!-- 중앙 텍스트 -->
+    <div style="position:relative; text-align:center; z-index:2; animation: dungeonEntranceText 2s ease-out forwards;">
+      <div style="font-size:72px; filter:drop-shadow(0 0 20px ${d.color});">${d.icon}</div>
+      <div style="font-size:28px; font-weight:900; font-family:'Black Han Sans',sans-serif; color:#fff; text-shadow:0 0 12px ${d.color}, 0 2px 4px #000; margin-top:8px; letter-spacing:2px;">${d.name}</div>
+      <div style="font-size:14px; color:${d.color}; font-weight:bold; margin-top:4px; text-shadow:0 1px 3px #000;">탐험 시작!</div>
+    </div>
+    <!-- 달려가는 영웅 -->
+    <div style="position:absolute; left:50%; top:60%; font-size:48px; animation: dungeonHeroRun 2s ease-in-out forwards; filter:drop-shadow(0 0 12px #ffd700);">🦸</div>
+  `;
+  document.body.appendChild(overlay);
+  try { playSound('conquer'); } catch (e) {}
+  try { haptic([20, 30, 50]); } catch (e) {}
+  setTimeout(() => overlay.remove(), 2200);
+}
+window.showDungeonEntrance = showDungeonEntrance;
 
 function renderDungeonProgress() {
   const body = document.getElementById('dungeon-body');
@@ -29437,14 +29778,16 @@ function showPvpBattle(opponent) {
       <!-- 전투 무대 -->
       <div id="pvp-battle-stage" style="position:relative; height:180px; background:linear-gradient(180deg, #4a3458 0%, #2d1b4e 60%, #1a0a2e 100%); border:2px solid #6a1b9a; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 20px rgba(0,0,0,0.5);">
         <!-- 배경 효과: 별들 -->
-        ${Array.from({length: 12}, (_, i) => `<div style="position:absolute; left:${Math.random()*100}%; top:${Math.random()*100}%; width:2px; height:2px; background:#fff; border-radius:50%; opacity:${0.3+Math.random()*0.5}; animation: pvpHpDrop ${1+Math.random()}s ease-in-out infinite alternate;"></div>`).join('')}
+        ${Array.from({length: 18}, (_, i) => `<div style="position:absolute; left:${Math.random()*100}%; top:${Math.random()*100}%; width:${1+Math.random()*2}px; height:${1+Math.random()*2}px; background:#fff; border-radius:50%; opacity:${0.3+Math.random()*0.5}; animation: pvpHpDrop ${1+Math.random()}s ease-in-out infinite alternate;"></div>`).join('')}
+        <!-- 중앙 충돌 광선 -->
+        <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:120px; height:120px; background:radial-gradient(circle, rgba(255,215,0,0.15), transparent 70%); border-radius:50%; animation: pvpFlash 2s ease-in-out infinite;"></div>
         <!-- 내 펫 -->
-        <div id="my-fighter" class="pvp-fighter" style="position:absolute; left:18%; top:45%; transform: translate(-50%, -50%); font-size:64px; filter: drop-shadow(0 4px 8px rgba(67,160,71,0.6));">
-          ${myPet.icon || '🐺'}
+        <div id="my-fighter" class="pvp-fighter" style="position:absolute; left:18%; top:45%; transform: translate(-50%, -50%); filter: drop-shadow(0 4px 12px rgba(67,160,71,0.8));">
+          <div style="width:72px; height:72px;">${petImageHTML(myPet, 72)}</div>
         </div>
         <!-- 상대 펫 (좌우 반전) -->
-        <div id="opp-fighter" class="pvp-fighter" style="position:absolute; right:18%; top:45%; transform: translate(50%, -50%) scaleX(-1); font-size:64px; filter: drop-shadow(0 4px 8px rgba(239,83,80,0.6));">
-          ${oppPet.icon || '🐺'}
+        <div id="opp-fighter" class="pvp-fighter" style="position:absolute; right:18%; top:45%; transform: translate(50%, -50%) scaleX(-1); filter: drop-shadow(0 4px 12px rgba(239,83,80,0.8));">
+          <div style="width:72px; height:72px;">${petImageHTML(oppPet, 72)}</div>
         </div>
       </div>
       
@@ -30306,35 +30649,94 @@ async function loadRaidContent() {
     attackBtn.onclick = async () => {
       attackBtn.disabled = true;
       attackBtn.innerHTML = '<span>⚔ 공격 중...</span>';
-      // 보스 흔들림 + 데미지 숫자
       const bossIcon = document.getElementById('raid-boss-icon');
+      let critical = Math.random() < 0.2;
       if (bossIcon) {
         bossIcon.classList.add('hit');
         setTimeout(() => bossIcon.classList.remove('hit'), 400);
-        // 데미지 숫자 떠오르기
         const bossRect = bossIcon.getBoundingClientRect();
+        const cx = bossRect.left + bossRect.width / 2;
+        const cy = bossRect.top + bossRect.height / 2;
+        // ⚔ 슬래시 이펙트 (X자 베기)
+        for (let s = 0; s < 2; s++) {
+          const slash = document.createElement('div');
+          slash.style.setProperty('--angle', (s === 0 ? 45 : -45) + 'deg');
+          slash.style.cssText += `
+            position: fixed; left: ${cx}px; top: ${cy}px;
+            width: 120px; height: 6px;
+            background: linear-gradient(90deg, transparent, #fff, #ffd700, #fff, transparent);
+            border-radius: 3px;
+            transform: translate(-50%, -50%) rotate(${s === 0 ? 45 : -45}deg) scaleX(0);
+            transform-origin: center;
+            pointer-events: none; z-index: 10011;
+            box-shadow: 0 0 12px #ffd700, 0 0 24px #ff5252;
+            animation: raidSlash 0.4s ease-out forwards ${s * 0.1}s;
+          `;
+          document.body.appendChild(slash);
+          setTimeout(() => slash.remove(), 600);
+        }
+        // 💥 충격파 링
+        const ring = document.createElement('div');
+        ring.style.cssText = `
+          position: fixed; left: ${cx}px; top: ${cy}px;
+          width: 40px; height: 40px;
+          border: 4px solid #ffd700;
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          pointer-events: none; z-index: 10009;
+          animation: raidShockwave 0.6s ease-out forwards;
+        `;
+        document.body.appendChild(ring);
+        setTimeout(() => ring.remove(), 600);
+        // 데미지 숫자 (콤보 카운터)
+        game._raidCombo = (game._raidCombo || 0) + 1;
+        const comboCount = game._raidCombo;
         const dmgEl = document.createElement('div');
+        const dmgVal = critical ? myAttackDamage * 2 : myAttackDamage;
         dmgEl.style.cssText = `
           position: fixed;
-          left: ${bossRect.left + bossRect.width / 2}px;
-          top: ${bossRect.top + bossRect.height / 2}px;
-          color: #ffd700;
-          font-size: 28px;
-          font-weight: bold;
-          text-shadow: 0 0 8px #ff5252, 0 2px 4px rgba(0,0,0,0.9);
+          left: ${cx + (Math.random()*40-20)}px;
+          top: ${cy - 10}px;
+          color: ${critical ? '#ff1744' : '#ffd700'};
+          font-size: ${critical ? 40 : 28}px;
+          font-weight: 900;
+          font-family: 'Black Han Sans', sans-serif;
+          text-shadow: 0 0 8px ${critical ? '#ff1744' : '#ff5252'}, 0 2px 4px rgba(0,0,0,0.9);
           pointer-events: none;
           z-index: 10010;
-          animation: damageFloat 1.2s ease-out forwards;
+          animation: damageFloat ${critical ? 1.5 : 1.2}s ease-out forwards;
           transform: translate(-50%, 0);
         `;
-        dmgEl.textContent = `-${myAttackDamage.toLocaleString()}`;
+        dmgEl.innerHTML = `${critical ? '⚡CRITICAL!⚡<br>' : ''}-${dmgVal.toLocaleString()}`;
         document.body.appendChild(dmgEl);
-        setTimeout(() => dmgEl.remove(), 1200);
+        setTimeout(() => dmgEl.remove(), 1500);
+        // 콤보 표시 (3콤보 이상)
+        if (comboCount >= 3) {
+          const comboEl = document.createElement('div');
+          comboEl.style.cssText = `
+            position: fixed; left: ${cx}px; top: ${cy - 60}px;
+            color: #ff9800; font-size: 22px; font-weight: 900;
+            font-family: 'Black Han Sans', sans-serif;
+            text-shadow: 0 0 10px #ff9800, 0 2px 4px #000;
+            pointer-events: none; z-index: 10010;
+            animation: comboPopup 0.8s ease-out forwards;
+            transform: translate(-50%, 0);
+          `;
+          comboEl.textContent = `${comboCount} COMBO!`;
+          document.body.appendChild(comboEl);
+          setTimeout(() => comboEl.remove(), 800);
+        }
+        // 화면 흔들림
+        try { triggerShake(critical ? 12 : 6, 0.3); } catch (e) {}
+        // 파티클 폭발
+        try { emitConfetti(cx, cy, critical ? 30 : 15); } catch (e) {}
+        // 콤보 리셋 타이머
+        clearTimeout(game._raidComboTimer);
+        game._raidComboTimer = setTimeout(() => { game._raidCombo = 0; }, 2000);
       }
-      try { playSound('hit'); } catch (e) {}
-      try { haptic('medium'); } catch (e) {}
+      try { playSound(critical ? 'rare' : 'hit'); } catch (e) {}
+      try { haptic(critical ? 'heavy' : 'medium'); } catch (e) {}
       await attackRaid(myAttackDamage);
-      // 폴링이 갱신해줌
       setTimeout(() => { loadRaidContent(); }, 400);
     };
   }
@@ -32235,22 +32637,30 @@ function renderPetCatalogTab(tab) {
       // 진화 보너스 % 표기
       const evoBonusPct = [0, 50, 120, 250][evoLevel] || 0;
       const lvBonusPct = (petLv - 1) * 10;
+      // 등급 → 코인 배지
+      const coinGrade = { divine: 'Splus', mythic: 'Splus', legendary: 'S', epic: 'A', rare: 'B', common: 'C' }[def.tier] || 'C';
+      const coinText = { divine: 'S', mythic: 'S', legendary: 'S', epic: 'A', rare: 'B', common: 'C' }[def.tier] || 'C';
+      const coinPlus = (def.tier === 'divine' || def.tier === 'mythic') ? '<span class="plus">+</span>' : '';
+      const metalClass = ['divine','mythic','legendary','epic'].includes(def.tier) ? 'metal-' + def.tier : '';
       html += `
-        <div class="pet-card-enhanced pet-bg-${def.tier}" style="border: 2px solid ${isSummoned ? '#4caf50' : color}; border-radius: 12px; padding: 8px; position: relative; box-shadow: 0 0 ${isSummoned ? '18px #4caf5099' : '14px ' + color + '77, inset 0 0 14px ' + color + '22'}; overflow: hidden;">
+        <div class="metal-card ${metalClass}" style="position:relative;">
+          <span class="rivet tl"></span><span class="rivet tr"></span><span class="rivet bl"></span><span class="rivet br"></span>
+          <div class="grade-coin grade-${coinGrade}">${coinText}${coinPlus}</div>
+          <div class="pet-card-enhanced pet-bg-${def.tier}" style="border-radius: 10px; padding: 8px 8px 4px; position: relative; overflow: hidden;">
           ${def.tier === 'divine' ? '<div class="pet-aura-mythic"></div><div class="pet-aura-legendary"></div><div class="pet-particles"></div>' : def.tier === 'mythic' ? '<div class="pet-aura-mythic"></div><div class="pet-particles"></div>' : def.tier === 'legendary' ? '<div class="pet-aura-legendary"></div><div class="pet-particles"></div>' : ''}
-          ${isSummoned ? '<div style="position:absolute; top:-7px; right:-4px; background:#4caf50; color:white; border-radius:10px; padding:2px 7px; font-size:9px; font-weight:bold; border:1.5px solid #1b5e20; box-shadow:0 0 6px #4caf50; z-index:5;">✦ 소환중</div>' : ''}
-          ${stars ? '<div style="position:absolute; top:-6px; left:-4px; background:linear-gradient(135deg, #ffd700, #f9a825); color:#3e2723; border-radius:10px; padding:2px 6px; font-size:10px; font-weight:bold; border:1.5px solid #f57f17; box-shadow:0 0 8px rgba(255,215,0,0.6); z-index:5;">' + stars + '</div>' : ''}
-          <div style="position:absolute; top:6px; right:6px; background:linear-gradient(135deg,#1976d2,#0d47a1); color:#fff; border-radius:8px; padding:1px 6px; font-size:9px; font-weight:bold; border:1px solid #42a5f5; box-shadow:0 0 6px rgba(33,150,243,0.5); z-index:5;">Lv.${petLv}${isMaxLv ? ' MAX' : ''}</div>
-          <div style="background:${tierBgRgba}; color:#fff; font-size:9px; padding:1px 7px; border-radius:8px; display:inline-block; font-weight:bold; border:1px solid ${color}; text-shadow:0 1px 1px rgba(0,0,0,0.5); margin-bottom:2px; position:relative; z-index:2;">[${PET_TIER_NAMES[def.tier]}]</div>
-          <div class="pet-card-svg" style="text-align:center; line-height: 0; margin:2px 0; position:relative; z-index:2;">
-            ${petSVG(def, 60)}
+          ${isSummoned ? '<div style="position:absolute; top:2px; right:2px; background:#4caf50; color:white; border-radius:8px; padding:1px 6px; font-size:8px; font-weight:bold; border:1.5px solid #1b5e20; box-shadow:0 0 6px #4caf50; z-index:6;">✦ 소환</div>' : ''}
+          ${stars ? '<div style="position:absolute; top:2px; left:2px; color:#ffd700; font-size:10px; text-shadow:0 0 4px #f57f17, 0 1px 1px #000; z-index:6;">' + stars + '</div>' : ''}
+          <div style="position:absolute; bottom:2px; right:4px; background:linear-gradient(135deg,#1976d2,#0d47a1); color:#fff; border-radius:6px; padding:1px 5px; font-size:8px; font-weight:bold; border:1px solid #42a5f5; z-index:6;">Lv.${petLv}${isMaxLv ? ' MAX' : ''}</div>
+          <div class="pet-card-svg" style="text-align:center; line-height: 0; margin:6px 0 2px; position:relative; z-index:2;">
+            ${petImageHTML(def, 64)}
           </div>
-          <div style="font-size:12px; font-weight:bold; margin-top:2px; text-align:center; color:${color}; text-shadow:0 0 4px ${color}aa; position:relative; z-index:2;">${def.name}${count > 1 ? ' x' + count : ''}</div>
-          <div style="font-size:11px; color:#ff5252; text-align:center; margin-top:2px; font-weight:bold; position:relative; z-index:2;">⚔ ${evoBonus}${evoBonusPct > 0 ? ' <span style="color:#ffa000;">+' + evoBonusPct + '%</span>' : ''}${lvBonusPct > 0 ? ' <span style="color:#42a5f5;">+' + lvBonusPct + '%</span>' : ''}</div>
+          <div style="font-size:11px; color:#ff5252; text-align:center; margin-top:2px; font-weight:bold; position:relative; z-index:2; text-shadow:0 1px 2px rgba(0,0,0,0.8);">⚔ ${evoBonus}${evoBonusPct > 0 ? ' <span style="color:#ffd54f;">+' + evoBonusPct + '%</span>' : ''}${lvBonusPct > 0 ? ' <span style="color:#80d8ff;">+' + lvBonusPct + '%</span>' : ''}</div>
+          </div>
+          <div class="card-name-label">${def.name}${count > 1 ? ' ×' + count : ''}</div>
           ${(() => {
             const sk = getPetSkill(key);
             if (!sk) return '';
-            return `<div style="background:rgba(0,0,0,0.5); color:#fff; border-radius:6px; padding:3px 5px; margin-top:4px; text-align:center; font-size:9px; border-left:2px solid ${color};">
+            return `<div style="background:rgba(0,0,0,0.5); color:#fff; border-radius:6px; padding:3px 5px; margin-top:4px; text-align:center; font-size:9px; border-left:2px solid ${color}; position:relative; z-index:2;">
               <b style="color:${color}; text-shadow:0 0 4px ${color}aa;">${sk.icon} ${sk.name}</b>
               <div style="opacity:0.8; font-size:8px; color:#e0e0e0;">${sk.desc}</div>
             </div>`;
@@ -32695,8 +33105,9 @@ function placeBuilding(gx, gy) {
       }
     }
   }
-  if (!canAfford(def.cost)) { showToast('자원이 부족해요!', 'warn'); return; }
-  spendRes(def.cost);
+  const buildCost = getBuildingCost(key);
+  if (!canAfford(buildCost)) { showToast('자원이 부족해요!', 'warn'); return; }
+  spendRes(buildCost);
   const b = new Building(key, gx, gy);
   b.squash = 0.6;  // landing squash when placed
   game.buildings.push(b);
@@ -32718,7 +33129,8 @@ function placeBuilding(gx, gy) {
       gravity: 30,
     });
   }
-  game.exp += 20;
+  const startExp = Math.max(20, Math.floor(((buildCost.gold||0)+(buildCost.wood||0)+(buildCost.stone||0))*0.1));
+  game.exp += startExp;
   checkLevelUp();
   updateHUD();
   rebuildBuildBar();
@@ -34848,10 +35260,125 @@ function render() {
 
   ctx.restore();
 
+  // ====== 🌤 동적 환경 효과 (구름/꽃잎/반딧불) ======
+  drawAmbientEffects(ctx, cw, ch);
   // ====== 🌅 시간대 색상 오버레이 (캔버스 위에 색 입힘) ======
   drawTimeOfDayOverlay(ctx, cw, ch);
   // ====== 💫 화면 가장자리 페이드 (거리감) ======
   drawScreenVignette(ctx, cw, ch);
+}
+
+// === 🌤 동적 환경 효과 (시간대별) ===
+function drawAmbientEffects(ctx, w, h) {
+  const t = game.timeOfDay;
+  const now = Date.now() * 0.001;
+
+  // 구름 (낮/새벽/석양)
+  if (t !== 'night') {
+    if (!game._clouds) {
+      game._clouds = [];
+      for (let i = 0; i < 5; i++) {
+        game._clouds.push({
+          x: Math.random(),
+          y: 0.05 + Math.random() * 0.25,
+          speed: 0.005 + Math.random() * 0.01,
+          scale: 0.7 + Math.random() * 0.8,
+          opacity: 0.15 + Math.random() * 0.2,
+        });
+      }
+    }
+    for (const cloud of game._clouds) {
+      cloud.x += cloud.speed * 0.002;
+      if (cloud.x > 1.2) cloud.x = -0.2;
+      const cx = cloud.x * w;
+      const cy = cloud.y * h;
+      const s = cloud.scale * 40;
+      const cloudColor = t === 'sunset' ? `rgba(255, 200, 150, ${cloud.opacity})` :
+                         t === 'dawn' ? `rgba(255, 220, 230, ${cloud.opacity})` :
+                         `rgba(255, 255, 255, ${cloud.opacity})`;
+      ctx.fillStyle = cloudColor;
+      // 구름 모양 (원 3개)
+      ctx.beginPath();
+      ctx.arc(cx, cy, s, 0, Math.PI * 2);
+      ctx.arc(cx + s * 0.8, cy + s * 0.1, s * 0.8, 0, Math.PI * 2);
+      ctx.arc(cx - s * 0.8, cy + s * 0.15, s * 0.7, 0, Math.PI * 2);
+      ctx.arc(cx + s * 0.3, cy - s * 0.3, s * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 낮: 떠다니는 꽃잎/잎사귀
+  if (t === 'day' || t === 'dawn') {
+    if (!game._petals) {
+      game._petals = [];
+      for (let i = 0; i < 12; i++) {
+        game._petals.push({
+          x: Math.random(),
+          y: Math.random(),
+          speed: 0.01 + Math.random() * 0.02,
+          drift: Math.random() * Math.PI * 2,
+          size: 3 + Math.random() * 4,
+          rot: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 2,
+          color: ['#ffb3d9', '#fff176', '#b9f6ca', '#ffd54f'][Math.floor(Math.random() * 4)],
+        });
+      }
+    }
+    for (const p of game._petals) {
+      p.y += p.speed * 0.003;
+      p.x += Math.sin(now + p.drift) * 0.0008;
+      p.rot += p.rotSpeed * 0.01;
+      if (p.y > 1.1) { p.y = -0.1; p.x = Math.random(); }
+      const px = p.x * w;
+      const py = p.y * h;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.6;
+      // 꽃잎 모양 (타원)
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 밤: 반딧불
+  if (t === 'night') {
+    if (!game._fireflies) {
+      game._fireflies = [];
+      for (let i = 0; i < 15; i++) {
+        game._fireflies.push({
+          x: Math.random(),
+          y: 0.3 + Math.random() * 0.6,
+          phase: Math.random() * Math.PI * 2,
+          driftX: Math.random() * Math.PI * 2,
+          driftY: Math.random() * Math.PI * 2,
+          speed: 0.5 + Math.random(),
+        });
+      }
+    }
+    for (const f of game._fireflies) {
+      const fx = (f.x + Math.sin(now * 0.3 + f.driftX) * 0.03) * w;
+      const fy = (f.y + Math.cos(now * 0.4 + f.driftY) * 0.03) * h;
+      const glow = 0.3 + Math.sin(now * f.speed + f.phase) * 0.5;
+      if (glow > 0) {
+        ctx.save();
+        const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, 8);
+        grad.addColorStop(0, `rgba(255, 255, 150, ${glow})`);
+        grad.addColorStop(1, 'rgba(255, 255, 150, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(fx - 8, fy - 8, 16, 16);
+        ctx.fillStyle = `rgba(255, 255, 200, ${glow})`;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
 }
 
 // === 🌅 시간대 오버레이 (강화: 햇빛/달빛 광선 + 구름) ===

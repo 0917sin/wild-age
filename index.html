@@ -9799,11 +9799,10 @@ const ICON_IMAGES_OVERRIDE = {
   // gold: 'gold_coin.png',
 };
 
-// === 📂 실제 업로드된 이미지 파일 목록 ===
-// 여기 있는 키만 PNG로 표시, 나머지는 SVG (깨진 아이콘 방지)
-// 새 PNG 올리면 여기에 키 추가
-const PET_FILES_AVAILABLE = new Set(['amaterasu','amethyst_dragon','angel','anubis','bahamut','baihu','banshee','basilisk','bear','behemoth','bull','centaur','cerberus','cerberus_3h','chimera','chronos','cobra','cosmic_god','croc','crystal_golem','cthulhu','cyclops','demon','divine_angel','divine_chronos','divine_dragon','divine_phoenix','divine_voidlord','djinn','dragon','dragon_blue','dragon_gold','dragon_green','dragon_red','dragon_white','elephant','emerald_dragon','fenghuang','fenrir','gaia_mother','garuda','garuda_king','giraffe','golem_crystal','golem_iron','golem_stone','gorilla','griffin','hippo','hydra','ice_phoenix','ifrit','ignis_lord','jaguar','jormungandr','kraken','lava_golem','leviathan','lioness','manticore','minotaur','moonlight_unicorn','nine_tail','odin_raven','ouroboros','panther','pegasus','pegasus_w','phoenix','phoenix_dawn','phoenix_night','qilin','qinglong','ra','rainbow_serpent','rhino','roc','ruby_dragon','sapphire_dragon','shadow_phoenix','shark','shenlong','sleipnir','sphinx','squid','starlight_griffin','storm_dragon','susanoo','thunder_phoenix','thunder_tiger','thunderbird','tiamat','tiger','tigercub','titan_frost','treant','unicorn','void_dragon','void_wolf','volcano_dragon','vulture','whale','wolf','worldgod','xuanwu','yamato','yeti','ymir','zeus_king','zhuque','ziz']);
-const BUILDING_FILES_AVAILABLE = new Set(['altar','barracks','blacksmith','crystal','farm','fishery','forge','garden','goldmine','greenhouse','hospital','hut','lab','library','market','mill','mushroom','observatory','pet_house','quarry','shrine','stable','stone_altar','temple','trader_post','warehouse','watchtower','windmill']);
+// === 📂 PNG 비활성화 - SVG 전용 모드 ===
+// PNG 안 쓰고 SVG로만 표시 (깨진 아이콘 완전 차단)
+const PET_FILES_AVAILABLE = new Set();
+const BUILDING_FILES_AVAILABLE = new Set();
 window.PET_FILES_AVAILABLE = PET_FILES_AVAILABLE;
 window.BUILDING_FILES_AVAILABLE = BUILDING_FILES_AVAILABLE;
 
@@ -11797,6 +11796,11 @@ function petSVG(def, size) {
   }
 
   // === 🐉 고품질 특별 SVG ===
+  if (key === 'divine_dragon') return premiumDragonSVG(size);
+  if (key === 'divine_phoenix') return premiumPhoenixSVG(size);
+  if (key === 'divine_chronos') return premiumChibiSVG(size, '#00e5ff', '#01579b', 'cosmic');
+  if (key === 'divine_voidlord') return premiumChibiSVG(size, '#7b1fa2', '#4a148c', 'void');
+  if (key === 'divine_angel') return premiumAngelSVG(size);
   if (key === 'dragon') return premiumDragonSVG(size);
   if (key === 'worldgod') return premiumWorldgodSVG(size);
   if (key === 'phoenix') return premiumPhoenixSVG(size);
@@ -11822,7 +11826,18 @@ function petSVG(def, size) {
   const uid = `p${(Math.random() * 1e9) | 0}_${s}`;
   const tierColor = PET_TIER_COLORS[tier] || '#999';
   let glow = '';
-  if (tier === 'mythic') {
+  if (tier === 'divine') {
+    glow = `
+      <defs>
+        <radialGradient id="g_${uid}" cx="50%" cy="55%" r="55%">
+          <stop offset="0%" stop-color="#ffd700" stop-opacity="0.7"/>
+          <stop offset="40%" stop-color="#ffd700" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#ffd700" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.6}" fill="url(#g_${uid})"/>
+      <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.5}" fill="none" stroke="#ffd700" stroke-width="${s*0.02}" opacity="0.7"/>`;
+  } else if (tier === 'mythic') {
     glow = `
       <defs>
         <radialGradient id="g_${uid}" cx="50%" cy="55%" r="50%">
@@ -11846,24 +11861,27 @@ function petSVG(def, size) {
     glow = `<circle cx="${s/2}" cy="${s*0.55}" r="${s*0.45}" fill="${tierColor}" opacity="0.12"/>`;
   }
   // === ✨ 등급별 애니메이션 강도 ===
-  const animDur = tier === 'mythic' ? '1.6s'
+  const animDur = tier === 'divine' ? '1.4s'
+                : tier === 'mythic' ? '1.6s'
                 : tier === 'legendary' ? '1.8s'
                 : tier === 'epic' ? '2.0s'
                 : tier === 'rare' ? '2.4s'
                 : '2.8s';  // common
   // 등급별 좌우 흔들기 각도
-  const sway = tier === 'mythic' ? 3
+  const sway = tier === 'divine' ? 3.5
+             : tier === 'mythic' ? 3
              : tier === 'legendary' ? 2.5
              : tier === 'epic' ? 2
              : 1.5;
   // 등급별 부드러운 위아래 호흡 (1~3px)
-  const bobAmt = tier === 'mythic' ? 4
+  const bobAmt = tier === 'divine' ? 5
+              : tier === 'mythic' ? 4
               : tier === 'legendary' ? 3.5
               : tier === 'epic' ? 3
               : tier === 'rare' ? 2.5
               : 2;
   // 광채 색상 (mythic/legendary는 광채 펄스)
-  const glowPulse = (tier === 'mythic' || tier === 'legendary') ? `
+  const glowPulse = (tier === 'divine' || tier === 'mythic' || tier === 'legendary') ? `
     <animate attributeName="opacity" values="0.6;1;0.6" dur="${animDur}" repeatCount="indefinite"/>
   ` : '';
 
@@ -11885,6 +11903,21 @@ function petSVG(def, size) {
     </defs>
     <!-- 광채 (등급별, 호흡하는 애니메이션) -->
     <g>${glow}${glowPulse}</g>
+    ${tier === 'divine' ? `
+    <!-- 🌟 신성: 황금 회전 후광 + 광선 8개 -->
+    <g>
+      ${[...Array(8)].map((_,i)=>{const ang=(i/8)*360;return `<rect x="${s*0.49}" y="${s*0.02}" width="${s*0.02}" height="${s*0.18}" fill="#ffd700" opacity="0.7" transform="rotate(${ang} ${s/2} ${s*0.55})"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="2s" begin="${i*0.1}s" repeatCount="indefinite"/></rect>`;}).join('')}
+      <animateTransform attributeName="transform" type="rotate" from="0 ${s/2} ${s*0.55}" to="360 ${s/2} ${s*0.55}" dur="20s" repeatCount="indefinite"/>
+    </g>
+    <!-- 황금 회전 오라 -->
+    <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.48}" fill="none" stroke="#ffd700" stroke-width="${s*0.015}" opacity="0.8" stroke-dasharray="${s*0.08} ${s*0.05}">
+      <animateTransform attributeName="transform" type="rotate" from="0 ${s/2} ${s*0.55}" to="-360 ${s/2} ${s*0.55}" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <!-- 별 5개 (회전) -->
+    <g>
+      ${[...Array(5)].map((_,i)=>{const ang=(i/5)*Math.PI*2-Math.PI/2;const x=s/2+Math.cos(ang)*s*0.42;const y=s*0.55+Math.sin(ang)*s*0.42;return `<polygon points="0,-${s*0.035} ${s*0.01},-${s*0.011} ${s*0.033},-${s*0.011} ${s*0.014},${s*0.004} ${s*0.022},${s*0.028} 0,${s*0.013} -${s*0.022},${s*0.028} -${s*0.014},${s*0.004} -${s*0.033},-${s*0.011} -${s*0.01},-${s*0.011}" fill="#fff8e1" transform="translate(${x} ${y})"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" begin="${i*0.2}s" repeatCount="indefinite"/></polygon>`;}).join('')}
+      <animateTransform attributeName="transform" type="rotate" from="0 ${s/2} ${s*0.55}" to="360 ${s/2} ${s*0.55}" dur="10s" repeatCount="indefinite"/>
+    </g>` : ''}
     ${tier === 'mythic' ? `
     <!-- 신화: 추가 회전 오라 -->
     <circle cx="${s/2}" cy="${s*0.55}" r="${s*0.55}" fill="url(#aura_${uid})">
@@ -12409,7 +12442,21 @@ function petShapeSVG(art, s) {
         <circle cx="${c+s*dx-s*0.015}" cy="${s*dy}" r="${s*0.016}" fill="${e}"/>`).join('')}
       <ellipse cx="${c-s*0.05}" cy="${s*0.73}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}" opacity="0.6"/>
       <ellipse cx="${c+s*0.08}" cy="${s*0.78}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}" opacity="0.6"/>`;
-    default: return `<circle cx="${c}" cy="${c}" r="${s*0.3}" fill="${b}"/>`;
+    default: return `
+      <defs><radialGradient id="df${_u}" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
+      <circle cx="${c}" cy="${c}" r="${s*0.4}" fill="${a}" opacity="0.3"/>
+      ${[...Array(8)].map((_,i)=>{const ang=(i/8)*Math.PI*2;return `<polygon points="${c+Math.cos(ang)*s*0.42},${c+Math.sin(ang)*s*0.42} ${c+Math.cos(ang+0.2)*s*0.32},${c+Math.sin(ang+0.2)*s*0.32} ${c+Math.cos(ang-0.2)*s*0.32},${c+Math.sin(ang-0.2)*s*0.32}" fill="${a}" opacity="0.5"/>`;}).join('')}
+      <circle cx="${c}" cy="${c}" r="${s*0.32}" fill="${b}"/>
+      <circle cx="${c}" cy="${c}" r="${s*0.32}" fill="url(#df${_u})" opacity="0.6"/>
+      <ellipse cx="${c-s*0.08}" cy="${c-s*0.04}" rx="${s*0.05}" ry="${s*0.06}" fill="#fff"/>
+      <ellipse cx="${c+s*0.08}" cy="${c-s*0.04}" rx="${s*0.05}" ry="${s*0.06}" fill="#fff"/>
+      <circle cx="${c-s*0.07}" cy="${c-s*0.03}" r="${s*0.028}" fill="${e}"/>
+      <circle cx="${c+s*0.09}" cy="${c-s*0.03}" r="${s*0.028}" fill="${e}"/>
+      <circle cx="${c-s*0.06}" cy="${c-s*0.045}" r="${s*0.011}" fill="#fff"/>
+      <circle cx="${c+s*0.1}" cy="${c-s*0.045}" r="${s*0.011}" fill="#fff"/>
+      <path d="M${c-s*0.06} ${c+s*0.08} Q${c} ${c+s*0.12} ${c+s*0.06} ${c+s*0.08}" stroke="${d}" stroke-width="${s*0.018}" fill="none" stroke-linecap="round"/>
+      <ellipse cx="${c-s*0.14}" cy="${c+s*0.03}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>
+      <ellipse cx="${c+s*0.14}" cy="${c+s*0.03}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>`;
   }
 }
 

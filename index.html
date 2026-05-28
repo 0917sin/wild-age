@@ -8956,37 +8956,30 @@ function _getDivineOverlayContainer() {
 function _showDivineOverlay(key, instanceId, screenX, screenY, size, facing) {
   const overlayKey = key + '_' + instanceId;
   let entry = _DIVINE_OVERLAYS[overlayKey];
+  // 🆕 SVG는 고정 크기(100px)로 한 번만 생성, CSS transform으로 크기 조절
+  const BASE_SIZE = 100;
   if (!entry) {
     const el = document.createElement('div');
-    el.style.cssText = 'position:absolute; pointer-events:none; will-change:transform; transition:none;';
+    el.style.cssText = `position:absolute; pointer-events:none; will-change:transform; transition:none; width:${BASE_SIZE}px; height:${BASE_SIZE}px; transform-origin:center center;`;
     let svgHTML = null;
-    if (key === 'divine_dragon' && typeof divineDragonSVG === 'function') svgHTML = divineDragonSVG(size);
-    else if (key === 'divine_phoenix' && typeof divinePhoenixSVG === 'function') svgHTML = divinePhoenixSVG(size);
-    else if (key === 'divine_chronos' && typeof divineChronosSVG === 'function') svgHTML = divineChronosSVG(size);
-    else if (key === 'divine_voidlord' && typeof divineVoidlordSVG === 'function') svgHTML = divineVoidlordSVG(size);
-    else if (key === 'divine_angel' && typeof divineAngelSVG === 'function') svgHTML = divineAngelSVG(size);
+    if (key === 'divine_dragon' && typeof divineDragonSVG === 'function') svgHTML = divineDragonSVG(BASE_SIZE);
+    else if (key === 'divine_phoenix' && typeof divinePhoenixSVG === 'function') svgHTML = divinePhoenixSVG(BASE_SIZE);
+    else if (key === 'divine_chronos' && typeof divineChronosSVG === 'function') svgHTML = divineChronosSVG(BASE_SIZE);
+    else if (key === 'divine_voidlord' && typeof divineVoidlordSVG === 'function') svgHTML = divineVoidlordSVG(BASE_SIZE);
+    else if (key === 'divine_angel' && typeof divineAngelSVG === 'function') svgHTML = divineAngelSVG(BASE_SIZE);
     if (!svgHTML) return;
     el.innerHTML = svgHTML;
     _getDivineOverlayContainer().appendChild(el);
-    entry = { el, lastFrame: _DIVINE_OVERLAY_FRAME, size };
+    entry = { el, lastFrame: _DIVINE_OVERLAY_FRAME };
     _DIVINE_OVERLAYS[overlayKey] = entry;
   }
-  // 크기 변경 시 재생성
-  if (entry.size !== size) {
-    let svgHTML = null;
-    if (key === 'divine_dragon' && typeof divineDragonSVG === 'function') svgHTML = divineDragonSVG(size);
-    else if (key === 'divine_phoenix' && typeof divinePhoenixSVG === 'function') svgHTML = divinePhoenixSVG(size);
-    else if (key === 'divine_chronos' && typeof divineChronosSVG === 'function') svgHTML = divineChronosSVG(size);
-    else if (key === 'divine_voidlord' && typeof divineVoidlordSVG === 'function') svgHTML = divineVoidlordSVG(size);
-    else if (key === 'divine_angel' && typeof divineAngelSVG === 'function') svgHTML = divineAngelSVG(size);
-    if (svgHTML) entry.el.innerHTML = svgHTML;
-    entry.size = size;
-  }
-  // 위치 갱신 (CSS transform)
-  const flip = facing < 0 ? ' scaleX(-1)' : '';
-  entry.el.style.transform = `translate(${screenX - size/2}px, ${screenY - size}px)${flip}`;
-  entry.el.style.width = size + 'px';
-  entry.el.style.height = size + 'px';
+  // 위치/크기/방향 갱신 — 단일 transform으로 (재생성 없음)
+  const scale = size / BASE_SIZE;
+  const flipX = facing < 0 ? -scale : scale;
+  // 중앙 정렬: 화면좌표 - BASE_SIZE/2 위치에 놓고, scale 적용
+  const tx = screenX - BASE_SIZE / 2;
+  const ty = screenY - BASE_SIZE / 2 - (size - BASE_SIZE) / 2;
+  entry.el.style.transform = `translate(${tx}px, ${ty}px) scale(${flipX}, ${scale})`;
   entry.lastFrame = _DIVINE_OVERLAY_FRAME;
 }
 function _cleanupDivineOverlays() {

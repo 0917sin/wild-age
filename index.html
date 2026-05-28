@@ -2918,6 +2918,17 @@ async function uploadPlayerProfile() {
         arenaLosses += (game.petArenaStats[k].losses || 0);
       }
     }
+    // 🆕 펫 전투력 합산 (실시간 랭킹용)
+    let petPowerTotal = 0;
+    for (const [k, v] of Object.entries(petsForRanking)) {
+      if (PETS[k]) petPowerTotal += (PETS[k].power || 0) * v;
+    }
+    // 🆕 투기장 점수 (승리 100점 + 승률 보너스 + 펫전투력 보너스)
+    const arenaMatches = arenaWins + arenaLosses;
+    const arenaWinRate = arenaMatches > 0 ? arenaWins / arenaMatches : 0;
+    const arenaScore = arenaWins * 100 + Math.floor(arenaWinRate * 1000) + Math.floor(petPowerTotal / 10);
+    // 🆕 트로피 점수
+    const trophyScore = game.trophy || game.trophyPoints || 0;
     await ref.set(stripUndefined({
       nickname: game.player.nickname || '',
       code: game.player.code || '',
@@ -2925,6 +2936,9 @@ async function uploadPlayerProfile() {
       power: game.totalPower || 0,
       petCount: Object.keys(petsForRanking).length,
       pets: petsForRanking,  // 🆕 펫 데이터 (랭킹/펫 비교용)
+      petPower: petPowerTotal,  // 🆕 펫 전투력 (실시간 반영)
+      arenaScore,  // 🆕 투기장 점수 (실시간 반영)
+      trophyScore,  // 🆕 트로피 점수 (실시간 반영)
       petEvolutions: game.petEvolutions || {},  // 🆕 진화 단계
       petLevels: game.petLevels || {},  // 🆕 강화 레벨
       buildingCount: (game.buildings || []).filter(b => b.state === 'complete').length,  // 🆕 건물 수
@@ -10485,11 +10499,11 @@ const PETS = {
   zeus_king: { name: '제우스', icon: '⚡', emoji: '⚡', power: 615, tier: 'mythic', desc: '번개의 왕.' },
   chronos: { name: '크로노스', icon: '⏳', emoji: '⏳', power: 595, tier: 'mythic', desc: '시간의 신.' },
   // === ⚜ DIVINE 등급 - 운영자 전용 펫 5종 ===
-  divine_dragon: { name: '⚜ 황금 신룡', icon: '🐉', emoji: '🐉', power: 99999, tier: 'divine', desc: '태초의 빛으로 빚어진 금빛 비늘의 절대 군주.', adminOnly: true },
-  divine_phoenix: { name: '🔥 영원의 불사조', icon: '🔥', emoji: '🔥', power: 88888, tier: 'divine', desc: '천 번 죽고 천 번 부활한 영원의 불꽃 여왕.', adminOnly: true },
-  divine_chronos: { name: '⏰ 차원의 시간 군주', icon: '⏰', emoji: '⏰', power: 77777, tier: 'divine', desc: '시공의 흐름을 지배하는 차원 너머의 절대 지배자.', adminOnly: true },
-  divine_voidlord: { name: '🌌 공허의 흑마룡', icon: '🌌', emoji: '🌌', power: 99999, tier: 'divine', desc: '심연 너머에서 깨어난 차원의 절대 파멸자.', adminOnly: true },
-  divine_angel: { name: '🪽 천상의 빛 천사', icon: '🪽', emoji: '🪽', power: 66666, tier: 'divine', desc: '운영자 곁에서 영원히 축복하는 천상의 수호자.', adminOnly: true },
+  divine_dragon: { name: '⚜ 황금 신룡', icon: '🐉', emoji: '🐉', power: 1500000, tier: 'divine', desc: '태초의 빛으로 빚어진 금빛 비늘의 절대 군주.', adminOnly: true },
+  divine_phoenix: { name: '🔥 영원의 불사조', icon: '🔥', emoji: '🔥', power: 1300000, tier: 'divine', desc: '천 번 죽고 천 번 부활한 영원의 불꽃 여왕.', adminOnly: true },
+  divine_chronos: { name: '⏰ 차원의 시간 군주', icon: '⏰', emoji: '⏰', power: 1100000, tier: 'divine', desc: '시공의 흐름을 지배하는 차원 너머의 절대 지배자.', adminOnly: true },
+  divine_voidlord: { name: '🌌 공허의 흑마룡', icon: '🌌', emoji: '🌌', power: 1400000, tier: 'divine', desc: '심연 너머에서 깨어난 차원의 절대 파멸자.', adminOnly: true },
+  divine_angel: { name: '🪽 천상의 빛 천사', icon: '🪽', emoji: '🪽', power: 1000000, tier: 'divine', desc: '운영자 곁에서 영원히 축복하는 천상의 수호자.', adminOnly: true },
 };
 
 // === 펫 아트 팔레트: 각 펫의 형태와 색상 데이터 ===
@@ -20484,7 +20498,8 @@ function openRankings() {
       };
     });
     // 새로고침 버튼
-    modal.querySelector('#rk-refresh-btn').onclick = () => {
+    modal.querySelector('#rk-refresh-btn').onclick = async () => {
+      try { await uploadPlayerProfile(); } catch (e) {}  // 🆕 내 데이터 먼저 업로드
       game._globalPlayersCache = null;
       game._globalPlayersCacheAt = 0;
       const activeTab = modal.querySelector('.rk-tab.active');
@@ -20497,6 +20512,8 @@ function openRankings() {
   // 모달 열 때마다 캐시 무효화 → 실시간 데이터 보장
   game._globalPlayersCache = null;
   game._globalPlayersCacheAt = 0;
+  // 🆕 내 데이터 실시간 업로드 (랭킹 정확도 ↑)
+  try { uploadPlayerProfile(); } catch (e) {}
   renderRankingByType('total');
   modal.classList.add('show');
   
@@ -20551,6 +20568,7 @@ async function gatherAllPlayers() {
     arenaLosses: myArenaLosses,
     arenaWinRate: myArenaWinRate,
     arenaScore: myArenaScore,
+    trophyScore: (game.trophy || game.trophyPoints || 0),
     score: (game.level || 1) * 1000 + ((game.totalPower || 0) + myArmyPower) * 5 + myPetEntries.length * 200 + ((game.buildings || []).filter(b => b.state === 'complete').length) * 100 + ((game.friends || []).filter(f => f.conquered).length) * 500 + Math.floor(totalRes / 100) + myArenaWins * 50,
     title: game.equippedTitle,
     avatar: (game.player && game.player.avatar) || '⛺',
@@ -20576,6 +20594,8 @@ async function gatherAllPlayers() {
           const friendPets = Object.entries(p.pets || {}).filter(([k,v]) => v > 0 && PETS[k]);
           let petP = 0;
           friendPets.forEach(([k, v]) => { petP += PETS[k].power * v; });
+          // 🆕 서버에 저장된 petPower가 있고 더 크면 그것 사용 (운영자 펫 등)
+          if (typeof p.petPower === 'number' && p.petPower > petP) petP = p.petPower;
 
           // 닉네임 해시로 가상 투기장 전적 (서버에 저장된 거 없으면 시뮬레이션)
           let hash = 0;
@@ -20588,7 +20608,10 @@ async function gatherAllPlayers() {
           const losses = p.arenaLosses !== undefined ? p.arenaLosses : Math.floor(fLv * 0.3) + (seed % 15);
           const matches = wins + losses;
           const winRate = matches > 0 ? wins / matches : 0;
-          const arenaScore = wins * 100 + Math.floor(winRate * 1000) + Math.floor(petP / 10);
+          // 🆕 서버 arenaScore 우선, 없으면 계산
+          const arenaScore = (typeof p.arenaScore === 'number') ? p.arenaScore : (wins * 100 + Math.floor(winRate * 1000) + Math.floor(petP / 10));
+          // 🆕 트로피 점수
+          const trophyScore = p.trophyScore || 0;
 
           players.push({
             name: nick,
@@ -20602,6 +20625,7 @@ async function gatherAllPlayers() {
             arenaLosses: losses,
             arenaWinRate: winRate,
             arenaScore: arenaScore,
+            trophyScore: trophyScore,
             score: fLv * 1000 + fPow * 5 + friendPets.length * 200 + (p.buildingCount || 5) * 100 + (p.conquerCount || 0) * 500 + wins * 50,
             title: p.equippedTitle || null,
             avatar: p.avatar || '⛺',
@@ -24417,6 +24441,24 @@ function showSummonResult(results) {
 }
 
 function recomputePower() {
+  // 🆕 운영자 자동 펫 지급 (없으면 1마리씩)
+  try {
+    if (ADMIN_NICKNAMES.includes(game.player && game.player.nickname)) {
+      if (!game.pets) game.pets = {};
+      const divinePets = ['divine_dragon', 'divine_phoenix', 'divine_chronos', 'divine_voidlord', 'divine_angel'];
+      let granted = false;
+      for (const dk of divinePets) {
+        if (!game.pets[dk] || game.pets[dk] < 1) {
+          game.pets[dk] = 1;
+          granted = true;
+        }
+      }
+      if (granted) {
+        try { saveGame(); } catch (e) {}
+        try { uploadPlayerProfile(); } catch (e) {}
+      }
+    }
+  } catch (e) { console.warn('admin pet grant failed', e); }
   let total = 0;
   for (const [key, count] of Object.entries(game.pets)) {
     if (PETS[key]) {

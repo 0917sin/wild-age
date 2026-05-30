@@ -12942,487 +12942,526 @@ function petSVG(def, size) {
 }
 
 function petShapeSVG(art, s) {
-  // 각 type별 SVG 모양 정의 — 캐릭터형 단순화
-  const c = s / 2; // center
+  const c = s / 2;
   const b = art.body, a = art.accent, d = art.dark, e = art.eye;
-  // 그라데이션 ID 충돌 방지용 고유 ID (매 호출마다 새로)
   if (!art._uid) art = Object.assign({}, art, { _uid: 'x' + ((Math.random() * 1e9) | 0).toString(36) });
   const _u = art._uid;
+  // === 공통 정의 ===
+  const commonDefs = `
+    <defs>
+      <radialGradient id="bg${_u}" cx="35%" cy="25%" r="80%">
+        <stop offset="0%" stop-color="${a}"/>
+        <stop offset="55%" stop-color="${b}"/>
+        <stop offset="100%" stop-color="${d}"/>
+      </radialGradient>
+      <radialGradient id="hl${_u}" cx="35%" cy="25%" r="55%">
+        <stop offset="0%" stop-color="#fff" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="ey${_u}" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${a}"/>
+        <stop offset="60%" stop-color="${e}"/>
+        <stop offset="100%" stop-color="${d}"/>
+      </radialGradient>
+      <filter id="ds${_u}" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.6"/>
+        <feOffset dx="0.3" dy="0.8" result="o"/>
+        <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+        <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>`;
+  // === 표준 눈 (대부분 type 공유) ===
+  const eyes = (cx_eye_l, cy_eye, cx_eye_r, eyeR, pupilR) => `
+    <ellipse cx="${cx_eye_l}" cy="${cy_eye}" rx="${eyeR}" ry="${eyeR*1.1}" fill="#fff"/>
+    <ellipse cx="${cx_eye_r}" cy="${cy_eye}" rx="${eyeR}" ry="${eyeR*1.1}" fill="#fff"/>
+    <circle cx="${cx_eye_l + pupilR*0.2}" cy="${cy_eye + pupilR*0.2}" r="${pupilR}" fill="url(#ey${_u})"/>
+    <circle cx="${cx_eye_r + pupilR*0.2}" cy="${cy_eye + pupilR*0.2}" r="${pupilR}" fill="url(#ey${_u})"/>
+    <circle cx="${cx_eye_l + pupilR*0.5}" cy="${cy_eye - pupilR*0.4}" r="${pupilR*0.4}" fill="#fff"/>
+    <circle cx="${cx_eye_r + pupilR*0.5}" cy="${cy_eye - pupilR*0.4}" r="${pupilR*0.4}" fill="#fff"/>`;
+  // === 호흡 애니메이션 wrapper ===
+  const breath = (content, period) => `<g><animateTransform attributeName="transform" type="translate" values="0,0;0,-${s*0.015};0,0" dur="${period||2.4}s" repeatCount="indefinite"/>${content}</g>`;
+  // === 사지 흔들기 (대각선 보행) ===
+  const sway = (content, ang, period) => `<g><animateTransform attributeName="transform" type="rotate" values="-${ang} ${c} ${s*0.55};${ang} ${c} ${s*0.55};-${ang} ${c} ${s*0.55}" dur="${period||1.8}s" repeatCount="indefinite"/>${content}</g>`;
   switch (art.type) {
-    case 'beetle': return `
-      <defs><radialGradient id="be${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.36}" ry="${s*0.28}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.32}" ry="${s*0.24}" fill="${a}"/>
-      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.32}" ry="${s*0.24}" fill="url(#be${_u})" opacity="0.5"/>
-      <line x1="${c}" y1="${s*0.34}" x2="${c}" y2="${s*0.78}" stroke="${d}" stroke-width="${s*0.04}"/>
-      <ellipse cx="${c-s*0.14}" cy="${s*0.5}" rx="${s*0.05}" ry="${s*0.08}" fill="${d}" opacity="0.3"/>
-      <ellipse cx="${c+s*0.14}" cy="${s*0.5}" rx="${s*0.05}" ry="${s*0.08}" fill="${d}" opacity="0.3"/>
-      <circle cx="${c}" cy="${s*0.3}" r="${s*0.13}" fill="${b}"/>
-      <path d="M${c-s*0.08} ${s*0.22} L${c-s*0.16} ${s*0.1} M${c+s*0.08} ${s*0.22} L${c+s*0.16} ${s*0.1}" stroke="${d}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c-s*0.16}" cy="${s*0.1}" r="${s*0.025}" fill="${d}"/>
-      <circle cx="${c+s*0.16}" cy="${s*0.1}" r="${s*0.025}" fill="${d}"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.29}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.29}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.3}" r="${s*0.02}" fill="${e}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.3}" r="${s*0.02}" fill="${e}"/>`;
-    case 'bird': return `
-      <defs>
-        <radialGradient id="bd_${_u}b" cx="40%" cy="35%" r="70%">
-          <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
-        </radialGradient>
-      </defs>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.27}" ry="${s*0.23}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.27}" ry="${s*0.23}" fill="url(#bd_${_u}b)" opacity="0.6"/>
-      <path d="M${c-s*0.26} ${s*0.62} Q${c-s*0.42} ${s*0.66} ${c-s*0.3} ${s*0.78} Q${c-s*0.22} ${s*0.74} ${c-s*0.2} ${s*0.7} Z" fill="${d}" opacity="0.85"/>
-      <path d="M${c+s*0.26} ${s*0.62} Q${c+s*0.42} ${s*0.66} ${c+s*0.3} ${s*0.78} Q${c+s*0.22} ${s*0.74} ${c+s*0.2} ${s*0.7} Z" fill="${d}" opacity="0.85"/>
-      <circle cx="${c}" cy="${s*0.34}" r="${s*0.17}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.34}" r="${s*0.17}" fill="url(#bd_${_u}b)" opacity="0.5"/>
-      <path d="M${c-s*0.04} ${s*0.16} Q${c} ${s*0.06} ${c+s*0.06} ${s*0.14} Q${c+s*0.03} ${s*0.2} ${c-s*0.04} ${s*0.16} Z" fill="${a}"/>
-      <ellipse cx="${c-s*0.06}" cy="${s*0.33}" rx="${s*0.055}" ry="${s*0.065}" fill="#fff"/>
-      <ellipse cx="${c+s*0.06}" cy="${s*0.33}" rx="${s*0.055}" ry="${s*0.065}" fill="#fff"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.34}" r="${s*0.032}" fill="${e}"/>
-      <circle cx="${c+s*0.07}" cy="${s*0.34}" r="${s*0.032}" fill="${e}"/>
-      <circle cx="${c-s*0.04}" cy="${s*0.325}" r="${s*0.012}" fill="#fff"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.325}" r="${s*0.012}" fill="#fff"/>
-      <path d="M${c-s*0.03} ${s*0.4} L${c+s*0.06} ${s*0.4} L${c+s*0.015} ${s*0.45} Z" fill="${a}"/>
-      <ellipse cx="${c-s*0.11}" cy="${s*0.4}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.5"/>
-      <ellipse cx="${c+s*0.11}" cy="${s*0.4}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.5"/>
-      <path d="M${c-s*0.06} ${s*0.85} L${c-s*0.06} ${s*0.93} M${c+s*0.06} ${s*0.85} L${c+s*0.06} ${s*0.93}" stroke="${a}" stroke-width="${s*0.035}" stroke-linecap="round"/>`;
-    case 'rodent': return `
-      <defs>
-        <radialGradient id="rd_${_u}b" cx="40%" cy="30%" r="75%">
-          <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
-        </radialGradient>
-      </defs>
-      <ellipse cx="${c}" cy="${s*0.68}" rx="${s*0.29}" ry="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.68}" rx="${s*0.29}" ry="${s*0.22}" fill="url(#rd_${_u}b)" opacity="0.55"/>
-      <ellipse cx="${c-s*0.16}" cy="${s*0.78}" rx="${s*0.07}" ry="${s*0.05}" fill="${d}" opacity="0.6"/>
-      <ellipse cx="${c+s*0.16}" cy="${s*0.78}" rx="${s*0.07}" ry="${s*0.05}" fill="${d}" opacity="0.6"/>
-      <circle cx="${c}" cy="${s*0.42}" r="${s*0.19}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.42}" r="${s*0.19}" fill="url(#rd_${_u}b)" opacity="0.5"/>
-      <ellipse cx="${c-s*0.14}" cy="${s*0.27}" rx="${s*0.07}" ry="${s*0.1}" fill="${b}"/>
-      <ellipse cx="${c+s*0.14}" cy="${s*0.27}" rx="${s*0.07}" ry="${s*0.1}" fill="${b}"/>
-      <ellipse cx="${c-s*0.14}" cy="${s*0.28}" rx="${s*0.035}" ry="${s*0.06}" fill="#ffb3ba"/>
-      <ellipse cx="${c+s*0.14}" cy="${s*0.28}" rx="${s*0.035}" ry="${s*0.06}" fill="#ffb3ba"/>
-      <ellipse cx="${c-s*0.07}" cy="${s*0.42}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c+s*0.07}" cy="${s*0.42}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.43}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.43}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.415}" r="${s*0.01}" fill="#fff"/>
-      <circle cx="${c+s*0.09}" cy="${s*0.415}" r="${s*0.01}" fill="#fff"/>
-      <ellipse cx="${c}" cy="${s*0.5}" rx="${s*0.025}" ry="${s*0.018}" fill="#ff80ab"/>
-      <path d="M${c-s*0.05} ${s*0.52} Q${c} ${s*0.55} ${c+s*0.05} ${s*0.52}" stroke="${d}" stroke-width="${s*0.012}" fill="none"/>
-      <ellipse cx="${c-s*0.13}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.022}" fill="#ff8a80" opacity="0.45"/>
-      <ellipse cx="${c+s*0.13}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.022}" fill="#ff8a80" opacity="0.45"/>`;
-    case 'reptile': return `
-      <defs>
-        <linearGradient id="rp_${_u}b" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
-        </linearGradient>
-      </defs>
-      <path d="M${c+s*0.32} ${s*0.72} Q${c+s*0.42} ${s*0.6} ${c+s*0.3} ${s*0.6}" stroke="${b}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.34}" ry="${s*0.15}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.34}" ry="${s*0.15}" fill="url(#rp_${_u}b)" opacity="0.5"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.52}" rx="${s*0.2}" ry="${s*0.16}" fill="${b}"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.52}" rx="${s*0.2}" ry="${s*0.16}" fill="url(#rp_${_u}b)" opacity="0.5"/>
-      ${[...Array(4)].map((_,i)=>`<polygon points="${c-s*0.15+i*s*0.08},${s*0.4} ${c-s*0.12+i*s*0.08},${s*0.3} ${c-s*0.09+i*s*0.08},${s*0.4}" fill="${d}" opacity="0.8"/>`).join('')}
-      <ellipse cx="${c+s*0.16}" cy="${s*0.74}" rx="${s*0.08}" ry="${s*0.035}" fill="${d}" opacity="0.6"/>
-      <ellipse cx="${c-s*0.18}" cy="${s*0.74}" rx="${s*0.08}" ry="${s*0.035}" fill="${d}" opacity="0.6"/>
-      <ellipse cx="${c-s*0.03}" cy="${s*0.47}" rx="${s*0.05}" ry="${s*0.055}" fill="#fff"/>
-      <ellipse cx="${c-s*0.17}" cy="${s*0.47}" rx="${s*0.05}" ry="${s*0.055}" fill="#fff"/>
-      <circle cx="${c-s*0.02}" cy="${s*0.48}" r="${s*0.03}" fill="${e}"/>
-      <circle cx="${c-s*0.16}" cy="${s*0.48}" r="${s*0.03}" fill="${e}"/>
-      <ellipse cx="${c-s*0.09}" cy="${s*0.6}" rx="${s*0.06}" ry="${s*0.03}" fill="${d}" opacity="0.3"/>`;
-    case 'feline': return `
-      <defs>
-        <radialGradient id="fl_${_u}b" cx="40%" cy="30%" r="75%">
-          <stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/>
-        </radialGradient>
-      </defs>
-      <path d="M${c+s*0.24} ${s*0.72} Q${c+s*0.4} ${s*0.62} ${c+s*0.34} ${s*0.5}" stroke="${b}" stroke-width="${s*0.055}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c}" cy="${s*0.72}" rx="${s*0.25}" ry="${s*0.18}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.72}" rx="${s*0.25}" ry="${s*0.18}" fill="url(#fl_${_u}b)" opacity="0.5"/>
-      <ellipse cx="${c-s*0.12}" cy="${s*0.82}" rx="${s*0.06}" ry="${s*0.04}" fill="${d}" opacity="0.55"/>
-      <ellipse cx="${c+s*0.12}" cy="${s*0.82}" rx="${s*0.06}" ry="${s*0.04}" fill="${d}" opacity="0.55"/>
-      <circle cx="${c}" cy="${s*0.46}" r="${s*0.21}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.46}" r="${s*0.21}" fill="url(#fl_${_u}b)" opacity="0.5"/>
-      <polygon points="${c-s*0.19},${s*0.34} ${c-s*0.09},${s*0.16} ${c-s*0.02},${s*0.32}" fill="${b}"/>
-      <polygon points="${c+s*0.19},${s*0.34} ${c+s*0.09},${s*0.16} ${c+s*0.02},${s*0.32}" fill="${b}"/>
-      <polygon points="${c-s*0.16},${s*0.31} ${c-s*0.1},${s*0.21} ${c-s*0.05},${s*0.3}" fill="#ffb3ba"/>
-      <polygon points="${c+s*0.16},${s*0.31} ${c+s*0.1},${s*0.21} ${c+s*0.05},${s*0.3}" fill="#ffb3ba"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.45}" rx="${s*0.055}" ry="${s*0.065}" fill="#fff"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.45}" rx="${s*0.055}" ry="${s*0.065}" fill="#fff"/>
-      <ellipse cx="${c-s*0.07}" cy="${s*0.46}" rx="${s*0.03}" ry="${s*0.045}" fill="${e}"/>
-      <ellipse cx="${c+s*0.09}" cy="${s*0.46}" rx="${s*0.03}" ry="${s*0.045}" fill="${e}"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.44}" r="${s*0.012}" fill="#fff"/>
-      <circle cx="${c+s*0.1}" cy="${s*0.44}" r="${s*0.012}" fill="#fff"/>
-      <path d="M${c-s*0.02} ${s*0.54} L${c+s*0.02} ${s*0.54} L${c} ${s*0.57} Z" fill="#ff80ab"/>
-      <path d="M${c} ${s*0.57} Q${c-s*0.04} ${s*0.6} ${c-s*0.07} ${s*0.58} M${c} ${s*0.57} Q${c+s*0.04} ${s*0.6} ${c+s*0.07} ${s*0.58}" stroke="${d}" stroke-width="${s*0.013}" fill="none"/>
-      <ellipse cx="${c-s*0.14}" cy="${s*0.52}" rx="${s*0.035}" ry="${s*0.025}" fill="#ff8a80" opacity="0.4"/>
-      <ellipse cx="${c+s*0.14}" cy="${s*0.52}" rx="${s*0.035}" ry="${s*0.025}" fill="#ff8a80" opacity="0.4"/>
-      <path d="M${c-s*0.2} ${s*0.46} L${c-s*0.32} ${s*0.43} M${c-s*0.2} ${s*0.49} L${c-s*0.32} ${s*0.49} M${c+s*0.2} ${s*0.46} L${c+s*0.32} ${s*0.43} M${c+s*0.2} ${s*0.49} L${c+s*0.32} ${s*0.49}" stroke="${d}" stroke-width="${s*0.008}" opacity="0.5"/>`;
-    case 'scorpion': return `
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.28}" ry="${s*0.17}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.62}" rx="${s*0.22}" ry="${s*0.12}" fill="${a}" opacity="0.5"/>
-      <path d="M${c-s*0.28} ${s*0.6} Q${c-s*0.45} ${s*0.55} ${c-s*0.4} ${s*0.38}" stroke="${b}" stroke-width="${s*0.055}" fill="none" stroke-linecap="round"/>
-      <path d="M${c+s*0.28} ${s*0.6} Q${c+s*0.45} ${s*0.55} ${c+s*0.4} ${s*0.38}" stroke="${b}" stroke-width="${s*0.055}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c-s*0.4}" cy="${s*0.36}" r="${s*0.055}" fill="${a}"/>
-      <circle cx="${c+s*0.4}" cy="${s*0.36}" r="${s*0.055}" fill="${a}"/>
-      <path d="M${c} ${s*0.68} Q${c+s*0.22} ${s*0.82} ${c+s*0.16} ${s*0.52} Q${c+s*0.12} ${s*0.38} ${c+s*0.26} ${s*0.33}" stroke="${b}" stroke-width="${s*0.055}" fill="none" stroke-linecap="round"/>
-      <circle cx="${c+s*0.28}" cy="${s*0.31}" r="${s*0.045}" fill="${d}"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.62}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.62}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c-s*0.08}" cy="${s*0.62}" r="${s*0.022}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.62}" r="${s*0.022}" fill="${e}"/>`;
-    case 'spider': return `
-      <circle cx="${c}" cy="${s*0.6}" r="${s*0.22}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.6}" r="${s*0.16}" fill="${a}" opacity="0.4"/>
-      <circle cx="${c}" cy="${s*0.42}" r="${s*0.14}" fill="${b}"/>
-      ${[...Array(4)].map((_,i) => {
-        const ang = (i / 4) * Math.PI - Math.PI/2 - 0.3;
-        const x1 = c + Math.cos(ang) * s*0.22, y1 = s*0.6 + Math.sin(ang) * s*0.1;
-        const x2 = c + Math.cos(ang) * s*0.42, y2 = s*0.6 + Math.sin(ang) * s*0.3;
-        return `<path d="M${x1} ${y1} Q${x2} ${y2-s*0.05} ${x2} ${y2}" stroke="${d}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>`;
-      }).join('')}
-      ${[...Array(4)].map((_,i) => {
-        const ang = (i / 4) * Math.PI - Math.PI/2 - 0.3;
-        const x1 = c - Math.cos(ang) * s*0.22, y1 = s*0.6 + Math.sin(ang) * s*0.1;
-        const x2 = c - Math.cos(ang) * s*0.42, y2 = s*0.6 + Math.sin(ang) * s*0.3;
-        return `<path d="M${x1} ${y1} Q${x2} ${y2-s*0.05} ${x2} ${y2}" stroke="${d}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>`;
-      }).join('')}
-      <ellipse cx="${c-s*0.05}" cy="${s*0.4}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.4}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.4}" r="${s*0.022}" fill="${e}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.4}" r="${s*0.022}" fill="${e}"/>`;
-    case 'dino': return `
-      <path d="M${c-s*0.28} ${s*0.7} Q${c-s*0.45} ${s*0.62} ${c-s*0.38} ${s*0.48}" stroke="${b}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.62}" rx="${s*0.3}" ry="${s*0.2}" fill="${b}"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.58}" rx="${s*0.24}" ry="${s*0.14}" fill="${a}" opacity="0.45"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.44}" r="${s*0.16}" fill="${b}"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.44}" r="${s*0.16}" fill="${a}" opacity="0.4"/>
-      ${[...Array(5)].map((_,i) => `<polygon points="${c-s*0.25+i*s*0.08},${s*0.44} ${c-s*0.21+i*s*0.08},${s*0.28} ${c-s*0.17+i*s*0.08},${s*0.44}" fill="${d}"/>`).join('')}
-      <ellipse cx="${c+s*0.2}" cy="${s*0.43}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c+s*0.21}" cy="${s*0.44}" r="${s*0.025}" fill="${e}"/>
-      <ellipse cx="${c-s*0.15}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.55"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.55"/>`;
-    case 'octopus': return `
-      <defs><radialGradient id="oc${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      ${[...Array(5)].map((_,i) => {
-        const x = c - s*0.24 + i * s*0.12;
-        return `<path d="M${x} ${s*0.55} Q${x+s*0.03} ${s*0.75} ${x-s*0.02} ${s*0.88}" stroke="${b}" stroke-width="${s*0.08}" fill="none" stroke-linecap="round"/>
-        <circle cx="${x+s*0.005}" cy="${s*0.7}" r="${s*0.02}" fill="${a}"/>
-        <circle cx="${x-s*0.01}" cy="${s*0.82}" r="${s*0.02}" fill="${a}"/>`;
-      }).join('')}
-      <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.28}" ry="${s*0.24}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.28}" ry="${s*0.24}" fill="url(#oc${_u})" opacity="0.55"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.38}" rx="${s*0.06}" ry="${s*0.07}" fill="#fff"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.38}" rx="${s*0.06}" ry="${s*0.07}" fill="#fff"/>
-      <circle cx="${c-s*0.07}" cy="${s*0.39}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c+s*0.09}" cy="${s*0.39}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.37}" r="${s*0.01}" fill="#fff"/>
-      <circle cx="${c+s*0.1}" cy="${s*0.37}" r="${s*0.01}" fill="#fff"/>
-      <ellipse cx="${c-s*0.14}" cy="${s*0.46}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>
-      <ellipse cx="${c+s*0.14}" cy="${s*0.46}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>`;
-    case 'serpent': return `
-      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${d}" stroke-width="${s*0.19}" fill="none" stroke-linecap="round" opacity="0.5"/>
-      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${b}" stroke-width="${s*0.16}" fill="none" stroke-linecap="round"/>
-      <path d="M${c-s*0.3} ${s*0.85} Q${c+s*0.1} ${s*0.6} ${c-s*0.15} ${s*0.45} Q${c-s*0.35} ${s*0.3} ${c+s*0.15} ${s*0.2}" stroke="${a}" stroke-width="${s*0.07}" fill="none" stroke-linecap="round" stroke-dasharray="${s*0.04} ${s*0.05}"/>
-      <circle cx="${c+s*0.15}" cy="${s*0.2}" r="${s*0.11}" fill="${b}"/>
-      <ellipse cx="${c+s*0.12}" cy="${s*0.18}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <circle cx="${c+s*0.13}" cy="${s*0.18}" r="${s*0.025}" fill="${e}"/>
-      <path d="M${c+s*0.24} ${s*0.22} L${c+s*0.32} ${s*0.2} M${c+s*0.24} ${s*0.24} L${c+s*0.32} ${s*0.27}" stroke="#e53935" stroke-width="${s*0.013}"/>`;
-    case 'bat': return `
-      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.42} ${s*0.28} ${c-s*0.46} ${s*0.55} Q${c-s*0.3} ${s*0.54} ${c-s*0.15} ${s*0.65} Z" fill="${a}"/>
-      <path d="M${c+s*0.15} ${s*0.45} Q${c+s*0.42} ${s*0.28} ${c+s*0.46} ${s*0.55} Q${c+s*0.3} ${s*0.54} ${c+s*0.15} ${s*0.65} Z" fill="${a}"/>
-      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.42} ${s*0.28} ${c-s*0.46} ${s*0.55}" stroke="${d}" stroke-width="${s*0.012}" fill="none" opacity="0.5"/>
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.15}" ry="${s*0.2}" fill="${b}"/>
-      <polygon points="${c-s*0.09},${s*0.4} ${c-s*0.05},${s*0.3} ${c-s*0.01},${s*0.4}" fill="${b}"/>
-      <polygon points="${c+s*0.09},${s*0.4} ${c+s*0.05},${s*0.3} ${c+s*0.01},${s*0.4}" fill="${b}"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.5}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.5}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.51}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.51}" r="${s*0.025}" fill="${e}"/>
-      <polygon points="${c-s*0.03},${s*0.6} ${c+s*0.03},${s*0.6} ${c},${s*0.66}" fill="#fff"/>`;
-    case 'mammoth': return `
-      <defs><radialGradient id="mm${_u}" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.62}" rx="${s*0.34}" ry="${s*0.25}" fill="${b}"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.62}" rx="${s*0.34}" ry="${s*0.25}" fill="url(#mm${_u})" opacity="0.5"/>
-      <circle cx="${c-s*0.22}" cy="${s*0.5}" r="${s*0.17}" fill="${b}"/>
-      <circle cx="${c-s*0.22}" cy="${s*0.5}" r="${s*0.17}" fill="url(#mm${_u})" opacity="0.5"/>
-      <path d="M${c-s*0.3} ${s*0.56} Q${c-s*0.4} ${s*0.76} ${c-s*0.28} ${s*0.86}" stroke="${b}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round"/>
-      <path d="M${c-s*0.34} ${s*0.55} Q${c-s*0.44} ${s*0.7} ${c-s*0.52} ${s*0.64}" stroke="#fffde7" stroke-width="${s*0.045}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c-s*0.26}" cy="${s*0.47}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c-s*0.25}" cy="${s*0.48}" r="${s*0.022}" fill="${e}"/>
-      <ellipse cx="${c-s*0.32}" cy="${s*0.42}" rx="${s*0.09}" ry="${s*0.07}" fill="${a}"/>
-      <ellipse cx="${c-s*0.13}" cy="${s*0.55}" rx="${s*0.03}" ry="${s*0.022}" fill="#ff8a80" opacity="0.35"/>`;
-    case 'rhino': return `
-      <defs><radialGradient id="rh${_u}" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.64}" rx="${s*0.32}" ry="${s*0.2}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.64}" rx="${s*0.32}" ry="${s*0.2}" fill="url(#rh${_u})" opacity="0.5"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.5}" rx="${s*0.17}" ry="${s*0.15}" fill="${b}"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.5}" rx="${s*0.17}" ry="${s*0.15}" fill="url(#rh${_u})" opacity="0.5"/>
-      <polygon points="${c+s*0.32},${s*0.44} ${c+s*0.38},${s*0.3} ${c+s*0.26},${s*0.43}" fill="#fffde7"/>
-      <polygon points="${c+s*0.37},${s*0.5} ${c+s*0.4},${s*0.41} ${c+s*0.33},${s*0.49}" fill="#fffde7"/>
-      <ellipse cx="${c+s*0.16}" cy="${s*0.46}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c+s*0.17}" cy="${s*0.47}" r="${s*0.022}" fill="${e}"/>
-      <ellipse cx="${c-s*0.16}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>
-      <ellipse cx="${c+s*0.06}" cy="${s*0.8}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>`;
-    case 'turtle': return `
-      <defs><radialGradient id="tt${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${d}"/></radialGradient></defs>
-      <ellipse cx="${c+s*0.28}" cy="${s*0.55}" rx="${s*0.1}" ry="${s*0.09}" fill="${a}"/>
-      <ellipse cx="${c+s*0.29}" cy="${s*0.53}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c+s*0.3}" cy="${s*0.54}" r="${s*0.02}" fill="${e}"/>
-      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.33}" ry="${s*0.23}" fill="${d}"/>
-      <ellipse cx="${c}" cy="${s*0.58}" rx="${s*0.28}" ry="${s*0.18}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.58}" rx="${s*0.28}" ry="${s*0.18}" fill="url(#tt${_u})" opacity="0.6"/>
-      <path d="M${c-s*0.14} ${s*0.48} L${c-s*0.18} ${s*0.6} L${c-s*0.1} ${s*0.68} M${c+s*0.14} ${s*0.48} L${c+s*0.18} ${s*0.6} L${c+s*0.1} ${s*0.68} M${c} ${s*0.43} L${c} ${s*0.7}" stroke="${d}" stroke-width="${s*0.018}" fill="none" opacity="0.6"/>
-      <ellipse cx="${c-s*0.22}" cy="${s*0.76}" rx="${s*0.055}" ry="${s*0.035}" fill="${a}"/>
-      <ellipse cx="${c+s*0.18}" cy="${s*0.78}" rx="${s*0.055}" ry="${s*0.035}" fill="${a}"/>`;
-    case 'lion': return `
-      <defs><radialGradient id="li${_u}" cx="40%" cy="35%" r="70%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.78}" rx="${s*0.22}" ry="${s*0.12}" fill="${b}"/>
-      ${[...Array(10)].map((_,i)=>{const ang=(i/10)*Math.PI*2;return `<ellipse cx="${c+Math.cos(ang)*s*0.3}" cy="${s*0.5+Math.sin(ang)*s*0.3}" rx="${s*0.07}" ry="${s*0.05}" fill="${d}" transform="rotate(${ang*180/Math.PI} ${c+Math.cos(ang)*s*0.3} ${s*0.5+Math.sin(ang)*s*0.3})"/>`;}).join('')}
-      <circle cx="${c}" cy="${s*0.5}" r="${s*0.3}" fill="${a}"/>
-      <circle cx="${c}" cy="${s*0.5}" r="${s*0.23}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.5}" r="${s*0.23}" fill="url(#li${_u})" opacity="0.5"/>
-      <polygon points="${c-s*0.18},${s*0.34} ${c-s*0.12},${s*0.24} ${c-s*0.07},${s*0.34}" fill="${b}"/>
-      <polygon points="${c+s*0.18},${s*0.34} ${c+s*0.12},${s*0.24} ${c+s*0.07},${s*0.34}" fill="${b}"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.48}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.48}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.07}" cy="${s*0.49}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.09}" cy="${s*0.49}" r="${s*0.025}" fill="${e}"/>
-      <path d="M${c-s*0.04} ${s*0.57} L${c+s*0.04} ${s*0.57} L${c} ${s*0.6} Z" fill="${d}"/>
-      <path d="M${c} ${s*0.6} Q${c-s*0.05} ${s*0.64} ${c-s*0.08} ${s*0.62} M${c} ${s*0.6} Q${c+s*0.05} ${s*0.64} ${c+s*0.08} ${s*0.62}" stroke="${d}" stroke-width="${s*0.016}" fill="none"/>`;
-    case 'dragon': return `
-      <defs><radialGradient id="dr${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <path d="M${c-s*0.32} ${s*0.55} Q${c-s*0.48} ${s*0.32} ${c-s*0.4} ${s*0.66} Z" fill="${a}" stroke="${d}" stroke-width="${s*0.01}"/>
-      <path d="M${c-s*0.18} ${s*0.45} Q${c-s*0.34} ${s*0.22} ${c-s*0.22} ${s*0.56} Z" fill="${a}" stroke="${d}" stroke-width="${s*0.01}"/>
-      <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.3}" ry="${s*0.2}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.3}" ry="${s*0.2}" fill="url(#dr${_u})" opacity="0.5"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.4}" r="${s*0.18}" fill="${b}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.4}" r="${s*0.18}" fill="url(#dr${_u})" opacity="0.5"/>
-      <polygon points="${c+s*0.12},${s*0.25} ${c+s*0.18},${s*0.13} ${c+s*0.2},${s*0.28}" fill="${d}"/>
-      <polygon points="${c-s*0.02},${s*0.25} ${c+s*0.02},${s*0.13} ${c+s*0.06},${s*0.28}" fill="${d}"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.39}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c-s*0.04}" cy="${s*0.39}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c+s*0.09}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c-s*0.03}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
-      <path d="M${c+s*0.18} ${s*0.46} L${c+s*0.28} ${s*0.44} M${c+s*0.18} ${s*0.49} L${c+s*0.28} ${s*0.51}" stroke="${d}" stroke-width="${s*0.012}"/>`;
-    case 'wolf': return `
-      <defs><radialGradient id="wf${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <path d="M${c+s*0.24} ${s*0.72} Q${c+s*0.42} ${s*0.64} ${c+s*0.36} ${s*0.52}" stroke="${b}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.27}" ry="${s*0.18}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.27}" ry="${s*0.18}" fill="url(#wf${_u})" opacity="0.45"/>
-      <circle cx="${c}" cy="${s*0.45}" r="${s*0.2}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.45}" r="${s*0.2}" fill="url(#wf${_u})" opacity="0.45"/>
-      <polygon points="${c-s*0.2},${s*0.28} ${c-s*0.12},${s*0.16} ${c-s*0.04},${s*0.3}" fill="${b}"/>
-      <polygon points="${c+s*0.2},${s*0.28} ${c+s*0.12},${s*0.16} ${c+s*0.04},${s*0.3}" fill="${b}"/>
-      <polygon points="${c-s*0.16},${s*0.27} ${c-s*0.11},${s*0.19} ${c-s*0.07},${s*0.28}" fill="${d}"/>
-      <polygon points="${c+s*0.16},${s*0.27} ${c+s*0.11},${s*0.19} ${c+s*0.07},${s*0.28}" fill="${d}"/>
-      <ellipse cx="${c}" cy="${s*0.54}" rx="${s*0.09}" ry="${s*0.07}" fill="${a}" opacity="0.6"/>
-      <ellipse cx="${c-s*0.07}" cy="${s*0.44}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c+s*0.07}" cy="${s*0.44}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.45}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.45}" r="${s*0.025}" fill="${e}"/>
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.03}" ry="${s*0.022}" fill="${d}"/>
-      <path d="M${c} ${s*0.57} L${c} ${s*0.62} M${c} ${s*0.62} Q${c-s*0.03} ${s*0.64} ${c-s*0.05} ${s*0.63} M${c} ${s*0.62} Q${c+s*0.03} ${s*0.64} ${c+s*0.05} ${s*0.63}" stroke="${d}" stroke-width="${s*0.014}" fill="none"/>`;
-    case 'trex': return `
-      <defs><radialGradient id="tx${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <path d="M${c-s*0.25} ${s*0.65} Q${c-s*0.38} ${s*0.5} ${c-s*0.46} ${s*0.6}" stroke="${b}" stroke-width="${s*0.1}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.56}" rx="${s*0.3}" ry="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.56}" rx="${s*0.3}" ry="${s*0.22}" fill="url(#tx${_u})" opacity="0.5"/>
-      <circle cx="${c+s*0.2}" cy="${s*0.38}" r="${s*0.16}" fill="${b}"/>
-      <circle cx="${c+s*0.2}" cy="${s*0.38}" r="${s*0.16}" fill="url(#tx${_u})" opacity="0.5"/>
-      <path d="M${c+s*0.28} ${s*0.42} L${c+s*0.37} ${s*0.4} L${c+s*0.28} ${s*0.45} Z" fill="${d}"/>
-      <polygon points="${c+s*0.18},${s*0.46} ${c+s*0.2},${s*0.5} ${c+s*0.22},${s*0.46}" fill="#fff"/>
-      <polygon points="${c+s*0.24},${s*0.46} ${c+s*0.26},${s*0.5} ${c+s*0.28},${s*0.46}" fill="#fff"/>
-      <ellipse cx="${c+s*0.22}" cy="${s*0.34}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c+s*0.23}" cy="${s*0.35}" r="${s*0.025}" fill="${e}"/>
-      <ellipse cx="${c-s*0.15}" cy="${s*0.78}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>
-      <ellipse cx="${c+s*0.06}" cy="${s*0.78}" rx="${s*0.06}" ry="${s*0.035}" fill="${d}" opacity="0.5"/>`;
-    case 'demon': return `
-      <defs><radialGradient id="dm${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.18}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.18}" fill="url(#dm${_u})" opacity="0.45"/>
-      <circle cx="${c}" cy="${s*0.44}" r="${s*0.2}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.44}" r="${s*0.2}" fill="url(#dm${_u})" opacity="0.45"/>
-      <path d="M${c-s*0.2} ${s*0.3} Q${c-s*0.28} ${s*0.14} ${c-s*0.14} ${s*0.22} Q${c-s*0.16} ${s*0.3} ${c-s*0.13} ${s*0.32} Z" fill="${d}"/>
-      <path d="M${c+s*0.2} ${s*0.3} Q${c+s*0.28} ${s*0.14} ${c+s*0.14} ${s*0.22} Q${c+s*0.16} ${s*0.3} ${c+s*0.13} ${s*0.32} Z" fill="${d}"/>
-      <ellipse cx="${c-s*0.08}" cy="${s*0.43}" rx="${s*0.045}" ry="${s*0.04}" fill="#fff"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.43}" rx="${s*0.045}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c-s*0.08}" cy="${s*0.44}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.44}" r="${s*0.025}" fill="${e}"/>
-      <path d="M${c-s*0.12} ${s*0.55} L${c-s*0.09} ${s*0.59} L${c-s*0.06} ${s*0.55} L${c-s*0.03} ${s*0.59} L${c} ${s*0.55} L${c+s*0.03} ${s*0.59} L${c+s*0.06} ${s*0.55} L${c+s*0.09} ${s*0.59} L${c+s*0.12} ${s*0.55}" stroke="${d}" stroke-width="${s*0.016}" fill="none"/>`;
-    case 'pegasus': return `
-      <defs><radialGradient id="pg${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <path d="M${c-s*0.2} ${s*0.5} Q${c-s*0.52} ${s*0.26} ${c-s*0.46} ${s*0.56} Q${c-s*0.34} ${s*0.5} ${c-s*0.18} ${s*0.62} Z" fill="${a}" opacity="0.9"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="url(#pg${_u})" opacity="0.5"/>
-      <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="${b}"/>
-      <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="url(#pg${_u})" opacity="0.5"/>
-      <path d="M${c+s*0.18} ${s*0.36} Q${c+s*0.32} ${s*0.18} ${c+s*0.42} ${s*0.3}" stroke="${a}" stroke-width="${s*0.05}" fill="none" stroke-linecap="round"/>
-      <polygon points="${c+s*0.2},${s*0.42} ${c+s*0.24},${s*0.18} ${c+s*0.28},${s*0.42}" fill="#fffde7"/>
-      <ellipse cx="${c+s*0.17}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.035}" fill="#fff"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.49}" r="${s*0.02}" fill="${e}"/>
-      <ellipse cx="${c-s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>
-      <ellipse cx="${c+s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>`;
-    case 'phoenix': return `
-      <defs><radialGradient id="ph${_u}" cx="50%" cy="40%" r="70%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <path d="M${c-s*0.15} ${s*0.45} Q${c-s*0.48} ${s*0.16} ${c-s*0.3} ${s*0.56} Q${c-s*0.46} ${s*0.5} ${c-s*0.18} ${s*0.66} Z" fill="${a}"/>
-      <path d="M${c+s*0.15} ${s*0.45} Q${c+s*0.48} ${s*0.16} ${c+s*0.3} ${s*0.56} Q${c+s*0.46} ${s*0.5} ${c+s*0.18} ${s*0.66} Z" fill="${a}"/>
-      <path d="M${c} ${s*0.4} Q${c-s*0.06} ${s*0.16} ${c} ${s*0.1} Q${c+s*0.06} ${s*0.16} ${c} ${s*0.4}" fill="${a}"/>
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.18}" ry="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.18}" ry="${s*0.22}" fill="url(#ph${_u})" opacity="0.6"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.49}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.49}" rx="${s*0.04}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.04}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.06}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
-      <polygon points="${c-s*0.03},${s*0.58} ${c+s*0.03},${s*0.58} ${c},${s*0.63}" fill="#ffb300"/>
-      <path d="M${c-s*0.06} ${s*0.84} Q${c-s*0.16} ${s*0.96} ${c} ${s*0.96} Q${c+s*0.16} ${s*0.96} ${c+s*0.06} ${s*0.84}" fill="${a}" opacity="0.7"/>`;
-    case 'kirin': return `
-      <defs><radialGradient id="ki${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.28}" ry="${s*0.16}" fill="url(#ki${_u})" opacity="0.5"/>
-      <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="${b}"/>
-      <ellipse cx="${c+s*0.15}" cy="${s*0.5}" rx="${s*0.16}" ry="${s*0.14}" fill="url(#ki${_u})" opacity="0.5"/>
-      <polygon points="${c+s*0.18},${s*0.42} ${c+s*0.22},${s*0.16} ${c+s*0.26},${s*0.42}" fill="#ffd54f"/>
-      <path d="M${c+s*0.05} ${s*0.4} Q${c-s*0.06} ${s*0.28} ${c-s*0.12} ${s*0.4}" stroke="${a}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c+s*0.17}" cy="${s*0.48}" rx="${s*0.03}" ry="${s*0.035}" fill="#fff"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.49}" r="${s*0.02}" fill="${e}"/>
-      <ellipse cx="${c-s*0.02}" cy="${s*0.66}" rx="${s*0.04}" ry="${s*0.04}" fill="${a}" opacity="0.7"/>
-      <ellipse cx="${c-s*0.14}" cy="${s*0.7}" rx="${s*0.04}" ry="${s*0.04}" fill="${a}" opacity="0.7"/>
-      <ellipse cx="${c-s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>
-      <ellipse cx="${c+s*0.1}" cy="${s*0.82}" rx="${s*0.045}" ry="${s*0.03}" fill="${d}" opacity="0.5"/>
-      <path d="M${c-s*0.22} ${s*0.68} Q${c-s*0.34} ${s*0.6} ${c-s*0.3} ${s*0.78}" stroke="${a}" stroke-width="${s*0.03}" fill="none"/>`;
-    case 'frog': return `
-      <defs><radialGradient id="fr${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.2}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.2}" fill="url(#fr${_u})" opacity="0.5"/>
-      <ellipse cx="${c-s*0.2}" cy="${s*0.78}" rx="${s*0.08}" ry="${s*0.04}" fill="${d}" opacity="0.5"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.78}" rx="${s*0.08}" ry="${s*0.04}" fill="${d}" opacity="0.5"/>
-      <circle cx="${c-s*0.13}" cy="${s*0.4}" r="${s*0.11}" fill="${b}"/>
-      <circle cx="${c+s*0.13}" cy="${s*0.4}" r="${s*0.11}" fill="${b}"/>
-      <circle cx="${c-s*0.13}" cy="${s*0.39}" r="${s*0.07}" fill="#fff"/>
-      <circle cx="${c+s*0.13}" cy="${s*0.39}" r="${s*0.07}" fill="#fff"/>
-      <circle cx="${c-s*0.12}" cy="${s*0.4}" r="${s*0.035}" fill="${e}"/>
-      <circle cx="${c+s*0.14}" cy="${s*0.4}" r="${s*0.035}" fill="${e}"/>
-      <circle cx="${c-s*0.11}" cy="${s*0.38}" r="${s*0.014}" fill="#fff"/>
-      <circle cx="${c+s*0.15}" cy="${s*0.38}" r="${s*0.014}" fill="#fff"/>
-      <path d="M${c-s*0.16} ${s*0.62} Q${c} ${s*0.72} ${c+s*0.16} ${s*0.62}" stroke="${d}" stroke-width="${s*0.022}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c-s*0.16}" cy="${s*0.55}" rx="${s*0.035}" ry="${s*0.025}" fill="#ff8a80" opacity="0.4"/>
-      <ellipse cx="${c+s*0.16}" cy="${s*0.55}" rx="${s*0.035}" ry="${s*0.025}" fill="#ff8a80" opacity="0.4"/>`;
-    case 'bee': return `
-      <ellipse cx="${c-s*0.12}" cy="${s*0.38}" rx="${s*0.16}" ry="${s*0.1}" fill="#fff" opacity="0.55" transform="rotate(-20 ${c-s*0.12} ${s*0.38})"/>
-      <ellipse cx="${c+s*0.12}" cy="${s*0.38}" rx="${s*0.16}" ry="${s*0.1}" fill="#fff" opacity="0.55" transform="rotate(20 ${c+s*0.12} ${s*0.38})"/>
-      <ellipse cx="${c}" cy="${s*0.56}" rx="${s*0.25}" ry="${s*0.2}" fill="${b}"/>
-      <path d="M${c-s*0.24} ${s*0.5} A ${s*0.25} ${s*0.2} 0 0 1 ${c-s*0.06} ${s*0.36}" stroke="${d}" stroke-width="0" fill="none"/>
-      <rect x="${c-s*0.24}" y="${s*0.5}" width="${s*0.48}" height="${s*0.07}" fill="${d}"/>
-      <rect x="${c-s*0.2}" y="${s*0.61}" width="${s*0.4}" height="${s*0.055}" fill="${d}"/>
-      <ellipse cx="${c-s*0.07}" cy="${s*0.5}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c+s*0.07}" cy="${s*0.5}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.5}" r="${s*0.025}" fill="${e}"/>
-      <line x1="${c-s*0.05}" y1="${s*0.36}" x2="${c-s*0.1}" y2="${s*0.22}" stroke="${d}" stroke-width="${s*0.014}"/>
-      <line x1="${c+s*0.05}" y1="${s*0.36}" x2="${c+s*0.1}" y2="${s*0.22}" stroke="${d}" stroke-width="${s*0.014}"/>
-      <circle cx="${c-s*0.1}" cy="${s*0.21}" r="${s*0.02}" fill="${d}"/>
-      <circle cx="${c+s*0.1}" cy="${s*0.21}" r="${s*0.02}" fill="${d}"/>
-      <polygon points="${c},${s*0.78} ${c-s*0.03},${s*0.7} ${c+s*0.03},${s*0.7}" fill="${d}"/>`;
-    case 'snake': return `
-      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${d}" stroke-width="${s*0.17}" fill="none" stroke-linecap="round" opacity="0.5"/>
-      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${b}" stroke-width="${s*0.15}" fill="none" stroke-linecap="round"/>
-      <path d="M${c-s*0.3} ${s*0.85} Q${c-s*0.05} ${s*0.75} ${c-s*0.05} ${s*0.55} Q${c-s*0.05} ${s*0.35} ${c+s*0.2} ${s*0.25}" stroke="${a}" stroke-width="${s*0.07}" fill="none" stroke-linecap="round" stroke-dasharray="${s*0.04} ${s*0.06}"/>
-      <ellipse cx="${c+s*0.2}" cy="${s*0.25}" rx="${s*0.11}" ry="${s*0.09}" fill="${b}"/>
-      <ellipse cx="${c+s*0.18}" cy="${s*0.23}" rx="${s*0.035}" ry="${s*0.04}" fill="#fff"/>
-      <circle cx="${c+s*0.19}" cy="${s*0.23}" r="${s*0.022}" fill="${e}"/>
-      <path d="M${c+s*0.29} ${s*0.25} L${c+s*0.37} ${s*0.23} M${c+s*0.29} ${s*0.27} L${c+s*0.37} ${s*0.3}" stroke="#e53935" stroke-width="${s*0.014}"/>`;
-    case 'hawk': return `
-      <path d="M${c-s*0.15} ${s*0.5} Q${c-s*0.42} ${s*0.32} ${c-s*0.44} ${s*0.62} Q${c-s*0.3} ${s*0.56} ${c-s*0.15} ${s*0.6} Z" fill="${a}"/>
-      <path d="M${c+s*0.15} ${s*0.5} Q${c+s*0.42} ${s*0.32} ${c+s*0.44} ${s*0.62} Q${c+s*0.3} ${s*0.56} ${c+s*0.15} ${s*0.6} Z" fill="${a}"/>
-      <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.17}" ry="${s*0.22}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.4}" r="${s*0.15}" fill="${b}"/>
-      <polygon points="${c-s*0.04},${s*0.4} ${c+s*0.04},${s*0.4} ${c},${s*0.5}" fill="#ffb300"/>
-      <ellipse cx="${c-s*0.05}" cy="${s*0.38}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <ellipse cx="${c+s*0.05}" cy="${s*0.38}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <circle cx="${c-s*0.05}" cy="${s*0.38}" r="${s*0.022}" fill="${e}"/>
-      <circle cx="${c+s*0.05}" cy="${s*0.38}" r="${s*0.022}" fill="${e}"/>
-      <path d="M${c-s*0.08} ${s*0.8} L${c-s*0.08} ${s*0.88} M${c+s*0.08} ${s*0.8} L${c+s*0.08} ${s*0.88}" stroke="#ffb300" stroke-width="${s*0.025}" stroke-linecap="round"/>`;
-    case 'yeti': return `
-      <defs><radialGradient id="ye${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.22}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.3}" ry="${s*0.22}" fill="url(#ye${_u})" opacity="0.5"/>
-      <ellipse cx="${c-s*0.22}" cy="${s*0.66}" rx="${s*0.08}" ry="${s*0.14}" fill="${b}"/>
-      <ellipse cx="${c+s*0.22}" cy="${s*0.66}" rx="${s*0.08}" ry="${s*0.14}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.4}" r="${s*0.22}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.4}" r="${s*0.22}" fill="url(#ye${_u})" opacity="0.5"/>
-      <ellipse cx="${c}" cy="${s*0.46}" rx="${s*0.15}" ry="${s*0.1}" fill="${a}"/>
-      <ellipse cx="${c-s*0.07}" cy="${s*0.39}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
-      <ellipse cx="${c+s*0.07}" cy="${s*0.39}" rx="${s*0.045}" ry="${s*0.05}" fill="#fff"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
-      <circle cx="${c+s*0.08}" cy="${s*0.4}" r="${s*0.025}" fill="${e}"/>
-      <polygon points="${c-s*0.05},${s*0.5} ${c-s*0.02},${s*0.55} ${c-s*0.03},${s*0.5}" fill="#fff"/>
-      <polygon points="${c+s*0.05},${s*0.5} ${c+s*0.02},${s*0.55} ${c+s*0.03},${s*0.5}" fill="#fff"/>
-      <circle cx="${c-s*0.16}" cy="${s*0.3}" r="${s*0.018}" fill="#fff"/>
-      <circle cx="${c+s*0.18}" cy="${s*0.26}" r="${s*0.014}" fill="#fff"/>`;
-    case 'golem': return `
-      <defs><linearGradient id="go${_u}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></linearGradient></defs>
-      <rect x="${c-s*0.42}" y="${s*0.5}" width="${s*0.12}" height="${s*0.28}" fill="${b}" rx="${s*0.03}"/>
-      <rect x="${c+s*0.3}" y="${s*0.5}" width="${s*0.12}" height="${s*0.28}" fill="${b}" rx="${s*0.03}"/>
-      <rect x="${c-s*0.25}" y="${s*0.45}" width="${s*0.5}" height="${s*0.35}" fill="${b}" rx="${s*0.04}"/>
-      <rect x="${c-s*0.25}" y="${s*0.45}" width="${s*0.5}" height="${s*0.35}" fill="url(#go${_u})" opacity="0.5" rx="${s*0.04}"/>
-      <rect x="${c-s*0.18}" y="${s*0.25}" width="${s*0.36}" height="${s*0.25}" fill="${b}" rx="${s*0.03}"/>
-      <rect x="${c-s*0.18}" y="${s*0.25}" width="${s*0.36}" height="${s*0.25}" fill="url(#go${_u})" opacity="0.5" rx="${s*0.03}"/>
-      <rect x="${c-s*0.14}" y="${s*0.32}" width="${s*0.09}" height="${s*0.055}" fill="${e}" rx="${s*0.01}"/>
-      <rect x="${c+s*0.05}" y="${s*0.32}" width="${s*0.09}" height="${s*0.055}" fill="${e}" rx="${s*0.01}"/>
-      <rect x="${c-s*0.13}" y="${s*0.335}" width="${s*0.04}" height="${s*0.025}" fill="#fff" opacity="0.8"/>
-      <rect x="${c+s*0.06}" y="${s*0.335}" width="${s*0.04}" height="${s*0.025}" fill="#fff" opacity="0.8"/>
-      <line x1="${c-s*0.25}" y1="${s*0.58}" x2="${c+s*0.25}" y2="${s*0.58}" stroke="${d}" stroke-width="${s*0.015}" opacity="0.6"/>
-      <line x1="${c}" y1="${s*0.45}" x2="${c}" y2="${s*0.8}" stroke="${d}" stroke-width="${s*0.012}" opacity="0.6"/>
-      <circle cx="${c-s*0.15}" cy="${s*0.65}" r="${s*0.025}" fill="${a}" opacity="0.8"/>
-      <circle cx="${c+s*0.16}" cy="${s*0.7}" r="${s*0.02}" fill="${a}" opacity="0.8"/>`;
-    case 'griffin': return `
-      <defs><radialGradient id="gf${_u}" cx="40%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="${a}"/></radialGradient></defs>
-      <path d="M${c-s*0.18} ${s*0.55} Q${c-s*0.46} ${s*0.28} ${c-s*0.44} ${s*0.66} Q${c-s*0.3} ${s*0.6} ${c-s*0.16} ${s*0.62} Z" fill="${a}" opacity="0.9"/>
-      <path d="M${c+s*0.18} ${s*0.55} Q${c+s*0.46} ${s*0.28} ${c+s*0.44} ${s*0.66} Q${c+s*0.3} ${s*0.6} ${c+s*0.16} ${s*0.62} Z" fill="${a}" opacity="0.9"/>
-      <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.26}" ry="${s*0.16}" fill="${b}"/>
-      <circle cx="${c}" cy="${s*0.45}" r="${s*0.18}" fill="${a}"/>
-      <circle cx="${c}" cy="${s*0.45}" r="${s*0.18}" fill="url(#gf${_u})" opacity="0.6"/>
-      <polygon points="${c-s*0.2},${s*0.32} ${c-s*0.12},${s*0.2} ${c-s*0.05},${s*0.33}" fill="${a}"/>
-      <polygon points="${c+s*0.2},${s*0.32} ${c+s*0.12},${s*0.2} ${c+s*0.05},${s*0.33}" fill="${a}"/>
-      <polygon points="${c-s*0.04},${s*0.42} ${c+s*0.04},${s*0.42} ${c},${s*0.53}" fill="#ffb300"/>
-      <ellipse cx="${c-s*0.06}" cy="${s*0.42}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <ellipse cx="${c+s*0.06}" cy="${s*0.42}" rx="${s*0.04}" ry="${s*0.045}" fill="#fff"/>
-      <circle cx="${c-s*0.06}" cy="${s*0.42}" r="${s*0.024}" fill="${e}"/>
-      <circle cx="${c+s*0.06}" cy="${s*0.42}" r="${s*0.024}" fill="${e}"/>
-      <path d="M${c-s*0.1} ${s*0.82} L${c-s*0.1} ${s*0.9} M${c+s*0.1} ${s*0.82} L${c+s*0.1} ${s*0.9}" stroke="#ffb300" stroke-width="${s*0.035}" stroke-linecap="round"/>`;
-    case 'hydra': return `
-      <defs><radialGradient id="hy${_u}" cx="50%" cy="40%" r="70%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <ellipse cx="${c}" cy="${s*0.76}" rx="${s*0.28}" ry="${s*0.14}" fill="${b}"/>
-      <ellipse cx="${c}" cy="${s*0.76}" rx="${s*0.28}" ry="${s*0.14}" fill="url(#hy${_u})" opacity="0.5"/>
-      <path d="M${c-s*0.15} ${s*0.66} Q${c-s*0.25} ${s*0.42} ${c-s*0.2} ${s*0.3}" stroke="${b}" stroke-width="${s*0.11}" fill="none" stroke-linecap="round"/>
-      <path d="M${c} ${s*0.66} Q${c} ${s*0.42} ${c+s*0.02} ${s*0.26}" stroke="${b}" stroke-width="${s*0.11}" fill="none" stroke-linecap="round"/>
-      <path d="M${c+s*0.15} ${s*0.66} Q${c+s*0.25} ${s*0.42} ${c+s*0.22} ${s*0.3}" stroke="${b}" stroke-width="${s*0.11}" fill="none" stroke-linecap="round"/>
-      ${[[-0.2,0.3],[0.02,0.26],[0.22,0.3]].map(([dx,dy])=>`
-        <circle cx="${c+s*dx}" cy="${s*dy}" r="${s*0.085}" fill="${b}"/>
-        <circle cx="${c+s*dx}" cy="${s*dy}" r="${s*0.085}" fill="url(#hy${_u})" opacity="0.5"/>
-        <ellipse cx="${c+s*dx-s*0.02}" cy="${s*dy-s*0.01}" rx="${s*0.025}" ry="${s*0.03}" fill="#fff"/>
-        <circle cx="${c+s*dx-s*0.015}" cy="${s*dy}" r="${s*0.016}" fill="${e}"/>`).join('')}
-      <ellipse cx="${c-s*0.05}" cy="${s*0.73}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}" opacity="0.6"/>
-      <ellipse cx="${c+s*0.08}" cy="${s*0.78}" rx="${s*0.04}" ry="${s*0.025}" fill="${a}" opacity="0.6"/>`;
-    default: return `
-      <defs><radialGradient id="df${_u}" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="${a}"/><stop offset="100%" stop-color="${b}"/></radialGradient></defs>
-      <circle cx="${c}" cy="${c}" r="${s*0.4}" fill="${a}" opacity="0.3"/>
-      ${[...Array(8)].map((_,i)=>{const ang=(i/8)*Math.PI*2;return `<polygon points="${c+Math.cos(ang)*s*0.42},${c+Math.sin(ang)*s*0.42} ${c+Math.cos(ang+0.2)*s*0.32},${c+Math.sin(ang+0.2)*s*0.32} ${c+Math.cos(ang-0.2)*s*0.32},${c+Math.sin(ang-0.2)*s*0.32}" fill="${a}" opacity="0.5"/>`;}).join('')}
-      <circle cx="${c}" cy="${c}" r="${s*0.32}" fill="${b}"/>
-      <circle cx="${c}" cy="${c}" r="${s*0.32}" fill="url(#df${_u})" opacity="0.6"/>
-      <ellipse cx="${c-s*0.08}" cy="${c-s*0.04}" rx="${s*0.05}" ry="${s*0.06}" fill="#fff"/>
-      <ellipse cx="${c+s*0.08}" cy="${c-s*0.04}" rx="${s*0.05}" ry="${s*0.06}" fill="#fff"/>
-      <circle cx="${c-s*0.07}" cy="${c-s*0.03}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c+s*0.09}" cy="${c-s*0.03}" r="${s*0.028}" fill="${e}"/>
-      <circle cx="${c-s*0.06}" cy="${c-s*0.045}" r="${s*0.011}" fill="#fff"/>
-      <circle cx="${c+s*0.1}" cy="${c-s*0.045}" r="${s*0.011}" fill="#fff"/>
-      <path d="M${c-s*0.06} ${c+s*0.08} Q${c} ${c+s*0.12} ${c+s*0.06} ${c+s*0.08}" stroke="${d}" stroke-width="${s*0.018}" fill="none" stroke-linecap="round"/>
-      <ellipse cx="${c-s*0.14}" cy="${c+s*0.03}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>
-      <ellipse cx="${c+s*0.14}" cy="${c+s*0.03}" rx="${s*0.03}" ry="${s*0.02}" fill="#ff8a80" opacity="0.4"/>`;
+    // 🐺 늑대형 (4족, 꼬리, 귀 솟음) — wolf, feline, lion 등
+    case 'wolf': case 'feline': case 'lion': case 'tiger': {
+      const isLion = art.type === 'lion';
+      return `${commonDefs}
+        ${breath(`
+          <!-- 꼬리 (S곡선, 흔들림) -->
+          <path d="M${c+s*0.3} ${s*0.62} Q${c+s*0.42} ${s*0.5} ${c+s*0.4} ${s*0.36}" stroke="${b}" stroke-width="${s*0.07}" fill="none" stroke-linecap="round">
+            <animate attributeName="d" values="M${c+s*0.3} ${s*0.62} Q${c+s*0.42} ${s*0.5} ${c+s*0.4} ${s*0.36};M${c+s*0.3} ${s*0.62} Q${c+s*0.48} ${s*0.5} ${c+s*0.46} ${s*0.36};M${c+s*0.3} ${s*0.62} Q${c+s*0.42} ${s*0.5} ${c+s*0.4} ${s*0.36}" dur="2s" repeatCount="indefinite"/>
+          </path>
+          <!-- 꼬리 끝 -->
+          <circle cx="${c+s*0.4}" cy="${s*0.36}" r="${s*0.045}" fill="${a}"/>
+          <!-- 뒷다리 -->
+          <ellipse cx="${c-s*0.15}" cy="${s*0.82}" rx="${s*0.07}" ry="${s*0.09}" fill="${b}"/>
+          <ellipse cx="${c+s*0.15}" cy="${s*0.82}" rx="${s*0.07}" ry="${s*0.09}" fill="${b}"/>
+          <!-- 발 -->
+          <ellipse cx="${c-s*0.15}" cy="${s*0.9}" rx="${s*0.07}" ry="${s*0.04}" fill="${d}"/>
+          <ellipse cx="${c+s*0.15}" cy="${s*0.9}" rx="${s*0.07}" ry="${s*0.04}" fill="${d}"/>
+          <!-- 발톱 -->
+          <path d="M${c-s*0.19} ${s*0.93} L${c-s*0.19} ${s*0.96} M${c-s*0.15} ${s*0.94} L${c-s*0.15} ${s*0.96} M${c-s*0.11} ${s*0.93} L${c-s*0.11} ${s*0.96}" stroke="#fff" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <path d="M${c+s*0.11} ${s*0.93} L${c+s*0.11} ${s*0.96} M${c+s*0.15} ${s*0.94} L${c+s*0.15} ${s*0.96} M${c+s*0.19} ${s*0.93} L${c+s*0.19} ${s*0.96}" stroke="#fff" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <!-- 몸통 -->
+          <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.27}" ry="${s*0.2}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 배 (밝게) -->
+          <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.18}" ry="${s*0.13}" fill="${a}" opacity="0.7"/>
+          <!-- 가슴 흰털 (늑대/사자/호랑이) -->
+          <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.1}" ry="${s*0.08}" fill="#fff" opacity="0.6"/>
+          ${art.type==='tiger' ? `<!-- 호랑이 줄무늬 -->
+          <path d="M${c-s*0.2} ${s*0.58} L${c-s*0.14} ${s*0.62} M${c-s*0.22} ${s*0.66} L${c-s*0.14} ${s*0.66} M${c+s*0.14} ${s*0.62} L${c+s*0.2} ${s*0.58} M${c+s*0.14} ${s*0.66} L${c+s*0.22} ${s*0.66}" stroke="${d}" stroke-width="${s*0.015}" fill="none" stroke-linecap="round"/>` : ''}
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.21}" ry="${s*0.2}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 광원 -->
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.21}" ry="${s*0.2}" fill="url(#hl${_u})"/>
+          ${isLion ? `<!-- 갈기 -->
+          <ellipse cx="${c}" cy="${s*0.38}" rx="${s*0.3}" ry="${s*0.26}" fill="${d}" opacity="0.8"/>
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.21}" ry="${s*0.2}" fill="url(#bg${_u})"/>` : ''}
+          <!-- 귀 (삼각, 솟음) -->
+          <polygon points="${c-s*0.16},${s*0.25} ${c-s*0.22},${s*0.14} ${c-s*0.1},${s*0.24}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <polygon points="${c+s*0.16},${s*0.25} ${c+s*0.22},${s*0.14} ${c+s*0.1},${s*0.24}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <!-- 귀 안쪽 분홍 -->
+          <polygon points="${c-s*0.17},${s*0.24} ${c-s*0.2},${s*0.18} ${c-s*0.13},${s*0.23}" fill="#ffb3ba"/>
+          <polygon points="${c+s*0.17},${s*0.24} ${c+s*0.2},${s*0.18} ${c+s*0.13},${s*0.23}" fill="#ffb3ba"/>
+          <!-- 주둥이 -->
+          <ellipse cx="${c}" cy="${s*0.5}" rx="${s*0.08}" ry="${s*0.06}" fill="${a}" opacity="0.8"/>
+          <!-- 눈썹 -->
+          <path d="M${c-s*0.13} ${s*0.36} Q${c-s*0.1} ${s*0.34} ${c-s*0.07} ${s*0.36}" stroke="${d}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.07} ${s*0.36} Q${c+s*0.1} ${s*0.34} ${c+s*0.13} ${s*0.36}" stroke="${d}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          ${eyes(c-s*0.09, s*0.42, c+s*0.09, s*0.045, s*0.025)}
+          <!-- 코 -->
+          <ellipse cx="${c}" cy="${s*0.48}" rx="${s*0.025}" ry="${s*0.018}" fill="${d}"/>
+          <!-- 입 -->
+          <path d="M${c-s*0.04} ${s*0.52} Q${c} ${s*0.55} ${c+s*0.04} ${s*0.52}" stroke="${d}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          <!-- 송곳니 -->
+          <polygon points="${c-s*0.02},${s*0.53} ${c-s*0.018},${s*0.555} ${c-s*0.012},${s*0.53}" fill="#fff"/>
+          <polygon points="${c+s*0.012},${s*0.53} ${c+s*0.018},${s*0.555} ${c+s*0.02},${s*0.53}" fill="#fff"/>
+          <!-- 볼터치 -->
+          <ellipse cx="${c-s*0.16}" cy="${s*0.46}" rx="${s*0.025}" ry="${s*0.018}" fill="#ff8a80" opacity="0.4"/>
+          <ellipse cx="${c+s*0.16}" cy="${s*0.46}" rx="${s*0.025}" ry="${s*0.018}" fill="#ff8a80" opacity="0.4"/>
+        `)}
+      `;
+    }
+    // 🦅 새 (양 날개 펄럭, 부리, 두 발) — bird, hawk, phoenix
+    case 'bird': case 'hawk': case 'phoenix': {
+      const isPhoenix = art.type === 'phoenix';
+      return `${commonDefs}
+        ${breath(`
+          <!-- 좌 날개 (펄럭) -->
+          <g><animateTransform attributeName="transform" type="rotate" values="-15 ${c-s*0.15} ${s*0.55};5 ${c-s*0.15} ${s*0.55};-15 ${c-s*0.15} ${s*0.55}" dur="1.4s" repeatCount="indefinite"/>
+            <path d="M${c-s*0.15} ${s*0.55} Q${c-s*0.4} ${s*0.4} ${c-s*0.42} ${s*0.6} Q${c-s*0.3} ${s*0.66} ${c-s*0.18} ${s*0.62} Z" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+            <path d="M${c-s*0.18} ${s*0.5} L${c-s*0.34} ${s*0.46} M${c-s*0.18} ${s*0.55} L${c-s*0.38} ${s*0.55} M${c-s*0.18} ${s*0.6} L${c-s*0.34} ${s*0.62}" stroke="${d}" stroke-width="${s*0.008}" fill="none" opacity="0.6"/>
+          </g>
+          <!-- 우 날개 -->
+          <g><animateTransform attributeName="transform" type="rotate" values="15 ${c+s*0.15} ${s*0.55};-5 ${c+s*0.15} ${s*0.55};15 ${c+s*0.15} ${s*0.55}" dur="1.4s" repeatCount="indefinite"/>
+            <path d="M${c+s*0.15} ${s*0.55} Q${c+s*0.4} ${s*0.4} ${c+s*0.42} ${s*0.6} Q${c+s*0.3} ${s*0.66} ${c+s*0.18} ${s*0.62} Z" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+            <path d="M${c+s*0.18} ${s*0.5} L${c+s*0.34} ${s*0.46} M${c+s*0.18} ${s*0.55} L${c+s*0.38} ${s*0.55} M${c+s*0.18} ${s*0.6} L${c+s*0.34} ${s*0.62}" stroke="${d}" stroke-width="${s*0.008}" fill="none" opacity="0.6"/>
+          </g>
+          <!-- 꼬리깃 -->
+          <path d="M${c-s*0.05} ${s*0.78} L${c-s*0.08} ${s*0.92} L${c} ${s*0.85} L${c+s*0.08} ${s*0.92} L${c+s*0.05} ${s*0.78}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.005}"/>
+          <!-- 다리 -->
+          <line x1="${c-s*0.06}" y1="${s*0.8}" x2="${c-s*0.06}" y2="${s*0.92}" stroke="${a}" stroke-width="${s*0.018}" stroke-linecap="round"/>
+          <line x1="${c+s*0.06}" y1="${s*0.8}" x2="${c+s*0.06}" y2="${s*0.92}" stroke="${a}" stroke-width="${s*0.018}" stroke-linecap="round"/>
+          <!-- 발톱 -->
+          <path d="M${c-s*0.09} ${s*0.92} L${c-s*0.06} ${s*0.94} L${c-s*0.03} ${s*0.92}" stroke="${a}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.03} ${s*0.92} L${c+s*0.06} ${s*0.94} L${c+s*0.09} ${s*0.92}" stroke="${a}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          <!-- 몸통 (둥근) -->
+          <ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.18}" ry="${s*0.22}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 배 -->
+          <ellipse cx="${c}" cy="${s*0.66}" rx="${s*0.12}" ry="${s*0.15}" fill="${a}" opacity="0.7"/>
+          <!-- 머리 -->
+          <circle cx="${c}" cy="${s*0.36}" r="${s*0.16}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.36}" rx="${s*0.15}" ry="${s*0.14}" fill="url(#hl${_u})"/>
+          ${isPhoenix ? `<!-- 불사조 머리깃 -->
+          <path d="M${c-s*0.06} ${s*0.22} L${c-s*0.08} ${s*0.1} M${c} ${s*0.2} L${c} ${s*0.06} M${c+s*0.06} ${s*0.22} L${c+s*0.08} ${s*0.1}" stroke="${a}" stroke-width="${s*0.02}" stroke-linecap="round"/>` : `<!-- 머리깃 1개 -->
+          <path d="M${c-s*0.02} ${s*0.22} Q${c-s*0.04} ${s*0.14} ${c-s*0.08} ${s*0.1}" stroke="${d}" stroke-width="${s*0.018}" fill="none" stroke-linecap="round"/>`}
+          <!-- 부리 -->
+          <polygon points="${c-s*0.02},${s*0.4} ${c+s*0.02},${s*0.4} ${c},${s*0.46}" fill="${art.type==='hawk'?'#ffa726':'#ffc107'}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <line x1="${c}" y1="${s*0.4}" x2="${c}" y2="${s*0.45}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <!-- 눈썹 (매라면 날카로움) -->
+          ${art.type==='hawk' ? `<path d="M${c-s*0.1} ${s*0.32} L${c-s*0.04} ${s*0.34} M${c+s*0.04} ${s*0.34} L${c+s*0.1} ${s*0.32}" stroke="${d}" stroke-width="${s*0.012}" stroke-linecap="round"/>` : ''}
+          ${eyes(c-s*0.07, s*0.36, c+s*0.07, s*0.04, s*0.022)}
+          <!-- 볼터치 -->
+          <ellipse cx="${c-s*0.13}" cy="${s*0.42}" rx="${s*0.022}" ry="${s*0.016}" fill="#ff8a80" opacity="0.4"/>
+          <ellipse cx="${c+s*0.13}" cy="${s*0.42}" rx="${s*0.022}" ry="${s*0.016}" fill="#ff8a80" opacity="0.4"/>
+        `)}
+      `;
+    }
+    // 🐉 드래곤형 (긴 몸, 날개, 4족) — dragon, hydra, serpent
+    case 'dragon': case 'hydra': case 'serpent': {
+      return `${commonDefs}
+        ${breath(`
+          <!-- 꼬리 -->
+          <path d="M${c+s*0.25} ${s*0.72} Q${c+s*0.4} ${s*0.6} ${c+s*0.42} ${s*0.4}" stroke="${b}" stroke-width="${s*0.06}" fill="none" stroke-linecap="round"/>
+          <polygon points="${c+s*0.42},${s*0.4} ${c+s*0.38},${s*0.32} ${c+s*0.48},${s*0.34}" fill="${d}"/>
+          <!-- 좌 날개 -->
+          <g><animateTransform attributeName="transform" type="rotate" values="-10 ${c-s*0.15} ${s*0.5};5 ${c-s*0.15} ${s*0.5};-10 ${c-s*0.15} ${s*0.5}" dur="1.6s" repeatCount="indefinite"/>
+            <path d="M${c-s*0.15} ${s*0.5} Q${c-s*0.42} ${s*0.3} ${c-s*0.45} ${s*0.5} Q${c-s*0.35} ${s*0.55} ${c-s*0.18} ${s*0.6} Z" fill="${a}" stroke="${d}" stroke-width="${s*0.008}" opacity="0.85"/>
+            <path d="M${c-s*0.15} ${s*0.5} L${c-s*0.42} ${s*0.34} M${c-s*0.15} ${s*0.5} L${c-s*0.4} ${s*0.46} M${c-s*0.15} ${s*0.5} L${c-s*0.35} ${s*0.56}" stroke="${d}" stroke-width="${s*0.008}" fill="none"/>
+          </g>
+          <!-- 우 날개 -->
+          <g><animateTransform attributeName="transform" type="rotate" values="10 ${c+s*0.15} ${s*0.5};-5 ${c+s*0.15} ${s*0.5};10 ${c+s*0.15} ${s*0.5}" dur="1.6s" repeatCount="indefinite"/>
+            <path d="M${c+s*0.15} ${s*0.5} Q${c+s*0.42} ${s*0.3} ${c+s*0.45} ${s*0.5} Q${c+s*0.35} ${s*0.55} ${c+s*0.18} ${s*0.6} Z" fill="${a}" stroke="${d}" stroke-width="${s*0.008}" opacity="0.85"/>
+            <path d="M${c+s*0.15} ${s*0.5} L${c+s*0.42} ${s*0.34} M${c+s*0.15} ${s*0.5} L${c+s*0.4} ${s*0.46} M${c+s*0.15} ${s*0.5} L${c+s*0.35} ${s*0.56}" stroke="${d}" stroke-width="${s*0.008}" fill="none"/>
+          </g>
+          <!-- 다리 -->
+          <ellipse cx="${c-s*0.12}" cy="${s*0.82}" rx="${s*0.05}" ry="${s*0.08}" fill="${b}"/>
+          <ellipse cx="${c+s*0.12}" cy="${s*0.82}" rx="${s*0.05}" ry="${s*0.08}" fill="${b}"/>
+          <!-- 발톱 -->
+          <path d="M${c-s*0.15} ${s*0.9} L${c-s*0.15} ${s*0.93} M${c-s*0.12} ${s*0.9} L${c-s*0.12} ${s*0.94} M${c-s*0.09} ${s*0.9} L${c-s*0.09} ${s*0.93}" stroke="#fff" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <path d="M${c+s*0.09} ${s*0.9} L${c+s*0.09} ${s*0.93} M${c+s*0.12} ${s*0.9} L${c+s*0.12} ${s*0.94} M${c+s*0.15} ${s*0.9} L${c+s*0.15} ${s*0.93}" stroke="#fff" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <!-- 몸통 -->
+          <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.24}" ry="${s*0.16}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 배 비늘 -->
+          ${[...Array(3)].map((_,i)=>`<ellipse cx="${c}" cy="${s*0.66+i*s*0.04}" rx="${(8-i*1.5)*s/100}" ry="${s*0.018}" fill="none" stroke="${d}" stroke-width="${s*0.005}" opacity="0.5"/>`).join('')}
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.45}" rx="${s*0.21}" ry="${s*0.18}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.45}" rx="${s*0.21}" ry="${s*0.18}" fill="url(#hl${_u})"/>
+          <!-- 뿔 -->
+          <path d="M${c-s*0.12} ${s*0.3} Q${c-s*0.16} ${s*0.18} ${c-s*0.18} ${s*0.1}" stroke="${d}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.12} ${s*0.3} Q${c+s*0.16} ${s*0.18} ${c+s*0.18} ${s*0.1}" stroke="${d}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+          <!-- 눈썹 -->
+          <path d="M${c-s*0.13} ${s*0.4} Q${c-s*0.1} ${s*0.38} ${c-s*0.06} ${s*0.4}" stroke="${d}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.06} ${s*0.4} Q${c+s*0.1} ${s*0.38} ${c+s*0.13} ${s*0.4}" stroke="${d}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          ${eyes(c-s*0.09, s*0.46, c+s*0.09, s*0.04, s*0.024)}
+          <!-- 콧구멍 + 입 -->
+          <ellipse cx="${c-s*0.04}" cy="${s*0.55}" rx="${s*0.012}" ry="${s*0.015}" fill="${d}"/>
+          <ellipse cx="${c+s*0.04}" cy="${s*0.55}" rx="${s*0.012}" ry="${s*0.015}" fill="${d}"/>
+          <path d="M${c-s*0.06} ${s*0.6} Q${c} ${s*0.63} ${c+s*0.06} ${s*0.6}" stroke="${d}" stroke-width="${s*0.012}" fill="none" stroke-linecap="round"/>
+          <!-- 송곳니 -->
+          <polygon points="${c-s*0.03},${s*0.6} ${c-s*0.025},${s*0.635} ${c-s*0.018},${s*0.6}" fill="#fff"/>
+          <polygon points="${c+s*0.018},${s*0.6} ${c+s*0.025},${s*0.635} ${c+s*0.03},${s*0.6}" fill="#fff"/>
+        `)}
+      `;
+    }
+    // 🦕 공룡류 (큰 몸, 짧은 팔) — dino, trex
+    case 'dino': case 'trex': {
+      const isTrex = art.type === 'trex';
+      return `${commonDefs}
+        ${breath(`
+          <!-- 꼬리 -->
+          <path d="M${c+s*0.25} ${s*0.7} Q${c+s*0.42} ${s*0.62} ${c+s*0.45} ${s*0.5}" stroke="${b}" stroke-width="${s*0.07}" fill="none" stroke-linecap="round"/>
+          <!-- 뒷다리 (큼) -->
+          <ellipse cx="${c-s*0.1}" cy="${s*0.82}" rx="${s*0.08}" ry="${s*0.1}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c+s*0.1}" cy="${s*0.82}" rx="${s*0.08}" ry="${s*0.1}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 발톱 -->
+          <path d="M${c-s*0.14} ${s*0.92} L${c-s*0.16} ${s*0.96} M${c-s*0.1} ${s*0.93} L${c-s*0.1} ${s*0.96} M${c-s*0.06} ${s*0.92} L${c-s*0.04} ${s*0.96}" stroke="#fff" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <path d="M${c+s*0.06} ${s*0.92} L${c+s*0.04} ${s*0.96} M${c+s*0.1} ${s*0.93} L${c+s*0.1} ${s*0.96} M${c+s*0.14} ${s*0.92} L${c+s*0.16} ${s*0.96}" stroke="#fff" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <!-- 짧은 팔 (T-rex 특징) -->
+          ${isTrex ? `<line x1="${c-s*0.18}" y1="${s*0.55}" x2="${c-s*0.24}" y2="${s*0.6}" stroke="${b}" stroke-width="${s*0.025}" stroke-linecap="round"/>
+          <circle cx="${c-s*0.24}" cy="${s*0.6}" r="${s*0.025}" fill="${b}"/>
+          <line x1="${c+s*0.18}" y1="${s*0.55}" x2="${c+s*0.24}" y2="${s*0.6}" stroke="${b}" stroke-width="${s*0.025}" stroke-linecap="round"/>
+          <circle cx="${c+s*0.24}" cy="${s*0.6}" r="${s*0.025}" fill="${b}"/>` : ''}
+          <!-- 몸통 (큰 타원) -->
+          <ellipse cx="${c}" cy="${s*0.62}" rx="${s*0.22}" ry="${s*0.2}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 배 -->
+          <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.14}" ry="${s*0.12}" fill="${a}" opacity="0.7"/>
+          <!-- 등 가시 -->
+          ${[-0.1,0,0.1].map(dx=>`<polygon points="${c+dx*s},${s*0.45} ${c+dx*s-s*0.025},${s*0.5} ${c+dx*s+s*0.025},${s*0.5}" fill="${d}"/>`).join('')}
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.38}" rx="${s*0.2}" ry="${s*0.16}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.38}" rx="${s*0.2}" ry="${s*0.16}" fill="url(#hl${_u})"/>
+          <!-- 입 (큰) -->
+          <path d="M${c-s*0.16} ${s*0.46} Q${c} ${s*0.52} ${c+s*0.16} ${s*0.46}" stroke="${d}" stroke-width="${s*0.012}" fill="${a}" opacity="0.5"/>
+          <!-- 송곳니 줄지어 -->
+          ${[-0.1,-0.05,0,0.05,0.1].map(dx=>`<polygon points="${c+dx*s-s*0.012},${s*0.46} ${c+dx*s},${s*0.5} ${c+dx*s+s*0.012},${s*0.46}" fill="#fff" stroke="${d}" stroke-width="${s*0.003}"/>`).join('')}
+          <!-- 눈썹 (위협) -->
+          <path d="M${c-s*0.14} ${s*0.34} L${c-s*0.06} ${s*0.36}" stroke="${d}" stroke-width="${s*0.015}" stroke-linecap="round"/>
+          <path d="M${c+s*0.06} ${s*0.36} L${c+s*0.14} ${s*0.34}" stroke="${d}" stroke-width="${s*0.015}" stroke-linecap="round"/>
+          ${eyes(c-s*0.09, s*0.4, c+s*0.09, s*0.038, s*0.022)}
+        `)}
+      `;
+    }
+    // 🐍 뱀 (S자 몸) — snake, cobra
+    case 'snake': case 'cobra': {
+      return `${commonDefs}
+        ${breath(`
+          <!-- S자 몸 -->
+          <path d="M${c-s*0.25} ${s*0.85} Q${c+s*0.15} ${s*0.7} ${c-s*0.15} ${s*0.55} Q${c+s*0.2} ${s*0.4} ${c} ${s*0.3}" stroke="url(#bg${_u})" stroke-width="${s*0.12}" fill="none" stroke-linecap="round">
+            <animate attributeName="d" values="M${c-s*0.25} ${s*0.85} Q${c+s*0.15} ${s*0.7} ${c-s*0.15} ${s*0.55} Q${c+s*0.2} ${s*0.4} ${c} ${s*0.3};M${c-s*0.25} ${s*0.85} Q${c+s*0.2} ${s*0.7} ${c-s*0.1} ${s*0.55} Q${c+s*0.15} ${s*0.4} ${c} ${s*0.3};M${c-s*0.25} ${s*0.85} Q${c+s*0.15} ${s*0.7} ${c-s*0.15} ${s*0.55} Q${c+s*0.2} ${s*0.4} ${c} ${s*0.3}" dur="2.5s" repeatCount="indefinite"/>
+          </path>
+          <!-- 배 무늬 -->
+          <path d="M${c-s*0.25} ${s*0.85} Q${c+s*0.15} ${s*0.7} ${c-s*0.15} ${s*0.55} Q${c+s*0.2} ${s*0.4} ${c} ${s*0.3}" stroke="${a}" stroke-width="${s*0.04}" fill="none" stroke-dasharray="${s*0.04} ${s*0.06}" opacity="0.6"/>
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.3}" rx="${s*0.14}" ry="${s*0.11}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 후드 (코브라) -->
+          ${art.type==='cobra' ? `<ellipse cx="${c}" cy="${s*0.32}" rx="${s*0.22}" ry="${s*0.13}" fill="${b}" opacity="0.6" stroke="${d}" stroke-width="${s*0.005}"/>
+          <ellipse cx="${c}" cy="${s*0.3}" rx="${s*0.14}" ry="${s*0.11}" fill="url(#bg${_u})"/>` : ''}
+          <!-- 혀 (날름) -->
+          <path d="M${c} ${s*0.4} L${c} ${s*0.45} L${c-s*0.02} ${s*0.48} M${c} ${s*0.45} L${c+s*0.02} ${s*0.48}" stroke="#e91e63" stroke-width="${s*0.008}" fill="none" stroke-linecap="round">
+            <animate attributeName="opacity" values="1;0;1;0;1" dur="1.5s" repeatCount="indefinite"/>
+          </path>
+          ${eyes(c-s*0.06, s*0.3, c+s*0.06, s*0.03, s*0.018)}
+        `)}
+      `;
+    }
+    // 🦊 작은 동물 (rodent) - rat, beetle
+    case 'rodent': case 'beetle': case 'bee': case 'spider': case 'scorpion': {
+      const isBug = art.type==='beetle' || art.type==='bee' || art.type==='spider' || art.type==='scorpion';
+      return `${commonDefs}
+        ${breath(`
+          ${isBug ? `<!-- 다리 6/8개 (벌레) -->
+          ${[...Array(art.type==='spider'?4:3)].map((_,i)=>`<line x1="${c-s*(0.1+i*0.05)}" y1="${s*0.7}" x2="${c-s*(0.2+i*0.06)}" y2="${s*(0.78+i*0.04)}" stroke="${d}" stroke-width="${s*0.01}" stroke-linecap="round"/><line x1="${c+s*(0.1+i*0.05)}" y1="${s*0.7}" x2="${c+s*(0.2+i*0.06)}" y2="${s*(0.78+i*0.04)}" stroke="${d}" stroke-width="${s*0.01}" stroke-linecap="round"/>`).join('')}` : `<!-- 4족 -->
+          <ellipse cx="${c-s*0.1}" cy="${s*0.8}" rx="${s*0.04}" ry="${s*0.06}" fill="${b}"/>
+          <ellipse cx="${c+s*0.1}" cy="${s*0.8}" rx="${s*0.04}" ry="${s*0.06}" fill="${b}"/>`}
+          <!-- 꼬리 (rodent) -->
+          ${art.type==='rodent' ? `<path d="M${c+s*0.18} ${s*0.7} Q${c+s*0.35} ${s*0.7} ${c+s*0.42} ${s*0.55}" stroke="${a}" stroke-width="${s*0.018}" fill="none" stroke-linecap="round"/>` : ''}
+          ${art.type==='scorpion' ? `<!-- 전갈 꼬리 -->
+          <path d="M${c+s*0.18} ${s*0.65} Q${c+s*0.4} ${s*0.5} ${c+s*0.4} ${s*0.3}" stroke="${b}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round"/>
+          <polygon points="${c+s*0.4},${s*0.3} ${c+s*0.36},${s*0.22} ${c+s*0.44},${s*0.24}" fill="${d}"/>` : ''}
+          <!-- 몸통 -->
+          <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.22}" ry="${s*0.18}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          ${art.type==='beetle' ? `<!-- 딱지 라인 -->
+          <line x1="${c}" y1="${s*0.48}" x2="${c}" y2="${s*0.8}" stroke="${d}" stroke-width="${s*0.015}"/>
+          <circle cx="${c-s*0.08}" cy="${s*0.6}" r="${s*0.018}" fill="${d}" opacity="0.5"/>
+          <circle cx="${c+s*0.08}" cy="${s*0.6}" r="${s*0.018}" fill="${d}" opacity="0.5"/>` : ''}
+          ${art.type==='bee' ? `<!-- 벌 줄무늬 -->
+          <rect x="${c-s*0.22}" y="${s*0.55}" width="${s*0.44}" height="${s*0.04}" fill="${d}" opacity="0.8"/>
+          <rect x="${c-s*0.22}" y="${s*0.65}" width="${s*0.44}" height="${s*0.04}" fill="${d}" opacity="0.8"/>` : ''}
+          ${art.type==='bee' ? `<!-- 날개 -->
+          <ellipse cx="${c-s*0.12}" cy="${s*0.46}" rx="${s*0.1}" ry="${s*0.06}" fill="#fff" opacity="0.6" stroke="${d}" stroke-width="${s*0.005}">
+            <animate attributeName="opacity" values="0.4;0.8;0.4" dur="0.3s" repeatCount="indefinite"/>
+          </ellipse>
+          <ellipse cx="${c+s*0.12}" cy="${s*0.46}" rx="${s*0.1}" ry="${s*0.06}" fill="#fff" opacity="0.6" stroke="${d}" stroke-width="${s*0.005}">
+            <animate attributeName="opacity" values="0.4;0.8;0.4" dur="0.3s" repeatCount="indefinite"/>
+          </ellipse>` : ''}
+          <!-- 머리 -->
+          <circle cx="${c}" cy="${s*0.4}" r="${s*0.15}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.14}" ry="${s*0.13}" fill="url(#hl${_u})"/>
+          <!-- 더듬이 (벌레) -->
+          ${isBug ? `<path d="M${c-s*0.06} ${s*0.28} Q${c-s*0.1} ${s*0.18} ${c-s*0.15} ${s*0.12}" stroke="${d}" stroke-width="${s*0.008}" fill="none" stroke-linecap="round"/>
+          <circle cx="${c-s*0.15}" cy="${s*0.12}" r="${s*0.012}" fill="${d}"/>
+          <path d="M${c+s*0.06} ${s*0.28} Q${c+s*0.1} ${s*0.18} ${c+s*0.15} ${s*0.12}" stroke="${d}" stroke-width="${s*0.008}" fill="none" stroke-linecap="round"/>
+          <circle cx="${c+s*0.15}" cy="${s*0.12}" r="${s*0.012}" fill="${d}"/>` : `<!-- 귀 (rodent) -->
+          <circle cx="${c-s*0.12}" cy="${s*0.28}" r="${s*0.06}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <circle cx="${c+s*0.12}" cy="${s*0.28}" r="${s*0.06}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <circle cx="${c-s*0.12}" cy="${s*0.28}" r="${s*0.035}" fill="#ffb3ba"/>
+          <circle cx="${c+s*0.12}" cy="${s*0.28}" r="${s*0.035}" fill="#ffb3ba"/>`}
+          ${eyes(c-s*0.06, s*0.4, c+s*0.06, s*0.03, s*0.018)}
+          <!-- 코/입 -->
+          <ellipse cx="${c}" cy="${s*0.48}" rx="${s*0.018}" ry="${s*0.012}" fill="${d}"/>
+        `)}
+      `;
+    }
+    // 🐘 큰 짐승 (mammoth, rhino, bull) — 두꺼운 다리
+    case 'mammoth': case 'rhino': case 'bull': case 'turtle': case 'yeti': {
+      const isMammoth = art.type==='mammoth';
+      const isRhino = art.type==='rhino';
+      const isBull = art.type==='bull';
+      const isTurtle = art.type==='turtle';
+      const isYeti = art.type==='yeti';
+      return `${commonDefs}
+        ${breath(`
+          ${isMammoth ? `<!-- 매머드 털 -->
+          <ellipse cx="${c}" cy="${s*0.62}" rx="${s*0.32}" ry="${s*0.26}" fill="${d}" opacity="0.7"/>` : ''}
+          ${isTurtle ? `<!-- 거북 등껍질 -->
+          <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.32}" ry="${s*0.22}" fill="${d}" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.5}" rx="${s*0.28}" ry="${s*0.18}" fill="url(#bg${_u})"/>
+          <path d="M${c-s*0.15} ${s*0.4} L${c+s*0.15} ${s*0.4} M${c-s*0.2} ${s*0.5} L${c+s*0.2} ${s*0.5} M${c-s*0.15} ${s*0.6} L${c+s*0.15} ${s*0.6}" stroke="${d}" stroke-width="${s*0.008}"/>` : `<!-- 4족 -->
+          <rect x="${c-s*0.2}" y="${s*0.75}" width="${s*0.08}" height="${s*0.15}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}" rx="${s*0.01}"/>
+          <rect x="${c+s*0.12}" y="${s*0.75}" width="${s*0.08}" height="${s*0.15}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}" rx="${s*0.01}"/>
+          <rect x="${c-s*0.08}" y="${s*0.78}" width="${s*0.06}" height="${s*0.12}" fill="${d}" rx="${s*0.01}"/>
+          <rect x="${c+s*0.02}" y="${s*0.78}" width="${s*0.06}" height="${s*0.12}" fill="${d}" rx="${s*0.01}"/>`}
+          <!-- 꼬리 -->
+          ${!isTurtle ? `<path d="M${c+s*0.28} ${s*0.62} Q${c+s*0.36} ${s*0.62} ${c+s*0.38} ${s*0.7}" stroke="${b}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>` : ''}
+          <!-- 몸통 -->
+          ${!isTurtle ? `<ellipse cx="${c}" cy="${s*0.6}" rx="${s*0.28}" ry="${s*0.22}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>` : ''}
+          ${isYeti ? `<!-- 예티 털 -->
+          ${[...Array(8)].map((_,i)=>{const ang=(i/8)*Math.PI*2;return `<line x1="${c+Math.cos(ang)*s*0.26}" y1="${s*0.6+Math.sin(ang)*s*0.18}" x2="${c+Math.cos(ang)*s*0.32}" y2="${s*0.6+Math.sin(ang)*s*0.24}" stroke="${a}" stroke-width="${s*0.012}" stroke-linecap="round"/>`;}).join('')}` : ''}
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.36}" rx="${s*0.22}" ry="${s*0.2}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.36}" rx="${s*0.2}" ry="${s*0.18}" fill="url(#hl${_u})"/>
+          ${isRhino ? `<!-- 코뿔소 뿔 -->
+          <polygon points="${c-s*0.04},${s*0.32} ${c},${s*0.16} ${c+s*0.04},${s*0.32}" fill="${a}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <polygon points="${c-s*0.02},${s*0.36} ${c},${s*0.26} ${c+s*0.02},${s*0.36}" fill="${a}" stroke="${d}" stroke-width="${s*0.005}"/>` : ''}
+          ${isBull ? `<!-- 황소 뿔 -->
+          <path d="M${c-s*0.14} ${s*0.28} Q${c-s*0.22} ${s*0.2} ${c-s*0.24} ${s*0.14}" stroke="${a}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.14} ${s*0.28} Q${c+s*0.22} ${s*0.2} ${c+s*0.24} ${s*0.14}" stroke="${a}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>` : ''}
+          ${isMammoth ? `<!-- 매머드 상아 -->
+          <path d="M${c-s*0.1} ${s*0.5} Q${c-s*0.16} ${s*0.58} ${c-s*0.14} ${s*0.66}" stroke="#fff8dc" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.1} ${s*0.5} Q${c+s*0.16} ${s*0.58} ${c+s*0.14} ${s*0.66}" stroke="#fff8dc" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+          <!-- 코 (긴) -->
+          <path d="M${c} ${s*0.5} Q${c+s*0.04} ${s*0.62} ${c} ${s*0.7}" stroke="${b}" stroke-width="${s*0.05}" fill="none" stroke-linecap="round"/>` : ''}
+          <!-- 귀 -->
+          ${!isTurtle && !isRhino && !isMammoth ? `<ellipse cx="${c-s*0.18}" cy="${s*0.3}" rx="${s*0.05}" ry="${s*0.07}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <ellipse cx="${c+s*0.18}" cy="${s*0.3}" rx="${s*0.05}" ry="${s*0.07}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>` : ''}
+          ${eyes(c-s*0.09, s*0.36, c+s*0.09, s*0.035, s*0.022)}
+          <!-- 코/입 -->
+          <ellipse cx="${c}" cy="${s*0.44}" rx="${s*0.03}" ry="${s*0.02}" fill="${d}"/>
+          <path d="M${c-s*0.04} ${s*0.48} Q${c} ${s*0.51} ${c+s*0.04} ${s*0.48}" stroke="${d}" stroke-width="${s*0.01}" fill="none" stroke-linecap="round"/>
+        `)}
+      `;
+    }
+    // 🦄 유니콘/페가수스/그리핀/기린 - kirin, pegasus, griffin
+    case 'kirin': case 'pegasus': case 'griffin': {
+      const hasWings = art.type==='pegasus' || art.type==='griffin';
+      const hasHorn = art.type==='kirin';
+      return `${commonDefs}
+        ${breath(`
+          <!-- 꼬리 (긴 머리카락) -->
+          <path d="M${c+s*0.28} ${s*0.68} Q${c+s*0.4} ${s*0.74} ${c+s*0.42} ${s*0.88}" stroke="${a}" stroke-width="${s*0.025}" fill="none" stroke-linecap="round"/>
+          <path d="M${c+s*0.28} ${s*0.68} Q${c+s*0.45} ${s*0.74} ${c+s*0.48} ${s*0.85}" stroke="${a}" stroke-width="${s*0.018}" fill="none" stroke-linecap="round"/>
+          <!-- 4족 -->
+          <rect x="${c-s*0.18}" y="${s*0.75}" width="${s*0.06}" height="${s*0.15}" fill="${b}" rx="${s*0.01}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <rect x="${c+s*0.12}" y="${s*0.75}" width="${s*0.06}" height="${s*0.15}" fill="${b}" rx="${s*0.01}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <rect x="${c-s*0.06}" y="${s*0.77}" width="${s*0.05}" height="${s*0.13}" fill="${d}" rx="${s*0.008}"/>
+          <rect x="${c+s*0.01}" y="${s*0.77}" width="${s*0.05}" height="${s*0.13}" fill="${d}" rx="${s*0.008}"/>
+          ${hasWings ? `<!-- 날개 -->
+          <g><animateTransform attributeName="transform" type="rotate" values="-10 ${c-s*0.1} ${s*0.55};5 ${c-s*0.1} ${s*0.55};-10 ${c-s*0.1} ${s*0.55}" dur="1.6s" repeatCount="indefinite"/>
+            <path d="M${c-s*0.1} ${s*0.55} Q${c-s*0.38} ${s*0.35} ${c-s*0.4} ${s*0.55} Q${c-s*0.3} ${s*0.62} ${c-s*0.12} ${s*0.62} Z" fill="#fff" stroke="${d}" stroke-width="${s*0.008}"/>
+          </g>
+          <g><animateTransform attributeName="transform" type="rotate" values="10 ${c+s*0.1} ${s*0.55};-5 ${c+s*0.1} ${s*0.55};10 ${c+s*0.1} ${s*0.55}" dur="1.6s" repeatCount="indefinite"/>
+            <path d="M${c+s*0.1} ${s*0.55} Q${c+s*0.38} ${s*0.35} ${c+s*0.4} ${s*0.55} Q${c+s*0.3} ${s*0.62} ${c+s*0.12} ${s*0.62} Z" fill="#fff" stroke="${d}" stroke-width="${s*0.008}"/>
+          </g>` : ''}
+          <!-- 몸통 -->
+          <ellipse cx="${c}" cy="${s*0.62}" rx="${s*0.24}" ry="${s*0.16}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 갈기 -->
+          <path d="M${c-s*0.1} ${s*0.42} Q${c-s*0.12} ${s*0.55} ${c-s*0.08} ${s*0.62}" stroke="${a}" stroke-width="${s*0.05}" fill="none" stroke-linecap="round"/>
+          <!-- 목/머리 -->
+          <ellipse cx="${c+s*0.04}" cy="${s*0.5}" rx="${s*0.08}" ry="${s*0.12}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.005}"/>
+          <ellipse cx="${c+s*0.06}" cy="${s*0.36}" rx="${s*0.14}" ry="${s*0.12}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          ${hasHorn ? `<!-- 유니콘 뿔 -->
+          <polygon points="${c+s*0.06-s*0.02},${s*0.28} ${c+s*0.06+s*0.02},${s*0.28} ${c+s*0.08},${s*0.14}" fill="${a}" stroke="${d}" stroke-width="${s*0.005}"/>` : ''}
+          <!-- 귀 -->
+          <polygon points="${c-s*0.02},${s*0.28} ${c-s*0.04},${s*0.22} ${c+s*0.02},${s*0.28}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          ${eyes(c+s*0.03, s*0.36, c+s*0.11, s*0.03, s*0.018)}
+          <!-- 콧구멍 -->
+          <ellipse cx="${c+s*0.14}" cy="${s*0.42}" rx="${s*0.012}" ry="${s*0.015}" fill="${d}"/>
+        `)}
+      `;
+    }
+    // 🦅 박쥐 (날개 펄럭, 몸 작음)
+    case 'bat': case 'demon': {
+      const isDemon = art.type === 'demon';
+      return `${commonDefs}
+        ${breath(`
+          <!-- 좌 날개 (큼) -->
+          <g><animateTransform attributeName="transform" type="rotate" values="-20 ${c-s*0.1} ${s*0.5};10 ${c-s*0.1} ${s*0.5};-20 ${c-s*0.1} ${s*0.5}" dur="1s" repeatCount="indefinite"/>
+            <path d="M${c-s*0.1} ${s*0.5} Q${c-s*0.4} ${s*0.25} ${c-s*0.45} ${s*0.45} Q${c-s*0.4} ${s*0.55} ${c-s*0.32} ${s*0.58} Q${c-s*0.28} ${s*0.66} ${c-s*0.15} ${s*0.62} Z" fill="${b}" stroke="${d}" stroke-width="${s*0.008}"/>
+            <path d="M${c-s*0.1} ${s*0.5} L${c-s*0.45} ${s*0.42} M${c-s*0.1} ${s*0.5} L${c-s*0.4} ${s*0.55} M${c-s*0.1} ${s*0.5} L${c-s*0.3} ${s*0.62}" stroke="${d}" stroke-width="${s*0.005}" fill="none"/>
+          </g>
+          <!-- 우 날개 -->
+          <g><animateTransform attributeName="transform" type="rotate" values="20 ${c+s*0.1} ${s*0.5};-10 ${c+s*0.1} ${s*0.5};20 ${c+s*0.1} ${s*0.5}" dur="1s" repeatCount="indefinite"/>
+            <path d="M${c+s*0.1} ${s*0.5} Q${c+s*0.4} ${s*0.25} ${c+s*0.45} ${s*0.45} Q${c+s*0.4} ${s*0.55} ${c+s*0.32} ${s*0.58} Q${c+s*0.28} ${s*0.66} ${c+s*0.15} ${s*0.62} Z" fill="${b}" stroke="${d}" stroke-width="${s*0.008}"/>
+            <path d="M${c+s*0.1} ${s*0.5} L${c+s*0.45} ${s*0.42} M${c+s*0.1} ${s*0.5} L${c+s*0.4} ${s*0.55} M${c+s*0.1} ${s*0.5} L${c+s*0.3} ${s*0.62}" stroke="${d}" stroke-width="${s*0.005}" fill="none"/>
+          </g>
+          <!-- 몸통 -->
+          <ellipse cx="${c}" cy="${s*0.55}" rx="${s*0.12}" ry="${s*0.18}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.38}" rx="${s*0.14}" ry="${s*0.13}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.38}" rx="${s*0.13}" ry="${s*0.12}" fill="url(#hl${_u})"/>
+          ${isDemon ? `<!-- 데몬 뿔 -->
+          <polygon points="${c-s*0.1},${s*0.28} ${c-s*0.14},${s*0.16} ${c-s*0.06},${s*0.28}" fill="${d}"/>
+          <polygon points="${c+s*0.1},${s*0.28} ${c+s*0.14},${s*0.16} ${c+s*0.06},${s*0.28}" fill="${d}"/>` : `<!-- 박쥐 귀 -->
+          <polygon points="${c-s*0.1},${s*0.3} ${c-s*0.14},${s*0.18} ${c-s*0.05},${s*0.28}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <polygon points="${c+s*0.1},${s*0.3} ${c+s*0.14},${s*0.18} ${c+s*0.05},${s*0.28}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>`}
+          ${eyes(c-s*0.05, s*0.38, c+s*0.05, s*0.028, s*0.018)}
+          <!-- 송곳니 -->
+          <polygon points="${c-s*0.02},${s*0.44} ${c-s*0.015},${s*0.48} ${c-s*0.01},${s*0.44}" fill="#fff"/>
+          <polygon points="${c+s*0.01},${s*0.44} ${c+s*0.015},${s*0.48} ${c+s*0.02},${s*0.44}" fill="#fff"/>
+          <!-- 다리 -->
+          <line x1="${c-s*0.04}" y1="${s*0.7}" x2="${c-s*0.04}" y2="${s*0.78}" stroke="${d}" stroke-width="${s*0.012}" stroke-linecap="round"/>
+          <line x1="${c+s*0.04}" y1="${s*0.7}" x2="${c+s*0.04}" y2="${s*0.78}" stroke="${d}" stroke-width="${s*0.012}" stroke-linecap="round"/>
+        `)}
+      `;
+    }
+    // 🐢 파충류 (도마뱀, 카멜레온) - reptile
+    case 'reptile': case 'frog': {
+      const isFrog = art.type==='frog';
+      return `${commonDefs}
+        ${breath(`
+          ${!isFrog ? `<!-- 꼬리 -->
+          <path d="M${c+s*0.25} ${s*0.7} Q${c+s*0.42} ${s*0.65} ${c+s*0.4} ${s*0.5}" stroke="${b}" stroke-width="${s*0.05}" fill="none" stroke-linecap="round"/>` : ''}
+          <!-- 다리 (옆으로 펼침) -->
+          <ellipse cx="${c-s*0.22}" cy="${s*0.7}" rx="${s*0.06}" ry="${s*0.04}" fill="${b}" transform="rotate(-20 ${c-s*0.22} ${s*0.7})" stroke="${d}" stroke-width="${s*0.005}"/>
+          <ellipse cx="${c+s*0.22}" cy="${s*0.7}" rx="${s*0.06}" ry="${s*0.04}" fill="${b}" transform="rotate(20 ${c+s*0.22} ${s*0.7})" stroke="${d}" stroke-width="${s*0.005}"/>
+          <ellipse cx="${c-s*0.18}" cy="${s*0.85}" rx="${s*0.06}" ry="${s*0.04}" fill="${b}" transform="rotate(-20 ${c-s*0.18} ${s*0.85})" stroke="${d}" stroke-width="${s*0.005}"/>
+          <ellipse cx="${c+s*0.18}" cy="${s*0.85}" rx="${s*0.06}" ry="${s*0.04}" fill="${b}" transform="rotate(20 ${c+s*0.18} ${s*0.85})" stroke="${d}" stroke-width="${s*0.005}"/>
+          <!-- 몸통 -->
+          <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.24}" ry="${s*0.17}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 등 가시 -->
+          ${[...Array(4)].map((_,i)=>`<polygon points="${c-s*0.15+i*s*0.1},${s*0.5} ${c-s*0.13+i*s*0.1},${s*0.42} ${c-s*0.11+i*s*0.1},${s*0.5}" fill="${d}"/>`).join('')}
+          <!-- 머리 -->
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.2}" ry="${s*0.14}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.18}" ry="${s*0.12}" fill="url(#hl${_u})"/>
+          ${isFrog ? `<!-- 개구리 큰 눈 -->
+          <circle cx="${c-s*0.1}" cy="${s*0.3}" r="${s*0.07}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          <circle cx="${c+s*0.1}" cy="${s*0.3}" r="${s*0.07}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+          ${eyes(c-s*0.1, s*0.3, c+s*0.1, s*0.04, s*0.025)}` : eyes(c-s*0.08, s*0.4, c+s*0.08, s*0.032, s*0.02)}
+          <!-- 입 -->
+          <path d="M${c-s*0.06} ${s*0.46} Q${c} ${s*0.5} ${c+s*0.06} ${s*0.46}" stroke="${d}" stroke-width="${s*0.01}" fill="none" stroke-linecap="round"/>
+        `)}
+      `;
+    }
+    // 🐙 문어/오징어 (다리 여러개)
+    case 'octopus': {
+      return `${commonDefs}
+        ${breath(`
+          <!-- 머리/몸통 (둥근) -->
+          <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.24}" ry="${s*0.22}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+          <ellipse cx="${c}" cy="${s*0.38}" rx="${s*0.22}" ry="${s*0.2}" fill="url(#hl${_u})"/>
+          <!-- 다리 8개 (Wave 애니메이션) -->
+          ${[...Array(8)].map((_,i)=>{const dx=(i-3.5)*s*0.07;const len=s*0.3;const phase=i*0.3;return `<path d="M${c+dx} ${s*0.6} Q${c+dx*1.5} ${s*0.75} ${c+dx*2} ${s*0.85}" stroke="${b}" stroke-width="${s*0.04}" fill="none" stroke-linecap="round">
+            <animate attributeName="d" values="M${c+dx} ${s*0.6} Q${c+dx*1.5} ${s*0.75} ${c+dx*2} ${s*0.85};M${c+dx} ${s*0.6} Q${c+dx*1.5+s*0.04} ${s*0.75} ${c+dx*2+s*0.06} ${s*0.85};M${c+dx} ${s*0.6} Q${c+dx*1.5} ${s*0.75} ${c+dx*2} ${s*0.85}" dur="${2+phase}s" repeatCount="indefinite"/>
+          </path>`;}).join('')}
+          ${eyes(c-s*0.08, s*0.36, c+s*0.08, s*0.04, s*0.024)}
+          <!-- 입 -->
+          <ellipse cx="${c}" cy="${s*0.5}" rx="${s*0.025}" ry="${s*0.018}" fill="${d}"/>
+        `)}
+      `;
+    }
+    // 🗿 골렘 (각진 몸, 큰 팔)
+    case 'golem': {
+      return `${commonDefs}
+        ${breath(`
+          <!-- 다리 -->
+          <rect x="${c-s*0.18}" y="${s*0.7}" width="${s*0.12}" height="${s*0.22}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}" rx="${s*0.02}"/>
+          <rect x="${c+s*0.06}" y="${s*0.7}" width="${s*0.12}" height="${s*0.22}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}" rx="${s*0.02}"/>
+          <!-- 팔 (큼) -->
+          <rect x="${c-s*0.4}" y="${s*0.45}" width="${s*0.14}" height="${s*0.28}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}" rx="${s*0.03}"/>
+          <rect x="${c+s*0.26}" y="${s*0.45}" width="${s*0.14}" height="${s*0.28}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}" rx="${s*0.03}"/>
+          <!-- 주먹 -->
+          <circle cx="${c-s*0.33}" cy="${s*0.78}" r="${s*0.08}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}"/>
+          <circle cx="${c+s*0.33}" cy="${s*0.78}" r="${s*0.08}" fill="${b}" stroke="${d}" stroke-width="${s*0.008}"/>
+          <!-- 몸통 (사각) -->
+          <rect x="${c-s*0.22}" y="${s*0.4}" width="${s*0.44}" height="${s*0.34}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}" rx="${s*0.04}"/>
+          <!-- 균열 -->
+          <path d="M${c-s*0.1} ${s*0.45} L${c-s*0.05} ${s*0.6} L${c-s*0.08} ${s*0.7} M${c+s*0.1} ${s*0.5} L${c+s*0.05} ${s*0.65}" stroke="${d}" stroke-width="${s*0.005}" fill="none" opacity="0.5"/>
+          <!-- 머리 -->
+          <rect x="${c-s*0.14}" y="${s*0.2}" width="${s*0.28}" height="${s*0.24}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}" rx="${s*0.03}"/>
+          <rect x="${c-s*0.13}" y="${s*0.21}" width="${s*0.26}" height="${s*0.22}" fill="url(#hl${_u})" rx="${s*0.03}"/>
+          ${eyes(c-s*0.07, s*0.3, c+s*0.07, s*0.03, s*0.02)}
+          <!-- 입 -->
+          <rect x="${c-s*0.04}" y="${s*0.36}" width="${s*0.08}" height="${s*0.015}" fill="${d}"/>
+        `)}
+      `;
+    }
+    // default: 기본 캐릭터
+    default: return `${commonDefs}
+      ${breath(`
+        <!-- 다리 -->
+        <ellipse cx="${c-s*0.12}" cy="${s*0.82}" rx="${s*0.06}" ry="${s*0.08}" fill="${b}"/>
+        <ellipse cx="${c+s*0.12}" cy="${s*0.82}" rx="${s*0.06}" ry="${s*0.08}" fill="${b}"/>
+        <!-- 몸통 -->
+        <ellipse cx="${c}" cy="${s*0.65}" rx="${s*0.24}" ry="${s*0.2}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+        <ellipse cx="${c}" cy="${s*0.7}" rx="${s*0.15}" ry="${s*0.12}" fill="${a}" opacity="0.6"/>
+        <!-- 머리 -->
+        <circle cx="${c}" cy="${s*0.4}" r="${s*0.18}" fill="url(#bg${_u})" stroke="${d}" stroke-width="${s*0.008}"/>
+        <ellipse cx="${c}" cy="${s*0.4}" rx="${s*0.17}" ry="${s*0.16}" fill="url(#hl${_u})"/>
+        <!-- 귀 -->
+        <ellipse cx="${c-s*0.13}" cy="${s*0.28}" rx="${s*0.05}" ry="${s*0.07}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+        <ellipse cx="${c+s*0.13}" cy="${s*0.28}" rx="${s*0.05}" ry="${s*0.07}" fill="${b}" stroke="${d}" stroke-width="${s*0.005}"/>
+        ${eyes(c-s*0.07, s*0.4, c+s*0.07, s*0.035, s*0.022)}
+        <!-- 코 -->
+        <ellipse cx="${c}" cy="${s*0.46}" rx="${s*0.018}" ry="${s*0.012}" fill="${d}"/>
+        <!-- 입 -->
+        <path d="M${c-s*0.04} ${s*0.5} Q${c} ${s*0.53} ${c+s*0.04} ${s*0.5}" stroke="${d}" stroke-width="${s*0.01}" fill="none" stroke-linecap="round"/>
+        <!-- 볼터치 -->
+        <ellipse cx="${c-s*0.15}" cy="${s*0.46}" rx="${s*0.025}" ry="${s*0.018}" fill="#ff8a80" opacity="0.4"/>
+        <ellipse cx="${c+s*0.15}" cy="${s*0.46}" rx="${s*0.025}" ry="${s*0.018}" fill="#ff8a80" opacity="0.4"/>
+      `)}
+    `;
   }
 }
 
@@ -31256,6 +31295,26 @@ async function loadRaidContent() {
         40% { transform: translateY(-6px) scale(1.08) rotate(-3deg); }
         60% { transform: translateY(-3px) scale(1.05) rotate(2deg); }
       }
+      @keyframes raidBeam {
+        0% { transform: rotate(var(--angle, 0deg)) scaleX(0); opacity: 0; }
+        40% { transform: rotate(var(--angle, 0deg)) scaleX(1); opacity: 1; }
+        100% { transform: rotate(var(--angle, 0deg)) scaleX(1); opacity: 0; }
+      }
+      @keyframes synergyPopup {
+        0% { transform: translate(-50%, -50%) scale(0) rotate(-15deg); opacity: 0; }
+        30% { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); opacity: 1; }
+        50% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(0.8) rotate(0deg); opacity: 0; }
+      }
+      @keyframes synergyFlash {
+        0% { opacity: 0; }
+        30% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      @keyframes comboBurst {
+        0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+      }
       @keyframes hpStripes {
         to { background-position: 16px 0; }
       }
@@ -31302,13 +31361,85 @@ async function loadRaidContent() {
       attackBtn.innerHTML = '<span>⚔ 공격 중...</span>';
       const bossIcon = document.getElementById('raid-boss-icon');
       let critical = Math.random() < 0.2;
-      // 🆕 파티 펫 일제 돌진 연출
+      const isFullParty = attackerList.length >= 8;  // 🆕 8인 풀 파티
+      // 🆕 파티 펫 일제 돌진 + 광선 발사
       const partyMembers = document.querySelectorAll('.raid-party-member');
+      const bossRectForBeam = bossIcon ? bossIcon.getBoundingClientRect() : null;
+      const bossCx = bossRectForBeam ? bossRectForBeam.left + bossRectForBeam.width / 2 : 0;
+      const bossCy = bossRectForBeam ? bossRectForBeam.top + bossRectForBeam.height / 2 : 0;
       partyMembers.forEach((m, i) => {
-        m.style.transition = 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)';
-        m.style.transform = 'translateY(-14px) scale(1.2)';
-        setTimeout(() => { m.style.transform = ''; }, 250 + i * 30);
+        // 펫이 보스 쪽으로 점프 + 회전
+        m.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
+        m.style.transform = `translateY(-20px) scale(1.3) rotate(${-10 + Math.random() * 20}deg)`;
+        setTimeout(() => { m.style.transform = ''; }, 350 + i * 25);
+        // 🆕 펫에서 보스로 광선 발사
+        if (bossRectForBeam) {
+          try {
+            const mRect = m.getBoundingClientRect();
+            const mCx = mRect.left + mRect.width / 2;
+            const mCy = mRect.top + mRect.height / 2;
+            const dx = bossCx - mCx, dy = bossCy - mCy;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const beam = document.createElement('div');
+            const beamColor = isFullParty ? '#ffd700' : (i % 3 === 0 ? '#42a5f5' : i % 3 === 1 ? '#ef5350' : '#66bb6a');
+            beam.style.cssText = `
+              position: fixed; left: ${mCx}px; top: ${mCy}px;
+              width: ${dist}px; height: 3px;
+              background: linear-gradient(90deg, transparent, ${beamColor}, ${beamColor}, transparent);
+              transform-origin: 0 50%;
+              transform: rotate(${angle}deg) scaleX(0);
+              pointer-events: none; z-index: 10010;
+              box-shadow: 0 0 8px ${beamColor}, 0 0 16px ${beamColor};
+              animation: raidBeam 0.5s ease-out forwards ${i * 0.04}s;
+              opacity: 0.85;
+            `;
+            document.body.appendChild(beam);
+            setTimeout(() => beam.remove(), 700);
+          } catch (e) {}
+        }
       });
+      // 🆕 풀 파티 보너스 — SYNERGY 텍스트 + 화면 골든 플래시
+      if (isFullParty) {
+        const synergy = document.createElement('div');
+        synergy.style.cssText = `
+          position: fixed; top: 30%; left: 50%;
+          color: #ffd700; font-size: 42px; font-weight: 900;
+          font-family: 'Black Han Sans', sans-serif;
+          text-shadow: 0 0 20px #ffd700, 0 0 40px #ff9800, 0 4px 8px #000;
+          pointer-events: none; z-index: 10012;
+          transform: translate(-50%, -50%) scale(0);
+          animation: synergyPopup 1s ease-out forwards;
+        `;
+        synergy.textContent = '⚡ 8인 SYNERGY! ⚡';
+        document.body.appendChild(synergy);
+        setTimeout(() => synergy.remove(), 1000);
+        // 골든 플래시
+        const flash = document.createElement('div');
+        flash.style.cssText = `
+          position: fixed; inset: 0;
+          background: radial-gradient(circle, rgba(255,215,0,0.3), transparent 70%);
+          pointer-events: none; z-index: 10005;
+          animation: synergyFlash 0.6s ease-out forwards;
+        `;
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 600);
+      }
+      // 🆕 5+ 콤보 빛 폭발
+      if ((game._raidCombo || 0) >= 5 && bossIcon) {
+        const burst = document.createElement('div');
+        burst.style.cssText = `
+          position: fixed; left: ${bossCx}px; top: ${bossCy}px;
+          width: 120px; height: 120px;
+          background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,215,0,0.6) 40%, transparent 70%);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          pointer-events: none; z-index: 10008;
+          animation: comboBurst 0.7s ease-out forwards;
+        `;
+        document.body.appendChild(burst);
+        setTimeout(() => burst.remove(), 700);
+      }
       if (bossIcon) {
         bossIcon.classList.add('hit');
         setTimeout(() => bossIcon.classList.remove('hit'), 400);
